@@ -3,7 +3,7 @@
 턴제 격자 전략 게임. HTML+CSS+JS, 외부 라이브러리 없음. 플레이어는 기본적으로 방어 측, AI가 공격 측. 모드: AI 대전, 2인 대전(화면 가림막). 최종 목표는 GitHub 배포와 온라인 대전.
 
 ## 파일 구조
-- `index.html`의 script 실행 순서를 지킨다: `strings` → `rules` → `ai-config` → `scenarios/*` → `engine` → `ui`.
+- `index.html`의 script 실행 순서를 지킨다: `strings` → `rules` → `ai-config` → `scenarios/*` → `engine` → `rich-map` → `ui`.
 - 새 시나리오는 `js/scenarios/<id>.js`(`SCENARIOS.push`) 파일 하나와 script 한 줄로 추가한다. 형식은 `docs/rules.md`.
 - 모듈(`import`)은 쓰지 않는다(더블클릭 `file://` 실행 유지). 한 파일 배포본은 `node tools/bundle.js` → `dist/index.html`.
 

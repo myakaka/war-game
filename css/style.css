@@ -504,7 +504,25 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
 @keyframes sheetUp { from { transform: translateY(24px); opacity: 0.4; } }
 
 /* ---------- 행동 제한 ---------- */
-.unit.act-spent { filter: grayscale(1); opacity: 0.55; }        /* 행동 한도 소진 (행동 완료의 흐림과 구분: 회색) */
+.unit.act-spent { filter: grayscale(1); opacity: 0.55; }
+
+/* ===== PC 리치 테마 (#board.rich: 그림 세트가 있는 시나리오 + 넓은 화면) ===== */
+.rich-bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; display: none; pointer-events: none; }
+#board.rich .rich-bg { display: block; }
+#board.rich .cell .ter { display: none; }                         /* 칸별 지형 기호 대신 캔버스 그림 */
+#board.rich .grid-layer { display: none; }                        /* 격자선은 평소 숨김 */
+#board.rich.grid-on .grid-layer { display: block; }
+#board.rich .cell.fog::after { background: rgba(12, 16, 24, 0.6); }   /* 안개: 어둡게, 지형은 약하게 비침 */
+#board.rich .unit svg, .fx-unit.rich svg { overflow: visible; }
+#board.rich .unit-top { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+#board.rich .unit-top svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.fx-unit.rich svg { position: absolute; left: 0; top: 0; }
+.theme-note { padding: 0 2px 6px; }
+.notice {
+  position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
+  background: rgba(20, 24, 32, 0.92); color: #f3f4f6; border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 12px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}        /* 행동 한도 소진 (행동 완료의 흐림과 구분: 회색) */
 .sw.act-spent svg { filter: grayscale(1); opacity: 0.6; }
 #btn-end-turn.act-out { box-shadow: 0 0 0 2px var(--warn); animation: act-out-pulse 1.6s ease-in-out infinite; }
 @keyframes act-out-pulse { 0%, 100% { box-shadow: 0 0 0 2px var(--warn); } 50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.35); } }

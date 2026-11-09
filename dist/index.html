@@ -511,7 +511,25 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
 @keyframes sheetUp { from { transform: translateY(24px); opacity: 0.4; } }
 
 /* ---------- 행동 제한 ---------- */
-.unit.act-spent { filter: grayscale(1); opacity: 0.55; }        /* 행동 한도 소진 (행동 완료의 흐림과 구분: 회색) */
+.unit.act-spent { filter: grayscale(1); opacity: 0.55; }
+
+/* ===== PC 리치 테마 (#board.rich: 그림 세트가 있는 시나리오 + 넓은 화면) ===== */
+.rich-bg { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; display: none; pointer-events: none; }
+#board.rich .rich-bg { display: block; }
+#board.rich .cell .ter { display: none; }                         /* 칸별 지형 기호 대신 캔버스 그림 */
+#board.rich .grid-layer { display: none; }                        /* 격자선은 평소 숨김 */
+#board.rich.grid-on .grid-layer { display: block; }
+#board.rich .cell.fog::after { background: rgba(12, 16, 24, 0.6); }   /* 안개: 어둡게, 지형은 약하게 비침 */
+#board.rich .unit svg, .fx-unit.rich svg { overflow: visible; }
+#board.rich .unit-top { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+#board.rich .unit-top svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.fx-unit.rich svg { position: absolute; left: 0; top: 0; }
+.theme-note { padding: 0 2px 6px; }
+.notice {
+  position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
+  background: rgba(20, 24, 32, 0.92); color: #f3f4f6; border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 12px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}        /* 행동 한도 소진 (행동 완료의 흐림과 구분: 회색) */
 .sw.act-spent svg { filter: grayscale(1); opacity: 0.6; }
 #btn-end-turn.act-out { box-shadow: 0 0 0 2px var(--warn); animation: act-out-pulse 1.6s ease-in-out infinite; }
 @keyframes act-out-pulse { 0%, 100% { box-shadow: 0 0 0 2px var(--warn); } 50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.35); } }
@@ -613,6 +631,13 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
             <div class="seg" id="seg-signal" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
           <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.reduceMotion" data-i18n-title="tip.reduceMotion"></span>
             <div class="seg" id="seg-reduce" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div id="theme-rows">
+            <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.theme" data-i18n-title="tip.theme"></span>
+              <div class="seg" id="seg-theme" role="group" data-i18n-aria="lbl.theme"><button data-theme="basic" data-i18n="theme.basic"></button><button data-theme="rich" data-i18n="theme.rich"></button></div></div>
+            <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.gridAlways" data-i18n-title="tip.gridAlways"></span>
+              <div class="seg" id="seg-grid" role="group" data-i18n-aria="lbl.gridAlways"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+            <div class="hint tx theme-note" id="theme-note" role="status" hidden></div>
+          </div>
           <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.actLimit" data-i18n-title="tip.actLimit"></span>
             <div class="seg" id="seg-act" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
           <div id="act-rows" role="group"></div>
@@ -632,10 +657,11 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
 </div>
 
 <div id="tooltip"></div>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 <div id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 
-<!-- 실행 순서가 중요: 문구 → 규칙 데이터 → AI 설정 → 시나리오(새 시나리오는 여기에 한 줄 추가) → 엔진 → 화면 -->
+<!-- 실행 순서가 중요: 문구 → 규칙 데이터 → AI 설정 → 시나리오(새 시나리오는 여기에 한 줄 추가) → 엔진 → 리치 지도 그림 → 화면 -->
 <script data-src="js/strings.js">
 'use strict';
 /* =====================================================================
@@ -804,6 +830,11 @@ const STRINGS = {
     'legend.actRule': '행동 제한: 한 턴에 행동할 수 있는 유닛 수에 한도가 있습니다 (처음 이동·공격할 때 1회)',
     'intro.act': '행동 제한: 한 턴에 행동할 수 있는 유닛은 {list}입니다. 유닛이 그 턴에 처음 이동하거나 공격할 때 1회를 쓰고, 이어지는 이동 후 공격은 추가로 쓰지 않습니다.',
     'intro.actItem': '{side} {n}', 'intro.actItemNone': '{side} 제한 없음',
+    'lbl.theme': '화면 테마', 'tip.theme': 'PC 넓은 화면에서 쓰는 그림 테마. 규칙과 정보는 같고 그림만 다릅니다',
+    'theme.basic': '기본', 'theme.rich': 'PC 리치',
+    'lbl.gridAlways': '격자선 항상 보기', 'tip.gridAlways': 'PC 리치 테마에서 격자선을 늘 표시합니다 (끄면 유닛을 고를 때만 칸 윤곽 표시)',
+    'theme.noArt': '이 시나리오는 아직 그림 세트가 없습니다', 'theme.loadFail': '그림을 불러오지 못해 기본 테마로 표시합니다', 'theme.loading': '그림을 불러오는 중…',
+    'unit.infantry.badge': '보', 'unit.armor.badge': '기', 'unit.artillery.badge': '포', 'unit.recon.badge': '정', 'unit.signal.badge': '통', 'unit.antitank.badge': '대',
     'lbl.actLimit': '행동 제한 사용', 'tip.actLimit': '한 턴에 행동할 수 있는 유닛 수를 제한합니다. 바꾼 값은 그 진영의 다음 턴부터 적용되고 시나리오별로 저장됩니다',
     'act.sideLbl': '{side} 한도', 'act.unlimited': '제한 없음', 'act.nextTurn': '다음 턴부터 적용',
     'aria.actDec': '{side} 행동 한도 줄이기', 'aria.actInc': '{side} 행동 한도 늘리기', 'aria.actVal': '{side} 행동 한도: {v}',
@@ -1096,6 +1127,11 @@ const STRINGS = {
     'legend.actRule': 'Activation limit: only a set number of units can act per turn (one use when a unit first moves or attacks)',
     'intro.act': 'Activation limit: per turn, {list} can act. A unit uses one action when it first moves or attacks in a turn; attacking after that move costs nothing extra.',
     'intro.actItem': '{n} {side} units', 'intro.actItemNone': 'all {side} units',
+    'lbl.theme': 'Display theme', 'tip.theme': 'Artwork theme for wide PC screens. Same rules and information, different art',
+    'theme.basic': 'Basic', 'theme.rich': 'PC Rich',
+    'lbl.gridAlways': 'Always show grid', 'tip.gridAlways': 'Show grid lines at all times in the PC Rich theme (off: cell outlines only while a unit is selected)',
+    'theme.noArt': 'No artwork for this scenario yet', 'theme.loadFail': 'Artwork failed to load; showing the basic theme', 'theme.loading': 'Loading artwork…',
+    'unit.infantry.badge': 'IN', 'unit.armor.badge': 'AR', 'unit.artillery.badge': 'AY', 'unit.recon.badge': 'RC', 'unit.signal.badge': 'SG', 'unit.antitank.badge': 'AT',
     'lbl.actLimit': 'Activation limit', 'tip.actLimit': 'Limit how many units can act per turn. Changes apply from that side’s next turn and are saved per scenario',
     'act.sideLbl': '{side} limit', 'act.unlimited': 'No limit', 'act.nextTurn': 'Applies next turn',
     'aria.actDec': 'Lower {side} action limit', 'aria.actInc': 'Raise {side} action limit', 'aria.actVal': '{side} action limit: {v}',
@@ -1621,6 +1657,19 @@ SCENARIOS.push({
   },
   terrainNames: { paddy: 'terrain.marsh' },
   overlays: [{ kind: 'runway', col: 5, rows: [2, 13] }],
+  // 그림 세트 (PC 리치 테마 전용 장식 정보: 규칙 로직은 읽지 않음). 지형 키는 TERRAIN_TYPES 의 key
+  art: {
+    terrain: {
+      plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
+      paddy: 'assets/terrain/wetland.jpg', city: 'assets/terrain/urban.jpg',
+    },
+    terrainOffset: { city: [1.45, 2.2] },    // 도심 그림 시작 위치 (칸): 거울 대칭축(x 8.95·14.15, y 8.2·13.4)이 마을 경계 밖에 오게
+    unitSet: 'hostomel',                       // assets/units/<unitSet>/<병종 그림>.png
+    overlays: [
+      { type: 'runway', src: 'assets/overlays/hostomel/runway-strip.jpg' },   // 위치는 위 overlays 의 runway 표식
+      { type: 'patch', src: 'assets/overlays/hostomel/airfield-patch.jpg', rows: [6, 8], cols: [2, 3], pad: 0.1 },
+    ],
+  },
   arrivalRadius: 3,
 });
 </script>
@@ -3925,6 +3974,351 @@ if (typeof module !== 'undefined' && module.exports) {
   };
 }
 </script>
+<script data-src="js/rich-map.js">
+'use strict';
+/* =====================================================================
+   PC 리치 테마: 지도 바탕 그림 (순수 canvas, 장식 전용)
+   규칙 로직은 이 파일을 읽지 않는다. 지형 코드·시야·이동은 엔진이 그대로 결정한다.
+   - 마스크는 직접 만든 숫자 배열로 계산하고 putImageData 로 올린다 (이미지 픽셀은 읽지 않음: file:// 에서도 동작)
+   - 모든 길이는 칸 수 단위. 실제 픽셀 = 칸 수 × cell × dpr
+   ===================================================================== */
+const RICH_MAP = (() => {
+  const K = {
+    maskRes: 40,   // 마스크 해상도 (한 칸당 px)
+    // 지형 그림 한 장이 덮는 칸 수 (거울 반복 전 한 장 기준)
+    tile: { plain: 8.7, forest: 8.7, paddy: 8.7, river: 9.6, city: 5.2 },
+    // 지형 경계 블러 반경 (칸). 습지는 기갑 진입 불가 칸이라 경계를 또렷하게
+    blur: { plain: 0.11, forest: 0.12, river: 0.07, paddy: 0.07, city: 0.17 },
+    forestShadow: { blur: 0.1, dx: 0.05, dy: 0.05, alpha: 0.18 },
+    bank: { width: 0.15, rgb: [222, 204, 160], alpha: 0.4 },
+    riverInset: 0.1,   // 강물 그림을 강이 아닌 이웃 쪽에서 안으로 줄이는 폭 (칸, 장식만: 규칙상 강 칸은 그대로)
+    village: {
+      noisePeriod: 0.6, noiseAmp: 0.32, edge: 0.04,            // 경계 일그러짐 (울퉁불퉁하되 들쭉날쭉하지 않게)
+      rim: { width: 0.05, rgb: [70, 70, 64], alpha: 0.55 },      // 마을 안쪽 가장자리의 어두운 테
+      dirt: { width: 0.15, rgb: [138, 124, 92], alpha: 0.7 },    // 흙색 띠
+      grass: { width: 0.3, rgb: [176, 158, 92], alpha: 0.18 },   // 바깥 풀 변색 띠
+      breakPeriod: 0.7,                                          // 띠가 끊기는 간격
+      bushes: { perCell: 0.35, minD: 0.1, maxD: 0.5, rMin: 0.08, rMax: 0.13, shadow: 0.16 },
+    },
+    runway: { inset: 0.11, edge: 'rgba(225,225,220,0.85)', bars: 4, barLen: 0.22, barGap: 0.06 },
+    vignette: 0.28,
+    grain: 5,
+  };
+
+  /* ---------- 난수·노이즈 (시드 고정: 같은 시나리오는 항상 같은 그림) ---------- */
+  function prng(seed) {
+    let s = seed >>> 0;
+    return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  /** 값 노이즈 (0~1). period: 격자 한 칸의 크기 (px) */
+  function valueNoise(W, H, period, rnd) {
+    const gw = Math.ceil(W / period) + 2, gh = Math.ceil(H / period) + 2;
+    const g = new Float32Array(gw * gh);
+    for (let i = 0; i < g.length; i++) g[i] = rnd();
+    const out = new Float32Array(W * H);
+    const sm = (x) => x * x * (3 - 2 * x);
+    for (let y = 0; y < H; y++) {
+      const fy = y / period, iy = Math.floor(fy), ty = sm(fy - iy);
+      for (let x = 0; x < W; x++) {
+        const fx = x / period, ix = Math.floor(fx), tx = sm(fx - ix);
+        const a = g[iy * gw + ix], b = g[iy * gw + ix + 1], c = g[(iy + 1) * gw + ix], d = g[(iy + 1) * gw + ix + 1];
+        out[y * W + x] = (a + (b - a) * tx) + ((c + (d - c) * tx) - (a + (b - a) * tx)) * ty;
+      }
+    }
+    return out;
+  }
+  /** 두 옥타브 노이즈 */
+  function noise2(W, H, period, rnd) {
+    const a = valueNoise(W, H, period, rnd), b = valueNoise(W, H, period / 2.3, rnd);
+    for (let i = 0; i < a.length; i++) a[i] = a[i] * 0.7 + b[i] * 0.3;
+    return a;
+  }
+
+  /* ---------- 마스크 ---------- */
+  function cellMask(n, R, pred) {
+    const W = n * R, m = new Float32Array(W * W);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (!pred(r, c)) continue;
+      for (let y = r * R; y < (r + 1) * R; y++) m.fill(1, y * W + c * R, y * W + (c + 1) * R);
+    }
+    return m;
+  }
+  /** 가우시안 근사 (상자 블러 3회, 가장자리는 늘려서 지도 끝이 흐려지지 않게) */
+  function blur(src, W, H, sigma) {
+    if (sigma < 0.5) return Float32Array.from(src);
+    const r = Math.max(1, Math.round(Math.sqrt(sigma * sigma + 1) * 0.87));   // 3회 상자 ≈ σ
+    let a = Float32Array.from(src), b = new Float32Array(src.length);
+    const pass = (from, to, horiz) => {
+      const len = horiz ? W : H, lines = horiz ? H : W, w = 2 * r + 1;
+      for (let l = 0; l < lines; l++) {
+        const at = (k) => (horiz ? l * W + Math.min(len - 1, Math.max(0, k)) : Math.min(len - 1, Math.max(0, k)) * W + l);
+        let s = 0;
+        for (let k = -r; k <= r; k++) s += from[at(k)];
+        for (let k = 0; k < len; k++) {
+          to[horiz ? l * W + k : k * W + l] = s / w;
+          s += from[at(k + r + 1)] - from[at(k - r)];
+        }
+      }
+    };
+    for (let i = 0; i < 3; i++) { pass(a, b, true); pass(b, a, false); }
+    return a;
+  }
+  /** 안쪽(값 > 0.5)까지의 거리 (px, 안쪽은 0). 2단계 챔퍼 */
+  function distOutside(m, W, H) {
+    const INF = 1e9, d = new Float32Array(W * H), D = Math.SQRT2;
+    for (let i = 0; i < d.length; i++) d[i] = m[i] > 0.5 ? 0 : INF;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x; let v = d[i];
+      if (x > 0) v = Math.min(v, d[i - 1] + 1);
+      if (y > 0) { v = Math.min(v, d[i - W] + 1); if (x > 0) v = Math.min(v, d[i - W - 1] + D); if (x < W - 1) v = Math.min(v, d[i - W + 1] + D); }
+      d[i] = v;
+    }
+    for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+      const i = y * W + x; let v = d[i];
+      if (x < W - 1) v = Math.min(v, d[i + 1] + 1);
+      if (y < H - 1) { v = Math.min(v, d[i + W] + 1); if (x < W - 1) v = Math.min(v, d[i + W + 1] + D); if (x > 0) v = Math.min(v, d[i + W - 1] + D); }
+      d[i] = v;
+    }
+    return d;
+  }
+  const smooth = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+
+  function newCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  /** 숫자 배열(0~1) → 단색 + 알파 캔버스 */
+  function alphaCanvas(arr, W, H, rgb, mul = 1) {
+    const cv = newCanvas(W, H), cx = cv.getContext('2d'), im = cx.createImageData(W, H), d = im.data;
+    for (let i = 0; i < arr.length; i++) {
+      const k = i * 4;
+      d[k] = rgb[0]; d[k + 1] = rgb[1]; d[k + 2] = rgb[2];
+      d[k + 3] = Math.round(255 * Math.min(1, Math.max(0, arr[i] * mul)));
+    }
+    cx.putImageData(im, 0, 0);
+    return cv;
+  }
+  /** 거울 반복으로 그림을 깐 전체 크기 캔버스. offPx: 시작 오프셋 [x, y] (px, 거울 대칭축을 옮길 때) */
+  function mirrored(img, S, tilePx, offPx = [0, 0]) {
+    const cv = newCanvas(S, S), cx = cv.getContext('2d');
+    cx.imageSmoothingQuality = 'high';
+    const fold = (v) => -(((v % (2 * tilePx)) + 2 * tilePx) % (2 * tilePx));   // 2장(원본+뒤집힘) 단위로 접음
+    const ox = fold(offPx[0]), oy = fold(offPx[1]);
+    for (let j = 0, y = oy; y < S; j++, y += tilePx) {
+      for (let i = 0, x = ox; x < S; i++, x += tilePx) {
+        cx.save();
+        cx.translate(x + (i % 2 ? tilePx : 0), y + (j % 2 ? tilePx : 0));
+        cx.scale(i % 2 ? -1 : 1, j % 2 ? -1 : 1);
+        cx.drawImage(img, 0, 0, tilePx + 0.5, tilePx + 0.5);
+        cx.restore();
+      }
+    }
+    return cv;
+  }
+  /** layer 에 mask 를 알파로 곱해서 ctx 에 그림 */
+  function drawMasked(ctx, layer, mask, S) {
+    const lc = layer.getContext('2d');
+    lc.globalCompositeOperation = 'destination-in';
+    lc.imageSmoothingQuality = 'high';
+    lc.drawImage(mask, 0, 0, S, S);
+    lc.globalCompositeOperation = 'source-over';
+    ctx.drawImage(layer, 0, 0);
+  }
+
+  /**
+   * 마을 모양 알파: 칸 마스크 → 블러 → 저주파 노이즈로 경계 일그러뜨림 → 문턱값.
+   * 반환: { alpha, dist(바깥 거리 px), band, grass } (모두 마스크 해상도 배열)
+   */
+  function villageShape(base, W, R, rnd) {
+    const V = K.village;
+    const b = blur(base, W, W, K.blur.city * R);
+    const nz = noise2(W, W, V.noisePeriod * R, rnd);
+    const alpha = new Float32Array(W * W);
+    for (let i = 0; i < alpha.length; i++) {
+      const v = b[i] + (nz[i] - 0.5) * V.noiseAmp * Math.min(1, b[i] * 4) * Math.min(1, (1 - b[i]) * 4 + 0.15);
+      alpha[i] = smooth(0.5 - V.edge, 0.5 + V.edge, v);
+    }
+    const dist = distOutside(alpha, W, W);
+    const inv = new Float32Array(W * W);
+    for (let i = 0; i < inv.length; i++) inv[i] = 1 - alpha[i];
+    const din = distOutside(inv, W, W), rw = V.rim.width * R;
+    const rim = new Float32Array(W * W);
+    for (let i = 0; i < rim.length; i++) rim[i] = alpha[i] * (1 - smooth(rw * 0.4, rw, din[i]));
+    const brk = noise2(W, W, V.breakPeriod * R, rnd);
+    const band = new Float32Array(W * W), grass = new Float32Array(W * W);
+    const dw = V.dirt.width * R, gw = V.grass.width * R;
+    for (let i = 0; i < band.length; i++) {
+      const d = dist[i];
+      if (d <= 0 || d > dw + gw + 2) continue;
+      const cut = smooth(0.2, 0.34, brk[i]);   // 군데군데 끊김
+      const wob = 0.75 + 0.5 * nz[i];          // 두께가 일정하지 않게
+      band[i] = (1 - smooth(dw * 0.45 * wob, dw * wob, d)) * cut;
+      grass[i] = smooth(dw * 0.5, dw, d) * (1 - smooth(dw + gw * 0.4, dw + gw, d)) * (0.4 + 0.6 * smooth(0.25, 0.6, brk[i]));
+    }
+    return { alpha, dist, band, grass, rim };
+  }
+
+  /** 덤불: 숲 그림을 동그랗게 떼어 마을 가장자리 근처에만 흩뿌림 */
+  function drawBushes(ctx, forestImg, dist, W, R, unit, count, rnd) {
+    const B = K.village.bushes;
+    let placed = 0;
+    for (let tries = 0; tries < count * 60 && placed < count; tries++) {
+      const x = Math.floor(rnd() * W), y = Math.floor(rnd() * W);
+      const d = dist[y * W + x] / R;
+      if (d < B.minD || d > B.maxD) continue;
+      const px = x * unit, py = y * unit;
+      const rad = (B.rMin + (B.rMax - B.rMin) * rnd()) * R * unit;
+      // 그림자
+      const sg = ctx.createRadialGradient(px + rad * 0.35, py + rad * 0.35, 0, px + rad * 0.35, py + rad * 0.35, rad * 1.25);
+      sg.addColorStop(0, `rgba(0,0,0,${B.shadow})`); sg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(px + rad * 0.35, py + rad * 0.35, rad * 1.25, 0, Math.PI * 2); ctx.fill();
+      // 덤불 (원 3~4개 겹침)
+      ctx.save();
+      ctx.beginPath();
+      const blobs = 3 + Math.floor(rnd() * 2);
+      for (let k = 0; k < blobs; k++) {
+        const a = rnd() * Math.PI * 2, rr = rad * (0.55 + 0.35 * rnd());
+        ctx.moveTo(px + Math.cos(a) * rad * 0.4 + rr, py + Math.sin(a) * rad * 0.4);
+        ctx.arc(px + Math.cos(a) * rad * 0.4, py + Math.sin(a) * rad * 0.4, rr, 0, Math.PI * 2);
+      }
+      ctx.clip();
+      const sx = rnd() * (forestImg.width - 120), sy = rnd() * (forestImg.height - 120);
+      ctx.drawImage(forestImg, sx, sy, 110, 110, px - rad * 1.3, py - rad * 1.3, rad * 2.6, rad * 2.6);
+      ctx.restore();
+      placed++;
+    }
+  }
+
+  /**
+   * 지도 바탕 전체를 canvas 에 그림.
+   * o: { n, size(캔버스 px), keyAt(r,c)→지형 키, img: {terrain:{key:Image}, runway, patch}, art, runways:[{col, rows}], seed }
+   */
+  function paint(canvas, o) {
+    const { n, size: S } = o;
+    canvas.width = S; canvas.height = S;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    const R = K.maskRes, W = n * R, cellPx = S / n, unit = S / W;
+    const rnd = prng(o.seed || 1);
+    const key = (r, c) => o.keyAt(r, c);
+    const tex = (k) => o.img.terrain[k] || o.img.terrain.plain;
+    const tileOf = (k) => (K.tile[k] || 8.7) * cellPx;
+    const offOf = (k) => { const v = (o.art.terrainOffset || {})[k] || [0, 0]; return [v[0] * cellPx, v[1] * cellPx]; };
+    const patches = (o.art.overlays || []).filter((v) => v.type === 'patch');
+    const inPatch = (r, c) => patches.some((p) => r >= p.rows[0] && r <= p.rows[1] && c >= p.cols[0] && c <= p.cols[1]);
+
+    // 1. 평지 바탕 (전체)
+    ctx.drawImage(mirrored(tex('plain'), S, tileOf('plain'), offOf('plain')), 0, 0);
+
+    // 2. 습지
+    const paddy = cellMask(n, R, (r, c) => key(r, c) === 'paddy');
+    if (paddy.some((v) => v)) drawMasked(ctx, mirrored(tex('paddy'), S, tileOf('paddy'), offOf('paddy')), alphaCanvas(blur(paddy, W, W, K.blur.paddy * R), W, W, [0, 0, 0]), S);
+
+    // 3. 강: 모래빛 강둑 → 물
+    const river = cellMask(n, R, (r, c) => key(r, c) === 'river');
+    const iv = Math.round(K.riverInset * R);   // 강이 아닌 이웃 쪽 가장자리를 깎음 → 물길이 칸보다 조금 좁고 끝이 둥글게
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (key(r, c) !== 'river') continue;
+      const cut = (x0, x1, y0, y1) => { for (let y = y0; y < y1; y++) river.fill(0, y * W + x0, y * W + x1); };
+      if (c === 0 || key(r, c - 1) !== 'river') cut(c * R, c * R + iv, r * R, (r + 1) * R);
+      if (c === n - 1 || key(r, c + 1) !== 'river') cut((c + 1) * R - iv, (c + 1) * R, r * R, (r + 1) * R);
+      if (r > 0 && key(r - 1, c) !== 'river') cut(c * R, (c + 1) * R, r * R, r * R + iv);
+      if (r < n - 1 && key(r + 1, c) !== 'river') cut(c * R, (c + 1) * R, (r + 1) * R - iv, (r + 1) * R);
+    }
+    if (river.some((v) => v)) {
+      const d = distOutside(river, W, W), bw = K.bank.width * R;
+      const bank = new Float32Array(W * W);
+      for (let i = 0; i < bank.length; i++) bank[i] = d[i] === 0 ? 1 : 1 - smooth(bw * 0.6, bw, d[i]);
+      ctx.drawImage(alphaCanvas(blur(bank, W, W, 0.03 * R), W, W, K.bank.rgb, K.bank.alpha), 0, 0, S, S);
+      drawMasked(ctx, mirrored(tex('river'), S, tileOf('river'), offOf('river')), alphaCanvas(blur(river, W, W, K.blur.river * R), W, W, [0, 0, 0]), S);
+    }
+
+    // 4. 숲: 주변 평지에 부드러운 그림자 → 숲
+    const forest = cellMask(n, R, (r, c) => key(r, c) === 'forest');
+    if (forest.some((v) => v)) {
+      const F = K.forestShadow;
+      ctx.drawImage(alphaCanvas(blur(forest, W, W, F.blur * R), W, W, [0, 0, 0], F.alpha), F.dx * cellPx, F.dy * cellPx, S, S);
+      drawMasked(ctx, mirrored(tex('forest'), S, tileOf('forest'), offOf('forest')), alphaCanvas(blur(forest, W, W, K.blur.forest * R), W, W, [0, 0, 0]), S);
+    }
+
+    // 5. 도심(마을): 울퉁불퉁한 알파 + 끊긴 흙색 띠 + 옅은 풀 변색 + 근처 덤불
+    const V = K.village;
+    const drawVillage = (base, layerCv, bushCount) => {
+      const sh = villageShape(base, W, R, rnd);
+      ctx.drawImage(alphaCanvas(sh.grass, W, W, V.grass.rgb, V.grass.alpha), 0, 0, S, S);
+      ctx.drawImage(alphaCanvas(sh.band, W, W, V.dirt.rgb, V.dirt.alpha), 0, 0, S, S);
+      drawMasked(ctx, layerCv, alphaCanvas(sh.alpha, W, W, [0, 0, 0]), S);
+      ctx.drawImage(alphaCanvas(sh.rim, W, W, V.rim.rgb, V.rim.alpha), 0, 0, S, S);
+      if (bushCount > 0) drawBushes(ctx, tex('forest'), sh.dist, W, R, unit, bushCount, rnd);
+    };
+    let cityCells = 0;
+    const city = cellMask(n, R, (r, c) => { const on = key(r, c) === 'city' && !inPatch(r, c); if (on) cityCells++; return on; });
+    if (cityCells) drawVillage(city, mirrored(tex('city'), S, tileOf('city'), offOf('city')), Math.round(cityCells * V.bushes.perCell));
+
+    // 6. 공항 건물 조각 (칸 영역보다 pad 만큼 크게)
+    for (const p of patches) {
+      const im = o.img.patch;
+      if (!im) continue;
+      const pad = p.pad == null ? 0.1 : p.pad;
+      const x0 = (p.cols[0] - pad) * cellPx, y0 = (p.rows[0] - pad) * cellPx;
+      const w = (p.cols[1] - p.cols[0] + 1 + 2 * pad) * cellPx, h = (p.rows[1] - p.rows[0] + 1 + 2 * pad) * cellPx;
+      const lay = newCanvas(S, S);
+      lay.getContext('2d').drawImage(im, x0, y0, w, h);
+      const base = new Float32Array(W * W);
+      for (let y = Math.max(0, Math.round((p.rows[0] - pad) * R)); y < Math.min(W, Math.round((p.rows[1] + 1 + pad) * R)); y++) {
+        for (let x = Math.max(0, Math.round((p.cols[0] - pad) * R)); x < Math.min(W, Math.round((p.cols[1] + 1 + pad) * R)); x++) base[y * W + x] = 1;
+      }
+      drawVillage(base, lay, Math.round((p.rows[1] - p.rows[0] + 1) * (p.cols[1] - p.cols[0] + 1) * V.bushes.perCell * 0.5));
+    }
+
+    // 7. 활주로 (규칙상 표식일 뿐: 이동·지형·시야와 무관)
+    if (o.img.runway) {
+      const im = o.img.runway, RW = K.runway;
+      for (const rw of o.runways || []) {
+        const x0 = (rw.col + RW.inset) * cellPx, w = (1 - 2 * RW.inset) * cellPx;
+        const y0 = rw.rows[0] * cellPx, y1 = (rw.rows[1] + 1) * cellPx, piece = 2 * w;
+        for (let y = y0; y < y1 - 0.5; y += piece) {
+          const h = Math.min(piece, y1 - y);
+          ctx.drawImage(im, 0, 0, im.width, im.height * (h / piece), x0, y, w, h);
+        }
+        ctx.strokeStyle = RW.edge;
+        ctx.lineWidth = Math.max(1, cellPx * 0.018);
+        ctx.strokeRect(x0 + ctx.lineWidth / 2, y0 + ctx.lineWidth / 2, w - ctx.lineWidth, y1 - y0 - ctx.lineWidth);
+        // 문턱 표지: 위아래 끝에 흰 줄무늬 4개씩
+        ctx.fillStyle = 'rgba(245,245,240,0.9)';
+        const bw = w / (RW.bars * 2 + 1), bl = RW.barLen * cellPx, gap = RW.barGap * cellPx;
+        for (let k = 0; k < RW.bars; k++) {
+          const bx = x0 + bw * (1 + 2 * k);
+          ctx.fillRect(bx, y0 + gap, bw, bl);
+          ctx.fillRect(bx, y1 - gap - bl, bw, bl);
+        }
+      }
+    }
+
+    // 8. 마무리: 비네트 + 필름 입자
+    const g = ctx.createRadialGradient(S / 2, S / 2, S * 0.38, S / 2, S / 2, S * 0.72);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${K.vignette})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
+    const GS = 128, gc = newCanvas(GS, GS), gx = gc.getContext('2d'), gi = gx.createImageData(GS, GS);
+    for (let i = 0; i < GS * GS; i++) { const v = 128 + Math.round((rnd() * 2 - 1) * K.grain); gi.data[i * 4] = gi.data[i * 4 + 1] = gi.data[i * 4 + 2] = v; gi.data[i * 4 + 3] = 255; }
+    gx.putImageData(gi, 0, 0);
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = ctx.createPattern(gc, 'repeat');
+    ctx.fillRect(0, 0, S, S);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /** art 에 나오는 이미지 경로 목록 (불러오기용) */
+  function artSources(art, unitFiles) {
+    const out = [];
+    for (const [k, src] of Object.entries(art.terrain || {})) out.push({ kind: 'terrain', key: k, src });
+    for (const ov of art.overlays || []) if (ov.src) out.push({ kind: ov.type, key: ov.type, src: ov.src });
+    for (const [type, file] of Object.entries(unitFiles)) out.push({ kind: 'unit', key: type, src: `assets/units/${art.unitSet}/${file}.png` });
+    return out;
+  }
+
+  return { paint, artSources, K };
+})();
+</script>
 <script data-src="js/ui.js">
 'use strict';
 /* =====================================================================
@@ -4008,6 +4402,29 @@ if (typeof module !== 'undefined' && module.exports) {
     /* 시나리오 장식 표식 (규칙 영향 없음): 활주로 = 회색 띠 + 흰 점선 중심선 */
     overlay: { runway: { fill: '#9C9A92', edge: '#7E7C75', line: '#FFFFFF', lineW: 1.6, dash: '5 4', halfW: 11 } },
     scenMap: 76,   // 시나리오 카드의 지도 미리보기 크기 (px)
+    /* PC 리치 테마 (그림 세트가 있는 시나리오, 넓은 화면만). 길이 단위: 칸 */
+    rich: {
+      // by: 'h' 높이 / 'w' 폭 기준으로 size 칸 (비율 유지). ring: 링 반지름
+      units: {
+        armor: { img: 'armor', by: 'h', size: 1.19, ring: 0.61 },
+        infantry: { img: 'infantry', by: 'w', size: 1.22, ring: 0.64 },
+        antitank: { img: 'antitank', by: 'w', size: 1.17, ring: 0.64 },
+        artillery: { img: 'artillery', by: 'h', size: 1.69, ring: 0.78 },
+        recon: { img: 'recon', by: 'h', size: 1.28, ring: 0.67 },
+        signal: { img: 'comms', by: 'h', size: 1.56, ring: 0.78 },
+      },
+      ringFill: 0.18, ringW: 2.5, selW: 4.5, selLine: '#E8F1FF',
+      shadow: { blur: 0.03, dx: 0.06, dy: 0.06, alpha: 0.35 },
+      doneBright: 0.7,
+      badge: { h: 0.24, font: 0.165, charW: 0.13, pad: 0.07, at: 0.62 },
+      move: { fill: 'rgba(255,255,255,0.12)', cell: 'rgba(255,255,255,0.32)', edge: 'rgba(255,255,255,0.85)', w: 2 },
+      target: { line: '#FF4D42', w: 2.6 },
+      stepMs: 250,                                       // 이동: 칸 중심 사이 미끄러짐
+      tracer: { ms: 150, line: '#FFE6A0', w: 2.2 },        // 공격: 짧은 예광선
+      hitRing: { line: '#FF3B30', w: 3 },                 // 피격: 대상 링 붉게 깜빡임
+      resizeMs: 200,                                     // 크기가 연속으로 바뀌면 이 시간 뒤에 한 번 다시 그림
+      noticeMs: 4500,
+    },
   };
   const CS = 40;           // SVG 좌표에서 한 칸 크기
   let VB = N * CS;         // 지도 전체 SVG 좌표 크기 (시나리오를 바꾸면 buildBoard 가 갱신)
@@ -4308,6 +4725,14 @@ if (typeof module !== 'undefined' && module.exports) {
     const Z = DESIGN.hl.signal;
     return side === 'own' || ROLE(side) === 'def' ? { fill: Z.fill, line: Z.line, w: Z.w, dash: Z.dash } : { fill: Z.att, line: Z.attLine, w: Z.w, dash: Z.dash };
   };
+  /** 리치 테마의 칸 표시: 칸마다 얇은 윤곽 + 영역 바깥 경계 (평소에는 격자선이 없으므로 이때만 칸 모양이 보임) */
+  function richCells(set, o) {
+    if (!set || !set.size) return '';
+    let cellsD = '';
+    for (const i of set) { const p = posOf(i); cellsD += `M${p.c * CS + 0.5} ${p.r * CS + 0.5}h${CS - 1}v${CS - 1}h${1 - CS}z`; }
+    return `<path d="${cellsD}" fill="${o.fill}" stroke="${o.cell}" stroke-width="1" vector-effect="non-scaling-stroke"/>`
+      + regionSvg(set, { line: o.edge, w: o.w });
+  }
   /** 공격 대상 링 (중심 = 유닛 틀 중심). 맥박은 연출 줄이기에서 정지 */
   function targetRing(cx, cy) {
     const T = DESIGN.hl.target;
@@ -4330,6 +4755,159 @@ if (typeof module !== 'undefined' && module.exports) {
   const cellX = (p) => p.c * CS, cellY = (p) => p.r * CS;
   const unitCx = (p) => p.c * CS + 20, unitCy = (p) => p.r * CS + 19;
 
+  /* =====================================================================
+     PC 리치 테마: 지도 바탕은 canvas(RICH_MAP)에 한 번 그려 두고, 유닛은 이미지 SVG.
+     안개 판정은 기본 테마와 같은 코드(render)를 그대로 쓰므로 시야 밖 적은 만들지 않는다.
+     ===================================================================== */
+  const THEME_KEY = 'chuncheon1950.theme', GRID_KEY = 'chuncheon1950.gridAlways';
+  const rich = {
+    on: false,
+    assets: {},      // 시나리오 id → { status: 'loading'|'ok'|'fail', img }
+    bgKey: '',       // 지금 캔버스에 그려진 (시나리오, 크기)
+    timer: 0,
+    canvas: null,
+  };
+  ui.themePref = (() => { try { const v = localStorage.getItem(THEME_KEY); return v === 'basic' || v === 'rich' ? v : null; } catch (e) { return null; } })();
+  ui.gridAlways = (() => { try { return localStorage.getItem(GRID_KEY) === '1'; } catch (e) { return false; } })();
+  const scenArt = () => { const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID); return (sc && sc.art) || null; };
+  /** 기본값: 너비 900px 이상 + 마우스 환경이면 리치. 사용자가 고르면 그 선택 */
+  const autoTheme = () => (window.innerWidth >= DESIGN.layout.wideMinW && !!window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches ? 'rich' : 'basic');
+  const wantTheme = () => ui.themePref || autoTheme();
+  /** 리치 테마를 쓸 수 있는 화면 배치: PC 넓은 화면만 (좁은 화면·휴대폰 가로는 항상 기본) */
+  const richLayout = () => ui.wide && !ui.compact;
+  const artStatus = () => (rich.assets[GAME_CONFIG.SCENARIO_ID] || {}).status || null;
+
+  /** 그림 세트 불러오기. 하나라도 실패하면 이 시나리오는 기본 테마로 */
+  function loadArt(id, art) {
+    rich.assets[id] = { status: 'loading', img: null };
+    const files = Object.fromEntries(Object.entries(DESIGN.rich.units).map(([k, v]) => [k, v.img]));
+    const list = RICH_MAP.artSources(art, files);
+    const img = { terrain: {}, unit: {}, runway: null, patch: null };
+    Promise.all(list.map((it) => new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => {
+        if (it.kind === 'terrain') img.terrain[it.key] = im;
+        else if (it.kind === 'unit') img.unit[it.key] = { src: it.src, w: im.naturalWidth, h: im.naturalHeight };
+        else img[it.kind] = im;
+        res();
+      };
+      im.onerror = () => rej(new Error(it.src));
+      im.src = it.src;
+    }))).then(() => {
+      rich.assets[id] = { status: 'ok', img };
+      if (GAME_CONFIG.SCENARIO_ID === id) applyTheme();
+    }, () => {
+      rich.assets[id] = { status: 'fail', img: null };
+      if (GAME_CONFIG.SCENARIO_ID === id && wantTheme() === 'rich' && richLayout()) showNotice(t('theme.loadFail'));
+      if (GAME_CONFIG.SCENARIO_ID === id) applyTheme();
+    });
+  }
+  /** 지금 리치 테마로 그려야 하는가 (그림을 아직 불러오는 중이면 기본으로 보여 주고, 끝나면 전환) */
+  function richWanted(startLoad = true) {
+    const art = scenArt();
+    if (wantTheme() !== 'rich' || !art || !richLayout()) return false;
+    if (!artStatus() && startLoad) loadArt(GAME_CONFIG.SCENARIO_ID, art);
+    return artStatus() === 'ok';
+  }
+  const richImg = () => rich.assets[GAME_CONFIG.SCENARIO_ID].img;
+  function applyTheme() {
+    const on = richWanted();
+    const changed = on !== rich.on;
+    rich.on = on;
+    boardEl.classList.toggle('rich', on);
+    boardEl.classList.toggle('grid-on', on && ui.gridAlways);
+    if (on) paintRichBg();
+    renderThemeSettings();
+    if (changed && ui.state) render();
+  }
+  /** 지도 바탕 다시 그리기: 크기(칸 px × dpr)가 바뀔 때만 */
+  function paintRichBg() {
+    if (!rich.on || !rich.canvas) return;
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const size = Math.round(N * (ui.cellSize || cellPx()) * dpr);
+    const key = `${GAME_CONFIG.SCENARIO_ID}:${size}`;
+    if (key === rich.bgKey || size <= 0) return;
+    rich.bgKey = key;
+    RICH_MAP.paint(rich.canvas, {
+      n: N, size, art: scenArt(), img: richImg(), keyAt: (r, c) => terrainAt(r, c).key,
+      runways: (GAME_CONFIG.OVERLAYS || []).filter((o) => o.kind === 'runway'),
+      seed: [...GAME_CONFIG.SCENARIO_ID].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7),
+    });
+  }
+  /** 화면 배치가 바뀌었을 때: 테마 판정이 달라졌으면 전환, 아니면 바탕만 (연속 변화는 0.2초 뒤 한 번) */
+  function themeOnLayout() {
+    if (!rich.canvas) return;
+    const want = wantTheme() === 'rich' && !!scenArt() && richLayout();
+    if ((want && !artStatus()) || (want && artStatus() === 'ok') !== rich.on) { applyTheme(); return; }
+    renderThemeSettings();
+    if (!rich.on) return;
+    clearTimeout(rich.timer);
+    rich.timer = setTimeout(paintRichBg, DESIGN.rich.resizeMs);
+  }
+  /** 상단의 작은 안내 (몇 초 뒤 사라짐) */
+  function showNotice(text) {
+    const el = $('#notice');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(showNotice.timer);
+    showNotice.timer = setTimeout(() => { el.hidden = true; }, DESIGN.rich.noticeMs);
+  }
+  /** 유닛 그림자·어둡게 필터 (문서에 한 번만) */
+  function ensureRichDefs() {
+    if (document.getElementById('rich-defs')) return;
+    const X = DESIGN.rich.shadow, b = DESIGN.rich.doneBright;
+    const sh = `<feGaussianBlur in="SourceAlpha" stdDeviation="${X.blur * CS}"/><feOffset dx="${X.dx * CS}" dy="${X.dy * CS}" result="o"/>`
+      + `<feFlood flood-color="#000" flood-opacity="${X.alpha}"/><feComposite in2="o" operator="in" result="s"/>`;
+    const f = (id, dim) => `<filter id="${id}" x="-30%" y="-30%" width="160%" height="160%" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">${sh}`
+      + (dim ? `<feComponentTransfer in="SourceGraphic" result="g"><feFuncR type="linear" slope="${b}"/><feFuncG type="linear" slope="${b}"/><feFuncB type="linear" slope="${b}"/></feComponentTransfer>` : '')
+      + `<feMerge><feMergeNode in="s"/><feMergeNode in="${dim ? 'g' : 'SourceGraphic'}"/></feMerge></filter>`;
+    document.body.insertAdjacentHTML('beforeend', `<svg id="rich-defs" width="0" height="0" style="position:absolute;width:0;height:0" aria-hidden="true" focusable="false"><defs>${f('rich-shadow', false)}${f('rich-shadow-dim', true)}</defs></svg>`);
+  }
+  /**
+   * 리치 유닛: { body: 링 + 그림자 + 그림 (그림 층), top: 배지·체력·완료 표시 (맨 위 층) }. 한 칸 = 40 좌표, 중심 (20,20)
+   * 공격 측은 그림만 180도 회전 (그림자 필터는 회전 바깥에 걸어 방향이 같음)
+   */
+  function richUnitParts(side, type, opts = {}) {
+    const D = DESIGN.side[ROLE(side)], RU = DESIGN.rich, U = RU.units[type] || RU.units.infantry;
+    const im = richImg().unit[type] || richImg().unit.infantry;
+    const ar = im.w / im.h;
+    const w = U.by === 'h' ? U.size * CS * ar : U.size * CS, h = U.by === 'h' ? U.size * CS : U.size * CS / ar;
+    const R = U.ring * CS;
+    let body = `<circle cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="${RU.ringFill}" stroke="${D.line}" stroke-width="${RU.ringW}" vector-effect="non-scaling-stroke"/>`;
+    if (opts.selected) body += `<circle class="pulse-sel" style="animation-duration:${DESIGN.hl.sel.pulseMs}ms" cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="0.16" stroke="${RU.selLine}" stroke-width="${RU.selW}" vector-effect="non-scaling-stroke"/>`;
+    const rot = ROLE(side) === 'att' ? ' transform="rotate(180 20 20)"' : '';
+    body += `<g filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})"><image href="${esc(im.src)}" x="${(20 - w / 2).toFixed(2)}" y="${(20 - h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"${rot}/></g>`;
+    const B = RU.badge, txt = t('unit.' + type + '.badge');
+    const bh = B.h * CS, bw = Math.max(bh, (B.charW * [...txt].length + 2 * B.pad) * CS);
+    const bx = 20 + R * B.at, by = 20 + R * B.at;
+    let top = `<rect x="${(bx - bw / 2).toFixed(2)}" y="${(by - bh / 2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="${(bh * 0.25).toFixed(2)}" fill="${D.line}" stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke"/>`
+      + `<text x="${bx.toFixed(2)}" y="${(by + 0.3).toFixed(2)}" fill="#fff" font-size="${(B.font * CS).toFixed(2)}" font-weight="800" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${esc(txt)}</text>`;
+    if (!opts.noHp) {   // 체력: 기본 테마와 같은 칸 아래쪽 막대
+      const max = GAME_CONFIG.MAX_HP, pw = 4, ph = 2.6, gap = 1.2, total = max * pw + (max - 1) * gap;
+      for (let i = 0; i < max; i++) {
+        top += `<rect x="${(20 - total / 2 + i * (pw + gap)).toFixed(2)}" y="33.6" width="${pw}" height="${ph}" fill="${i < opts.hp ? D.line : '#FBF7EA'}" stroke="#111" stroke-width="0.6"/>`;
+      }
+    }
+    if (opts.done) {   // 왼쪽 위 원형 체크 (기본 테마와 같은 표시)
+      const H = DESIGN.hl.done, cx = (20 - R * 0.62).toFixed(2), cy = (20 - R * 0.62).toFixed(2);
+      top += `<circle cx="${cx}" cy="${cy}" r="${H.r}" fill="${H.fill}" stroke="#fff" stroke-width="1"/><path d="M${cx - 2.8} ${+cy + 0.2}L${cx - 0.8} ${+cy + 2.3}L${+cx + 2.9} ${cy - 2}" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    return { body, top };
+  }
+  const richSvg = (inner, aria = 'aria-hidden="true"') => `<svg viewBox="0 0 40 40" ${aria} focusable="false" overflow="visible">${inner}</svg>`;
+  /** 연출 층 유닛 (이동·등장·파괴) */
+  function fxUnitHtml(side, type, hp) {
+    if (!rich.on) return unitSvg(side, type, { hp });
+    const p = richUnitParts(side, type, { hp });
+    return richSvg(p.body) + richSvg(p.top);
+  }
+  function fxUnitEl(cs) {
+    const el = document.createElement('div');
+    el.className = rich.on ? 'fx-unit rich' : 'fx-unit';
+    el.style.width = el.style.height = cs + 'px';
+    return el;
+  }
+
   /* ---------- 보드 생성 ---------- */
   function buildBoard() {
     const cl = $('#col-labels'), rl = $('#row-labels');
@@ -4339,6 +4917,13 @@ if (typeof module !== 'undefined' && module.exports) {
     VB = N * CS;
     ALL_TILES = new Set(Array.from({ length: N * N }, (_, i) => i));
     document.documentElement.style.setProperty('--n', String(N));
+    // 리치 테마 지도 바탕 (장식 전용, 맨 아래 층). 기본 테마에서는 CSS 로 숨김
+    rich.canvas = document.createElement('canvas');
+    rich.canvas.className = 'rich-bg';
+    rich.canvas.setAttribute('aria-hidden', 'true');
+    rich.bgKey = '';
+    boardEl.appendChild(rich.canvas);
+    ensureRichDefs();
     for (let i = 0; i < N; i++) {
       cl.insertAdjacentHTML('beforeend', `<span>${i}</span>`);
       rl.insertAdjacentHTML('beforeend', `<span>${i}</span>`);
@@ -4377,6 +4962,10 @@ if (typeof module !== 'undefined' && module.exports) {
     let label = t('aria.unit', { side: S(u.side), unit: U(u.type), hp: u.hp, max: GAME_CONFIG.MAX_HP });
     if (done) label += ', ' + t('aria.done');
     else if (spent) label += ', ' + t('aria.actSpent');
+    if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
+      const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done });
+      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>`;
+    }
     return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>`;
   }
 
@@ -4450,8 +5039,21 @@ if (typeof module !== 'undefined' && module.exports) {
     let under = hatchDefs('hl-hatch'), over = '';
     const zones = signalZoneSets(st, shownSignals(st, me, sel));
     for (const side of GAME_CONFIG.ROUND_ORDER) under += regionSvg(zones[side], signalStyle(side));
-    if (deployTargetsSet) under += regionSvg(deployTargetsSet, moveStyle());
-    if (sel) {
+    if (deployTargetsSet) under += rich.on ? richCells(deployTargetsSet, DESIGN.rich.move) : regionSvg(deployTargetsSet, moveStyle());
+    if (sel && rich.on) {   // 리치: 평소 격자선 없음. 선택 시 이동 칸(흰 12% + 칸 윤곽)과 공격 대상 칸(붉은 윤곽)만
+      const ty = GAME_CONFIG.UNIT_TYPES[sel.type], M2 = DESIGN.rich.move, T2 = DESIGN.rich.target;
+      under += richCells(ui.moveSet, M2);
+      under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
+      if (ty.indirect) under += regionSvg(ui.atkSet, artyStyle());
+      if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += `<rect x="${cellX(p) + 1.3}" y="${cellY(p) + 1.3}" width="${CS - 2.6}" height="${CS - 2.6}" fill="none" stroke="${T2.line}" stroke-width="${T2.w}" vector-effect="non-scaling-stroke"/>`; }
+      if (ty.isSignal && sel.side === me) {
+        const R = GAME_CONFIG.COMBAT.signalRange, B = DESIGN.hl.sigBadge;
+        for (const a of st.units) {
+          if (a.side !== me || a.id === sel.id || !GAME_CONFIG.UNIT_TYPES[a.type].canAttack || manhattan(a, sel) > R) continue;
+          over += pillBadge(unitCx(a), cellY(a) + 3, `+${GAME_CONFIG.COMBAT.signalBonus}`, B, DESIGN.hl.signal.badge, '#fff');
+        }
+      }
+    } else if (sel) {
       const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
       under += regionSvg(ui.moveSet, moveStyle());
       under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
@@ -5058,10 +5660,8 @@ if (typeof module !== 'undefined' && module.exports) {
     const F = DESIGN.fx, rm = ui.reduceMotion, mul = speedMul();
     if (!full.some(seen)) return;   // 전혀 보이지 않는 이동은 재생하지 않음
     const cs = cellPx();
-    const el = document.createElement('div');
-    el.className = 'fx-unit';
-    el.style.width = el.style.height = cs + 'px';
-    el.innerHTML = unitSvg(side, type, { hp });
+    const el = fxUnitEl(cs);
+    el.innerHTML = fxUnitHtml(side, type, hp);
     // 시야 밖 구간에서는 DOM 에서 아예 빼서 위치가 남지 않게 함
     const attach = () => { if (!el.isConnected) fxLayer.appendChild(el); };
     const detach = () => el.remove();
@@ -5087,8 +5687,8 @@ if (typeof module !== 'undefined' && module.exports) {
         continue;
       }
       if (rm) { place(b.r, b.c); await rawWait(F.stepMsRM * mul); continue; }
-      await tween(F.stepMs * mul, (p) => {
-        const q = easeOut(p);
+      await tween((rich.on ? DESIGN.rich.stepMs : F.stepMs) * mul, (p) => {
+        const q = rich.on ? p * p * (3 - 2 * p) : easeOut(p);
         place(a.r + (b.r - a.r) * q, a.c + (b.c - a.c) * q);
       }, token);
     }
@@ -5113,12 +5713,10 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!ui.reduceMotion) {
       const cs = cellPx();
       await Promise.all(list.map((e) => {
-        const el = document.createElement('div');
-        el.className = 'fx-unit';
-        el.style.width = el.style.height = cs + 'px';
+        const el = fxUnitEl(cs);
         el.style.transform = `translate(${e.pos.c * cs}px, ${e.pos.r * cs}px)`;
         el.style.opacity = '0';
-        el.innerHTML = unitSvg(e.side, e.unitType, { hp: GAME_CONFIG.MAX_HP });
+        el.innerHTML = fxUnitHtml(e.side, e.unitType, GAME_CONFIG.MAX_HP);
         fxLayer.appendChild(el);
         return tween(DESIGN.fx.fadeInMs * mul, (p) => { el.style.opacity = String(p); }, token).then(() => el.remove());
       }));
@@ -5138,12 +5736,20 @@ if (typeof module !== 'undefined' && module.exports) {
       svg.remove();
       return;
     }
-    const el = cells[idx(pos.r, pos.c)].dyn.querySelector('.unit');
-    if (!el) return;
+    const els = [...cells[idx(pos.r, pos.c)].dyn.querySelectorAll('.unit, .unit-top')];
+    if (!els.length) return;
+    let ring = null;
+    if (rich.on) {   // 리치: 대상 링이 붉게 깜빡임
+      const u = getUnitAt(ui.view, pos.r, pos.c), H2 = DESIGN.rich.hitRing;
+      const rr = ((u && DESIGN.rich.units[u.type]) || DESIGN.rich.units.infantry).ring * CS;
+      ring = fxSvg(`<circle cx="${cellX(pos) + 20}" cy="${cellY(pos) + 20}" r="${rr}" fill="${H2.line}" fill-opacity="0.22" stroke="${H2.line}" stroke-width="${H2.w}" vector-effect="non-scaling-stroke"/>`);
+    }
     await tween(F.shake.ms * mul, (p) => {
-      el.style.transform = `translateX(${(F.shake.amp * Math.sin(p * Math.PI * 6) * (1 - p)).toFixed(2)}px)`;
+      for (const el of els) el.style.transform = `translateX(${(F.shake.amp * Math.sin(p * Math.PI * 6) * (1 - p)).toFixed(2)}px)`;
+      if (ring) ring.style.opacity = String(Math.abs(Math.cos(p * Math.PI * 2)));
     }, token);
-    el.style.transform = '';
+    for (const el of els) el.style.transform = '';
+    if (ring) ring.remove();
   }
   /** 피해 숫자 -N (아군 오폭은 주황) */
   async function damageNumberFx(pos, amount, friendlyFire) {
@@ -5177,11 +5783,9 @@ if (typeof module !== 'undefined' && module.exports) {
     if (ui.reduceMotion) return;
     const token = ui.gameId, mul = speedMul(), X = DESIGN.fx.destroy;
     const cs = cellPx();
-    const el = document.createElement('div');
-    el.className = 'fx-unit';
-    el.style.width = el.style.height = cs + 'px';
+    const el = fxUnitEl(cs);
     el.style.transform = `translate(${ev.pos.c * cs}px, ${ev.pos.r * cs}px)`;
-    el.innerHTML = unitSvg(ev.side, ev.unitType, { hp: 0 });
+    el.innerHTML = fxUnitHtml(ev.side, ev.unitType, 0);
     fxLayer.appendChild(el);
     const cx = unitCx(ev.pos), cy = unitCy(ev.pos);
     const svg = fxSvg([[-7, 2], [0, -2], [7, 3]].map(([dx, dy]) => `<circle cx="${cx + dx}" cy="${cy + dy}" r="4" fill="${X.smoke}" opacity="0"/>`).join(''));
@@ -5334,6 +5938,18 @@ if (typeof module !== 'undefined' && module.exports) {
     const mine = ev.side === me;
     const tVis = vis.has(idx(ev.target.r, ev.target.c));
     const fVis = vis.has(idx(ev.from.r, ev.from.c));
+    if (rich.on && !ui.reduceMotion && tVis && fVis) {   // 리치: 공격자 → 대상 짧은 예광선 (양 끝이 모두 보일 때만)
+      const X = DESIGN.rich.tracer, x1 = cellX(ev.from) + 20, y1 = cellY(ev.from) + 20, x2 = cellX(ev.target) + 20, y2 = cellY(ev.target) + 20;
+      const svg = fxSvg(`<line x1="${x1}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="${X.line}" stroke-width="${X.w}" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`);
+      const ln = svg.firstChild;
+      await tween(X.ms * speedMul(), (p) => {
+        const a = Math.max(0, p * 1.6 - 0.6), b = Math.min(1, p * 1.6);
+        ln.setAttribute('x1', String(x1 + (x2 - x1) * a)); ln.setAttribute('y1', String(y1 + (y2 - y1) * a));
+        ln.setAttribute('x2', String(x1 + (x2 - x1) * b)); ln.setAttribute('y2', String(y1 + (y2 - y1) * b));
+      }, token);
+      svg.remove();
+      if (token !== ui.gameId) return;
+    }
     if (mine || tVis || fVis) {
       const who = mine ? REL(true, ev.unitType) : (fVis ? REL(false, ev.unitType) : { t: 'dice.enemyFire' });
       await showDice(ev, t('dice.title', { who, pos: P(ev.target) }), mine && ev.fogged, hotseat() && mine && ev.fogged);
@@ -6338,6 +6954,8 @@ if (typeof module !== 'undefined' && module.exports) {
     loadActPref();
     renderActSettings();
     applyScenarioStrings();
+    rich.on = false;
+    boardEl.classList.remove('rich', 'grid-on');
     if (save) { try { localStorage.setItem(SCEN_KEY, GAME_CONFIG.SCENARIO_ID); } catch (e) { /* 저장 불가 환경 */ } }
     fitLayout();
   }
@@ -6641,6 +7259,7 @@ if (typeof module !== 'undefined' && module.exports) {
     cell = Math.max(L.cellFloor, Math.min(L.cellMax, cell));   // cellMin 미만이면 하단 UI 를 우선 (지도가 더 작아짐)
     root.setProperty('--cell', cell + 'px');
     ui.cellSize = cell;
+    themeOnLayout();
   }
   let layoutRaf = 0;
   const onResize = () => { cancelAnimationFrame(layoutRaf); layoutRaf = requestAnimationFrame(() => { hideBalloon(); hideTip(); fitLayout(); }); };
@@ -6750,6 +7369,7 @@ if (typeof module !== 'undefined' && module.exports) {
     applyScenarioStrings();
     applyModeUi();
     renderActSettings();
+    renderThemeSettings();
     renderLegend();
     const diffSel = $('#difficulty-select');
     diffSel.innerHTML = profileOptionsHtml();
@@ -6791,6 +7411,38 @@ if (typeof module !== 'undefined' && module.exports) {
     syncSeg('#seg-signal', ui.showSignal);
     try { localStorage.setItem(SIGNAL_ZONE_KEY, ui.showSignal ? '1' : '0'); } catch (err) { /* 저장 불가 환경 */ }
     if (ui.state) render();
+  }
+
+  /* ---------- 화면 테마 (기본 / PC 리치) ---------- */
+  function setThemePref(v) {
+    ui.themePref = v;
+    try { localStorage.setItem(THEME_KEY, v); } catch (e) { /* 저장 불가 환경 */ }
+    applyTheme();
+  }
+  function setGridAlways(on) {
+    ui.gridAlways = !!on;
+    try { localStorage.setItem(GRID_KEY, ui.gridAlways ? '1' : '0'); } catch (e) { /* 저장 불가 환경 */ }
+    applyTheme();
+  }
+  /** 설정의 테마 항목: PC 넓은 화면에서만 보임 (좁은 화면·휴대폰 가로는 기본 테마 고정이라 숨김) */
+  function renderThemeSettings() {
+    const box = $('#theme-rows');
+    if (!box) return;
+    box.hidden = !richLayout();
+    const art = !!scenArt(), want = wantTheme();
+    document.querySelectorAll('#seg-theme [data-theme]').forEach((b) => {
+      const a = b.dataset.theme === want;
+      b.classList.toggle('active', a);
+      b.setAttribute('aria-pressed', String(a));
+      if (b.dataset.theme === 'rich') b.disabled = !art;
+    });
+    syncSeg('#seg-grid', ui.gridAlways);
+    document.querySelectorAll('#seg-grid [data-v]').forEach((b) => { b.disabled = !art || want !== 'rich'; });
+    const note = !art ? t('theme.noArt') : artStatus() === 'fail' && want === 'rich' ? t('theme.loadFail') : artStatus() === 'loading' && want === 'rich' ? t('theme.loading') : '';
+    const el = $('#theme-note');
+    el.hidden = !note;
+    el.textContent = note;
+    el.title = note;
   }
 
   /* ---------- 행동 제한 설정 (시나리오별 localStorage). 값은 그 진영의 다음 턴부터 적용 ---------- */
@@ -6898,6 +7550,8 @@ if (typeof module !== 'undefined' && module.exports) {
   document.querySelectorAll('#seg-signal [data-v]').forEach((b) => { b.onclick = () => setShowSignal(b.dataset.v === '1'); });
   document.querySelectorAll('#seg-reduce [data-v]').forEach((b) => { b.onclick = () => setReduceMotion(b.dataset.v === '1'); });
   document.querySelectorAll('#seg-act [data-v]').forEach((b) => { b.onclick = () => setActPref({ on: b.dataset.v === '1' }); });
+  document.querySelectorAll('#seg-theme [data-theme]').forEach((b) => { b.onclick = () => setThemePref(b.dataset.theme); });
+  document.querySelectorAll('#seg-grid [data-v]').forEach((b) => { b.onclick = () => setGridAlways(b.dataset.v === '1'); });
   $('#btn-log').onclick = toggleDrawer;
   $('#logbar').onclick = toggleDrawer;
   $('#drawer-close').onclick = () => setDrawer(false, true);
@@ -6965,6 +7619,7 @@ if (typeof module !== 'undefined' && module.exports) {
   syncSeg('#seg-signal', ui.showSignal);
   loadActPref();   // 행동 제한 설정 (이 시나리오)
   setReduceMotion(initialReduceMotion(), false);
+  applyTheme();    // 그림 세트가 있으면 불러오기 시작 (끝날 때까지 기본 테마)
   setLanguage(initialLang());   // 정적 문구·범례·난이도 목록·화면을 현재 언어로
   showIntro();
 })();

@@ -76,5 +76,6 @@
 | `river`, `aiConstants` | 강 줄기와 도하 AI 상수(없으면 도하 전술이 꺼짐) |
 | `terrainNames`, `overlays`, `arrivalRadius` | 지형 이름 바꾸기, 장식 표식, 예약 투입 탐색 거리 |
 | `activations` | 역할별 한 턴 행동 한도 `{ def, att }` (1 이상의 정수). 없거나 `null`이면 제한 없음. 병력보다 큰 값은 안내만 출력 |
+| `art` | 그림 세트 (PC 리치 테마 전용 장식: 지형 키별 그림, `terrainOffset`, `unitSet`, `overlays` runway/patch). 규칙 로직은 읽지 않고, 없으면 그 시나리오는 기본 테마만 |
 
 불러올 때 `validateScenario`가 모든 시나리오를 검사하고, 오류가 있으면 콘솔에 출력한다.

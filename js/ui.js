@@ -80,6 +80,29 @@
     /* 시나리오 장식 표식 (규칙 영향 없음): 활주로 = 회색 띠 + 흰 점선 중심선 */
     overlay: { runway: { fill: '#9C9A92', edge: '#7E7C75', line: '#FFFFFF', lineW: 1.6, dash: '5 4', halfW: 11 } },
     scenMap: 76,   // 시나리오 카드의 지도 미리보기 크기 (px)
+    /* PC 리치 테마 (그림 세트가 있는 시나리오, 넓은 화면만). 길이 단위: 칸 */
+    rich: {
+      // by: 'h' 높이 / 'w' 폭 기준으로 size 칸 (비율 유지). ring: 링 반지름
+      units: {
+        armor: { img: 'armor', by: 'h', size: 1.19, ring: 0.61 },
+        infantry: { img: 'infantry', by: 'w', size: 1.22, ring: 0.64 },
+        antitank: { img: 'antitank', by: 'w', size: 1.17, ring: 0.64 },
+        artillery: { img: 'artillery', by: 'h', size: 1.69, ring: 0.78 },
+        recon: { img: 'recon', by: 'h', size: 1.28, ring: 0.67 },
+        signal: { img: 'comms', by: 'h', size: 1.56, ring: 0.78 },
+      },
+      ringFill: 0.18, ringW: 2.5, selW: 4.5, selLine: '#E8F1FF',
+      shadow: { blur: 0.03, dx: 0.06, dy: 0.06, alpha: 0.35 },
+      doneBright: 0.7,
+      badge: { h: 0.24, font: 0.165, charW: 0.13, pad: 0.07, at: 0.62 },
+      move: { fill: 'rgba(255,255,255,0.12)', cell: 'rgba(255,255,255,0.32)', edge: 'rgba(255,255,255,0.85)', w: 2 },
+      target: { line: '#FF4D42', w: 2.6 },
+      stepMs: 250,                                       // 이동: 칸 중심 사이 미끄러짐
+      tracer: { ms: 150, line: '#FFE6A0', w: 2.2 },        // 공격: 짧은 예광선
+      hitRing: { line: '#FF3B30', w: 3 },                 // 피격: 대상 링 붉게 깜빡임
+      resizeMs: 200,                                     // 크기가 연속으로 바뀌면 이 시간 뒤에 한 번 다시 그림
+      noticeMs: 4500,
+    },
   };
   const CS = 40;           // SVG 좌표에서 한 칸 크기
   let VB = N * CS;         // 지도 전체 SVG 좌표 크기 (시나리오를 바꾸면 buildBoard 가 갱신)
@@ -380,6 +403,14 @@
     const Z = DESIGN.hl.signal;
     return side === 'own' || ROLE(side) === 'def' ? { fill: Z.fill, line: Z.line, w: Z.w, dash: Z.dash } : { fill: Z.att, line: Z.attLine, w: Z.w, dash: Z.dash };
   };
+  /** 리치 테마의 칸 표시: 칸마다 얇은 윤곽 + 영역 바깥 경계 (평소에는 격자선이 없으므로 이때만 칸 모양이 보임) */
+  function richCells(set, o) {
+    if (!set || !set.size) return '';
+    let cellsD = '';
+    for (const i of set) { const p = posOf(i); cellsD += `M${p.c * CS + 0.5} ${p.r * CS + 0.5}h${CS - 1}v${CS - 1}h${1 - CS}z`; }
+    return `<path d="${cellsD}" fill="${o.fill}" stroke="${o.cell}" stroke-width="1" vector-effect="non-scaling-stroke"/>`
+      + regionSvg(set, { line: o.edge, w: o.w });
+  }
   /** 공격 대상 링 (중심 = 유닛 틀 중심). 맥박은 연출 줄이기에서 정지 */
   function targetRing(cx, cy) {
     const T = DESIGN.hl.target;
@@ -402,6 +433,159 @@
   const cellX = (p) => p.c * CS, cellY = (p) => p.r * CS;
   const unitCx = (p) => p.c * CS + 20, unitCy = (p) => p.r * CS + 19;
 
+  /* =====================================================================
+     PC 리치 테마: 지도 바탕은 canvas(RICH_MAP)에 한 번 그려 두고, 유닛은 이미지 SVG.
+     안개 판정은 기본 테마와 같은 코드(render)를 그대로 쓰므로 시야 밖 적은 만들지 않는다.
+     ===================================================================== */
+  const THEME_KEY = 'chuncheon1950.theme', GRID_KEY = 'chuncheon1950.gridAlways';
+  const rich = {
+    on: false,
+    assets: {},      // 시나리오 id → { status: 'loading'|'ok'|'fail', img }
+    bgKey: '',       // 지금 캔버스에 그려진 (시나리오, 크기)
+    timer: 0,
+    canvas: null,
+  };
+  ui.themePref = (() => { try { const v = localStorage.getItem(THEME_KEY); return v === 'basic' || v === 'rich' ? v : null; } catch (e) { return null; } })();
+  ui.gridAlways = (() => { try { return localStorage.getItem(GRID_KEY) === '1'; } catch (e) { return false; } })();
+  const scenArt = () => { const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID); return (sc && sc.art) || null; };
+  /** 기본값: 너비 900px 이상 + 마우스 환경이면 리치. 사용자가 고르면 그 선택 */
+  const autoTheme = () => (window.innerWidth >= DESIGN.layout.wideMinW && !!window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches ? 'rich' : 'basic');
+  const wantTheme = () => ui.themePref || autoTheme();
+  /** 리치 테마를 쓸 수 있는 화면 배치: PC 넓은 화면만 (좁은 화면·휴대폰 가로는 항상 기본) */
+  const richLayout = () => ui.wide && !ui.compact;
+  const artStatus = () => (rich.assets[GAME_CONFIG.SCENARIO_ID] || {}).status || null;
+
+  /** 그림 세트 불러오기. 하나라도 실패하면 이 시나리오는 기본 테마로 */
+  function loadArt(id, art) {
+    rich.assets[id] = { status: 'loading', img: null };
+    const files = Object.fromEntries(Object.entries(DESIGN.rich.units).map(([k, v]) => [k, v.img]));
+    const list = RICH_MAP.artSources(art, files);
+    const img = { terrain: {}, unit: {}, runway: null, patch: null };
+    Promise.all(list.map((it) => new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => {
+        if (it.kind === 'terrain') img.terrain[it.key] = im;
+        else if (it.kind === 'unit') img.unit[it.key] = { src: it.src, w: im.naturalWidth, h: im.naturalHeight };
+        else img[it.kind] = im;
+        res();
+      };
+      im.onerror = () => rej(new Error(it.src));
+      im.src = it.src;
+    }))).then(() => {
+      rich.assets[id] = { status: 'ok', img };
+      if (GAME_CONFIG.SCENARIO_ID === id) applyTheme();
+    }, () => {
+      rich.assets[id] = { status: 'fail', img: null };
+      if (GAME_CONFIG.SCENARIO_ID === id && wantTheme() === 'rich' && richLayout()) showNotice(t('theme.loadFail'));
+      if (GAME_CONFIG.SCENARIO_ID === id) applyTheme();
+    });
+  }
+  /** 지금 리치 테마로 그려야 하는가 (그림을 아직 불러오는 중이면 기본으로 보여 주고, 끝나면 전환) */
+  function richWanted(startLoad = true) {
+    const art = scenArt();
+    if (wantTheme() !== 'rich' || !art || !richLayout()) return false;
+    if (!artStatus() && startLoad) loadArt(GAME_CONFIG.SCENARIO_ID, art);
+    return artStatus() === 'ok';
+  }
+  const richImg = () => rich.assets[GAME_CONFIG.SCENARIO_ID].img;
+  function applyTheme() {
+    const on = richWanted();
+    const changed = on !== rich.on;
+    rich.on = on;
+    boardEl.classList.toggle('rich', on);
+    boardEl.classList.toggle('grid-on', on && ui.gridAlways);
+    if (on) paintRichBg();
+    renderThemeSettings();
+    if (changed && ui.state) render();
+  }
+  /** 지도 바탕 다시 그리기: 크기(칸 px × dpr)가 바뀔 때만 */
+  function paintRichBg() {
+    if (!rich.on || !rich.canvas) return;
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const size = Math.round(N * (ui.cellSize || cellPx()) * dpr);
+    const key = `${GAME_CONFIG.SCENARIO_ID}:${size}`;
+    if (key === rich.bgKey || size <= 0) return;
+    rich.bgKey = key;
+    RICH_MAP.paint(rich.canvas, {
+      n: N, size, art: scenArt(), img: richImg(), keyAt: (r, c) => terrainAt(r, c).key,
+      runways: (GAME_CONFIG.OVERLAYS || []).filter((o) => o.kind === 'runway'),
+      seed: [...GAME_CONFIG.SCENARIO_ID].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7),
+    });
+  }
+  /** 화면 배치가 바뀌었을 때: 테마 판정이 달라졌으면 전환, 아니면 바탕만 (연속 변화는 0.2초 뒤 한 번) */
+  function themeOnLayout() {
+    if (!rich.canvas) return;
+    const want = wantTheme() === 'rich' && !!scenArt() && richLayout();
+    if ((want && !artStatus()) || (want && artStatus() === 'ok') !== rich.on) { applyTheme(); return; }
+    renderThemeSettings();
+    if (!rich.on) return;
+    clearTimeout(rich.timer);
+    rich.timer = setTimeout(paintRichBg, DESIGN.rich.resizeMs);
+  }
+  /** 상단의 작은 안내 (몇 초 뒤 사라짐) */
+  function showNotice(text) {
+    const el = $('#notice');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(showNotice.timer);
+    showNotice.timer = setTimeout(() => { el.hidden = true; }, DESIGN.rich.noticeMs);
+  }
+  /** 유닛 그림자·어둡게 필터 (문서에 한 번만) */
+  function ensureRichDefs() {
+    if (document.getElementById('rich-defs')) return;
+    const X = DESIGN.rich.shadow, b = DESIGN.rich.doneBright;
+    const sh = `<feGaussianBlur in="SourceAlpha" stdDeviation="${X.blur * CS}"/><feOffset dx="${X.dx * CS}" dy="${X.dy * CS}" result="o"/>`
+      + `<feFlood flood-color="#000" flood-opacity="${X.alpha}"/><feComposite in2="o" operator="in" result="s"/>`;
+    const f = (id, dim) => `<filter id="${id}" x="-30%" y="-30%" width="160%" height="160%" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">${sh}`
+      + (dim ? `<feComponentTransfer in="SourceGraphic" result="g"><feFuncR type="linear" slope="${b}"/><feFuncG type="linear" slope="${b}"/><feFuncB type="linear" slope="${b}"/></feComponentTransfer>` : '')
+      + `<feMerge><feMergeNode in="s"/><feMergeNode in="${dim ? 'g' : 'SourceGraphic'}"/></feMerge></filter>`;
+    document.body.insertAdjacentHTML('beforeend', `<svg id="rich-defs" width="0" height="0" style="position:absolute;width:0;height:0" aria-hidden="true" focusable="false"><defs>${f('rich-shadow', false)}${f('rich-shadow-dim', true)}</defs></svg>`);
+  }
+  /**
+   * 리치 유닛: { body: 링 + 그림자 + 그림 (그림 층), top: 배지·체력·완료 표시 (맨 위 층) }. 한 칸 = 40 좌표, 중심 (20,20)
+   * 공격 측은 그림만 180도 회전 (그림자 필터는 회전 바깥에 걸어 방향이 같음)
+   */
+  function richUnitParts(side, type, opts = {}) {
+    const D = DESIGN.side[ROLE(side)], RU = DESIGN.rich, U = RU.units[type] || RU.units.infantry;
+    const im = richImg().unit[type] || richImg().unit.infantry;
+    const ar = im.w / im.h;
+    const w = U.by === 'h' ? U.size * CS * ar : U.size * CS, h = U.by === 'h' ? U.size * CS : U.size * CS / ar;
+    const R = U.ring * CS;
+    let body = `<circle cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="${RU.ringFill}" stroke="${D.line}" stroke-width="${RU.ringW}" vector-effect="non-scaling-stroke"/>`;
+    if (opts.selected) body += `<circle class="pulse-sel" style="animation-duration:${DESIGN.hl.sel.pulseMs}ms" cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="0.16" stroke="${RU.selLine}" stroke-width="${RU.selW}" vector-effect="non-scaling-stroke"/>`;
+    const rot = ROLE(side) === 'att' ? ' transform="rotate(180 20 20)"' : '';
+    body += `<g filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})"><image href="${esc(im.src)}" x="${(20 - w / 2).toFixed(2)}" y="${(20 - h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"${rot}/></g>`;
+    const B = RU.badge, txt = t('unit.' + type + '.badge');
+    const bh = B.h * CS, bw = Math.max(bh, (B.charW * [...txt].length + 2 * B.pad) * CS);
+    const bx = 20 + R * B.at, by = 20 + R * B.at;
+    let top = `<rect x="${(bx - bw / 2).toFixed(2)}" y="${(by - bh / 2).toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" rx="${(bh * 0.25).toFixed(2)}" fill="${D.line}" stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke"/>`
+      + `<text x="${bx.toFixed(2)}" y="${(by + 0.3).toFixed(2)}" fill="#fff" font-size="${(B.font * CS).toFixed(2)}" font-weight="800" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${esc(txt)}</text>`;
+    if (!opts.noHp) {   // 체력: 기본 테마와 같은 칸 아래쪽 막대
+      const max = GAME_CONFIG.MAX_HP, pw = 4, ph = 2.6, gap = 1.2, total = max * pw + (max - 1) * gap;
+      for (let i = 0; i < max; i++) {
+        top += `<rect x="${(20 - total / 2 + i * (pw + gap)).toFixed(2)}" y="33.6" width="${pw}" height="${ph}" fill="${i < opts.hp ? D.line : '#FBF7EA'}" stroke="#111" stroke-width="0.6"/>`;
+      }
+    }
+    if (opts.done) {   // 왼쪽 위 원형 체크 (기본 테마와 같은 표시)
+      const H = DESIGN.hl.done, cx = (20 - R * 0.62).toFixed(2), cy = (20 - R * 0.62).toFixed(2);
+      top += `<circle cx="${cx}" cy="${cy}" r="${H.r}" fill="${H.fill}" stroke="#fff" stroke-width="1"/><path d="M${cx - 2.8} ${+cy + 0.2}L${cx - 0.8} ${+cy + 2.3}L${+cx + 2.9} ${cy - 2}" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    return { body, top };
+  }
+  const richSvg = (inner, aria = 'aria-hidden="true"') => `<svg viewBox="0 0 40 40" ${aria} focusable="false" overflow="visible">${inner}</svg>`;
+  /** 연출 층 유닛 (이동·등장·파괴) */
+  function fxUnitHtml(side, type, hp) {
+    if (!rich.on) return unitSvg(side, type, { hp });
+    const p = richUnitParts(side, type, { hp });
+    return richSvg(p.body) + richSvg(p.top);
+  }
+  function fxUnitEl(cs) {
+    const el = document.createElement('div');
+    el.className = rich.on ? 'fx-unit rich' : 'fx-unit';
+    el.style.width = el.style.height = cs + 'px';
+    return el;
+  }
+
   /* ---------- 보드 생성 ---------- */
   function buildBoard() {
     const cl = $('#col-labels'), rl = $('#row-labels');
@@ -411,6 +595,13 @@
     VB = N * CS;
     ALL_TILES = new Set(Array.from({ length: N * N }, (_, i) => i));
     document.documentElement.style.setProperty('--n', String(N));
+    // 리치 테마 지도 바탕 (장식 전용, 맨 아래 층). 기본 테마에서는 CSS 로 숨김
+    rich.canvas = document.createElement('canvas');
+    rich.canvas.className = 'rich-bg';
+    rich.canvas.setAttribute('aria-hidden', 'true');
+    rich.bgKey = '';
+    boardEl.appendChild(rich.canvas);
+    ensureRichDefs();
     for (let i = 0; i < N; i++) {
       cl.insertAdjacentHTML('beforeend', `<span>${i}</span>`);
       rl.insertAdjacentHTML('beforeend', `<span>${i}</span>`);
@@ -449,6 +640,10 @@
     let label = t('aria.unit', { side: S(u.side), unit: U(u.type), hp: u.hp, max: GAME_CONFIG.MAX_HP });
     if (done) label += ', ' + t('aria.done');
     else if (spent) label += ', ' + t('aria.actSpent');
+    if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
+      const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done });
+      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>`;
+    }
     return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>`;
   }
 
@@ -522,8 +717,21 @@
     let under = hatchDefs('hl-hatch'), over = '';
     const zones = signalZoneSets(st, shownSignals(st, me, sel));
     for (const side of GAME_CONFIG.ROUND_ORDER) under += regionSvg(zones[side], signalStyle(side));
-    if (deployTargetsSet) under += regionSvg(deployTargetsSet, moveStyle());
-    if (sel) {
+    if (deployTargetsSet) under += rich.on ? richCells(deployTargetsSet, DESIGN.rich.move) : regionSvg(deployTargetsSet, moveStyle());
+    if (sel && rich.on) {   // 리치: 평소 격자선 없음. 선택 시 이동 칸(흰 12% + 칸 윤곽)과 공격 대상 칸(붉은 윤곽)만
+      const ty = GAME_CONFIG.UNIT_TYPES[sel.type], M2 = DESIGN.rich.move, T2 = DESIGN.rich.target;
+      under += richCells(ui.moveSet, M2);
+      under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
+      if (ty.indirect) under += regionSvg(ui.atkSet, artyStyle());
+      if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += `<rect x="${cellX(p) + 1.3}" y="${cellY(p) + 1.3}" width="${CS - 2.6}" height="${CS - 2.6}" fill="none" stroke="${T2.line}" stroke-width="${T2.w}" vector-effect="non-scaling-stroke"/>`; }
+      if (ty.isSignal && sel.side === me) {
+        const R = GAME_CONFIG.COMBAT.signalRange, B = DESIGN.hl.sigBadge;
+        for (const a of st.units) {
+          if (a.side !== me || a.id === sel.id || !GAME_CONFIG.UNIT_TYPES[a.type].canAttack || manhattan(a, sel) > R) continue;
+          over += pillBadge(unitCx(a), cellY(a) + 3, `+${GAME_CONFIG.COMBAT.signalBonus}`, B, DESIGN.hl.signal.badge, '#fff');
+        }
+      }
+    } else if (sel) {
       const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
       under += regionSvg(ui.moveSet, moveStyle());
       under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
@@ -1130,10 +1338,8 @@
     const F = DESIGN.fx, rm = ui.reduceMotion, mul = speedMul();
     if (!full.some(seen)) return;   // 전혀 보이지 않는 이동은 재생하지 않음
     const cs = cellPx();
-    const el = document.createElement('div');
-    el.className = 'fx-unit';
-    el.style.width = el.style.height = cs + 'px';
-    el.innerHTML = unitSvg(side, type, { hp });
+    const el = fxUnitEl(cs);
+    el.innerHTML = fxUnitHtml(side, type, hp);
     // 시야 밖 구간에서는 DOM 에서 아예 빼서 위치가 남지 않게 함
     const attach = () => { if (!el.isConnected) fxLayer.appendChild(el); };
     const detach = () => el.remove();
@@ -1159,8 +1365,8 @@
         continue;
       }
       if (rm) { place(b.r, b.c); await rawWait(F.stepMsRM * mul); continue; }
-      await tween(F.stepMs * mul, (p) => {
-        const q = easeOut(p);
+      await tween((rich.on ? DESIGN.rich.stepMs : F.stepMs) * mul, (p) => {
+        const q = rich.on ? p * p * (3 - 2 * p) : easeOut(p);
         place(a.r + (b.r - a.r) * q, a.c + (b.c - a.c) * q);
       }, token);
     }
@@ -1185,12 +1391,10 @@
     if (!ui.reduceMotion) {
       const cs = cellPx();
       await Promise.all(list.map((e) => {
-        const el = document.createElement('div');
-        el.className = 'fx-unit';
-        el.style.width = el.style.height = cs + 'px';
+        const el = fxUnitEl(cs);
         el.style.transform = `translate(${e.pos.c * cs}px, ${e.pos.r * cs}px)`;
         el.style.opacity = '0';
-        el.innerHTML = unitSvg(e.side, e.unitType, { hp: GAME_CONFIG.MAX_HP });
+        el.innerHTML = fxUnitHtml(e.side, e.unitType, GAME_CONFIG.MAX_HP);
         fxLayer.appendChild(el);
         return tween(DESIGN.fx.fadeInMs * mul, (p) => { el.style.opacity = String(p); }, token).then(() => el.remove());
       }));
@@ -1210,12 +1414,20 @@
       svg.remove();
       return;
     }
-    const el = cells[idx(pos.r, pos.c)].dyn.querySelector('.unit');
-    if (!el) return;
+    const els = [...cells[idx(pos.r, pos.c)].dyn.querySelectorAll('.unit, .unit-top')];
+    if (!els.length) return;
+    let ring = null;
+    if (rich.on) {   // 리치: 대상 링이 붉게 깜빡임
+      const u = getUnitAt(ui.view, pos.r, pos.c), H2 = DESIGN.rich.hitRing;
+      const rr = ((u && DESIGN.rich.units[u.type]) || DESIGN.rich.units.infantry).ring * CS;
+      ring = fxSvg(`<circle cx="${cellX(pos) + 20}" cy="${cellY(pos) + 20}" r="${rr}" fill="${H2.line}" fill-opacity="0.22" stroke="${H2.line}" stroke-width="${H2.w}" vector-effect="non-scaling-stroke"/>`);
+    }
     await tween(F.shake.ms * mul, (p) => {
-      el.style.transform = `translateX(${(F.shake.amp * Math.sin(p * Math.PI * 6) * (1 - p)).toFixed(2)}px)`;
+      for (const el of els) el.style.transform = `translateX(${(F.shake.amp * Math.sin(p * Math.PI * 6) * (1 - p)).toFixed(2)}px)`;
+      if (ring) ring.style.opacity = String(Math.abs(Math.cos(p * Math.PI * 2)));
     }, token);
-    el.style.transform = '';
+    for (const el of els) el.style.transform = '';
+    if (ring) ring.remove();
   }
   /** 피해 숫자 -N (아군 오폭은 주황) */
   async function damageNumberFx(pos, amount, friendlyFire) {
@@ -1249,11 +1461,9 @@
     if (ui.reduceMotion) return;
     const token = ui.gameId, mul = speedMul(), X = DESIGN.fx.destroy;
     const cs = cellPx();
-    const el = document.createElement('div');
-    el.className = 'fx-unit';
-    el.style.width = el.style.height = cs + 'px';
+    const el = fxUnitEl(cs);
     el.style.transform = `translate(${ev.pos.c * cs}px, ${ev.pos.r * cs}px)`;
-    el.innerHTML = unitSvg(ev.side, ev.unitType, { hp: 0 });
+    el.innerHTML = fxUnitHtml(ev.side, ev.unitType, 0);
     fxLayer.appendChild(el);
     const cx = unitCx(ev.pos), cy = unitCy(ev.pos);
     const svg = fxSvg([[-7, 2], [0, -2], [7, 3]].map(([dx, dy]) => `<circle cx="${cx + dx}" cy="${cy + dy}" r="4" fill="${X.smoke}" opacity="0"/>`).join(''));
@@ -1406,6 +1616,18 @@
     const mine = ev.side === me;
     const tVis = vis.has(idx(ev.target.r, ev.target.c));
     const fVis = vis.has(idx(ev.from.r, ev.from.c));
+    if (rich.on && !ui.reduceMotion && tVis && fVis) {   // 리치: 공격자 → 대상 짧은 예광선 (양 끝이 모두 보일 때만)
+      const X = DESIGN.rich.tracer, x1 = cellX(ev.from) + 20, y1 = cellY(ev.from) + 20, x2 = cellX(ev.target) + 20, y2 = cellY(ev.target) + 20;
+      const svg = fxSvg(`<line x1="${x1}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="${X.line}" stroke-width="${X.w}" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`);
+      const ln = svg.firstChild;
+      await tween(X.ms * speedMul(), (p) => {
+        const a = Math.max(0, p * 1.6 - 0.6), b = Math.min(1, p * 1.6);
+        ln.setAttribute('x1', String(x1 + (x2 - x1) * a)); ln.setAttribute('y1', String(y1 + (y2 - y1) * a));
+        ln.setAttribute('x2', String(x1 + (x2 - x1) * b)); ln.setAttribute('y2', String(y1 + (y2 - y1) * b));
+      }, token);
+      svg.remove();
+      if (token !== ui.gameId) return;
+    }
     if (mine || tVis || fVis) {
       const who = mine ? REL(true, ev.unitType) : (fVis ? REL(false, ev.unitType) : { t: 'dice.enemyFire' });
       await showDice(ev, t('dice.title', { who, pos: P(ev.target) }), mine && ev.fogged, hotseat() && mine && ev.fogged);
@@ -2410,6 +2632,8 @@
     loadActPref();
     renderActSettings();
     applyScenarioStrings();
+    rich.on = false;
+    boardEl.classList.remove('rich', 'grid-on');
     if (save) { try { localStorage.setItem(SCEN_KEY, GAME_CONFIG.SCENARIO_ID); } catch (e) { /* 저장 불가 환경 */ } }
     fitLayout();
   }
@@ -2713,6 +2937,7 @@
     cell = Math.max(L.cellFloor, Math.min(L.cellMax, cell));   // cellMin 미만이면 하단 UI 를 우선 (지도가 더 작아짐)
     root.setProperty('--cell', cell + 'px');
     ui.cellSize = cell;
+    themeOnLayout();
   }
   let layoutRaf = 0;
   const onResize = () => { cancelAnimationFrame(layoutRaf); layoutRaf = requestAnimationFrame(() => { hideBalloon(); hideTip(); fitLayout(); }); };
@@ -2822,6 +3047,7 @@
     applyScenarioStrings();
     applyModeUi();
     renderActSettings();
+    renderThemeSettings();
     renderLegend();
     const diffSel = $('#difficulty-select');
     diffSel.innerHTML = profileOptionsHtml();
@@ -2863,6 +3089,38 @@
     syncSeg('#seg-signal', ui.showSignal);
     try { localStorage.setItem(SIGNAL_ZONE_KEY, ui.showSignal ? '1' : '0'); } catch (err) { /* 저장 불가 환경 */ }
     if (ui.state) render();
+  }
+
+  /* ---------- 화면 테마 (기본 / PC 리치) ---------- */
+  function setThemePref(v) {
+    ui.themePref = v;
+    try { localStorage.setItem(THEME_KEY, v); } catch (e) { /* 저장 불가 환경 */ }
+    applyTheme();
+  }
+  function setGridAlways(on) {
+    ui.gridAlways = !!on;
+    try { localStorage.setItem(GRID_KEY, ui.gridAlways ? '1' : '0'); } catch (e) { /* 저장 불가 환경 */ }
+    applyTheme();
+  }
+  /** 설정의 테마 항목: PC 넓은 화면에서만 보임 (좁은 화면·휴대폰 가로는 기본 테마 고정이라 숨김) */
+  function renderThemeSettings() {
+    const box = $('#theme-rows');
+    if (!box) return;
+    box.hidden = !richLayout();
+    const art = !!scenArt(), want = wantTheme();
+    document.querySelectorAll('#seg-theme [data-theme]').forEach((b) => {
+      const a = b.dataset.theme === want;
+      b.classList.toggle('active', a);
+      b.setAttribute('aria-pressed', String(a));
+      if (b.dataset.theme === 'rich') b.disabled = !art;
+    });
+    syncSeg('#seg-grid', ui.gridAlways);
+    document.querySelectorAll('#seg-grid [data-v]').forEach((b) => { b.disabled = !art || want !== 'rich'; });
+    const note = !art ? t('theme.noArt') : artStatus() === 'fail' && want === 'rich' ? t('theme.loadFail') : artStatus() === 'loading' && want === 'rich' ? t('theme.loading') : '';
+    const el = $('#theme-note');
+    el.hidden = !note;
+    el.textContent = note;
+    el.title = note;
   }
 
   /* ---------- 행동 제한 설정 (시나리오별 localStorage). 값은 그 진영의 다음 턴부터 적용 ---------- */
@@ -2970,6 +3228,8 @@
   document.querySelectorAll('#seg-signal [data-v]').forEach((b) => { b.onclick = () => setShowSignal(b.dataset.v === '1'); });
   document.querySelectorAll('#seg-reduce [data-v]').forEach((b) => { b.onclick = () => setReduceMotion(b.dataset.v === '1'); });
   document.querySelectorAll('#seg-act [data-v]').forEach((b) => { b.onclick = () => setActPref({ on: b.dataset.v === '1' }); });
+  document.querySelectorAll('#seg-theme [data-theme]').forEach((b) => { b.onclick = () => setThemePref(b.dataset.theme); });
+  document.querySelectorAll('#seg-grid [data-v]').forEach((b) => { b.onclick = () => setGridAlways(b.dataset.v === '1'); });
   $('#btn-log').onclick = toggleDrawer;
   $('#logbar').onclick = toggleDrawer;
   $('#drawer-close').onclick = () => setDrawer(false, true);
@@ -3037,6 +3297,7 @@
   syncSeg('#seg-signal', ui.showSignal);
   loadActPref();   // 행동 제한 설정 (이 시나리오)
   setReduceMotion(initialReduceMotion(), false);
+  applyTheme();    // 그림 세트가 있으면 불러오기 시작 (끝날 때까지 기본 테마)
   setLanguage(initialLang());   // 정적 문구·범례·난이도 목록·화면을 현재 언어로
   showIntro();
 })();

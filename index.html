@@ -87,6 +87,13 @@
             <div class="seg" id="seg-signal" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
           <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.reduceMotion" data-i18n-title="tip.reduceMotion"></span>
             <div class="seg" id="seg-reduce" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div id="theme-rows">
+            <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.theme" data-i18n-title="tip.theme"></span>
+              <div class="seg" id="seg-theme" role="group" data-i18n-aria="lbl.theme"><button data-theme="basic" data-i18n="theme.basic"></button><button data-theme="rich" data-i18n="theme.rich"></button></div></div>
+            <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.gridAlways" data-i18n-title="tip.gridAlways"></span>
+              <div class="seg" id="seg-grid" role="group" data-i18n-aria="lbl.gridAlways"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+            <div class="hint tx theme-note" id="theme-note" role="status" hidden></div>
+          </div>
           <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.actLimit" data-i18n-title="tip.actLimit"></span>
             <div class="seg" id="seg-act" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
           <div id="act-rows" role="group"></div>
@@ -106,16 +113,18 @@
 </div>
 
 <div id="tooltip"></div>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 <div id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 
-<!-- 실행 순서가 중요: 문구 → 규칙 데이터 → AI 설정 → 시나리오(새 시나리오는 여기에 한 줄 추가) → 엔진 → 화면 -->
+<!-- 실행 순서가 중요: 문구 → 규칙 데이터 → AI 설정 → 시나리오(새 시나리오는 여기에 한 줄 추가) → 엔진 → 리치 지도 그림 → 화면 -->
 <script src="js/strings.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/ai-config.js"></script>
 <script src="js/scenarios/chuncheon.js"></script>
 <script src="js/scenarios/hostomel.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/rich-map.js"></script>
 <script src="js/ui.js"></script>
 </body>
 </html>

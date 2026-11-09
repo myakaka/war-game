@@ -70,5 +70,18 @@ SCENARIOS.push({
   },
   terrainNames: { paddy: 'terrain.marsh' },
   overlays: [{ kind: 'runway', col: 5, rows: [2, 13] }],
+  // 그림 세트 (PC 리치 테마 전용 장식 정보: 규칙 로직은 읽지 않음). 지형 키는 TERRAIN_TYPES 의 key
+  art: {
+    terrain: {
+      plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
+      paddy: 'assets/terrain/wetland.jpg', city: 'assets/terrain/urban.jpg',
+    },
+    terrainOffset: { city: [1.45, 2.2] },    // 도심 그림 시작 위치 (칸): 거울 대칭축(x 8.95·14.15, y 8.2·13.4)이 마을 경계 밖에 오게
+    unitSet: 'hostomel',                       // assets/units/<unitSet>/<병종 그림>.png
+    overlays: [
+      { type: 'runway', src: 'assets/overlays/hostomel/runway-strip.jpg' },   // 위치는 위 overlays 의 runway 표식
+      { type: 'patch', src: 'assets/overlays/hostomel/airfield-patch.jpg', rows: [6, 8], cols: [2, 3], pad: 0.1 },
+    ],
+  },
   arrivalRadius: 3,
 });

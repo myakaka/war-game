@@ -1,28 +1,27 @@
-# HANDOFF (2026-11-09) — 행동 제한 (rulesVersion 6)
+# HANDOFF (2026-11-10) — PC 리치 화면 테마 (규칙 변경 없음, rulesVersion 6 유지)
 
 ## 끝난 것과 검증
-- 행동 제한: 유닛이 그 턴 처음 이동·공격할 때 1회, 시나리오 `activations`(역할별: 춘천 5/6, 호스토멜 4/4), 플래그 `RULES.ENABLE_ACTIVATION_LIMIT`.
-- 플래그 끔: `node tools/check.js --legacy`가 v5 기준선(`tools/baseline-v5.json`)과 14개 항목 모두 SAME (시드 결과 + 턴 추적).
-- 플래그 켬: `tools/baseline.json`을 새로 저장(`--save`). `node tools/test.js` 통과 36, 실패 0, 해당 없음 2 (행동 제한 테스트 11개 추가).
-- 진단: `node tools/activations.js` (`diagnoseActivations`) — 조합별 100판, 오류 0, 한도 초과 0.
-- 화면(Chrome): 호스토멜 PC 한/영, 세로 390px(narrow), 가로 844px(compact)에서 HUD `행동 n/N`과 설정 항목 한 줄. 한도 소진 시 회색 유닛, 카드 "행동 한도 소진", 이동 칸 표시 없음, 턴 종료 강조. AI 턴 중 칩 숨김, 로그에 행동 문구 없음.
+- 작업 전 상태: git 태그 `stable-before-rich-ui` (이 폴더를 git 저장소로 새로 만듦, `assets-pack.zip` 은 .gitignore).
+- 엔진·규칙·AI 무변경: `node tools/check.js` 14개 항목 모두 SAME, `node tools/test.js` 통과 36·실패 0.
+- 화면 확인 (헤드리스 Edge + CDP, 스크립트는 세션 임시 폴더): 기본 테마와 휴대폰 세로·가로 화면의 지도 DOM과 HUD가 태그 버전과 글자 단위로 같음(두 시나리오). 안개 칸에 유닛·그림·배지 0개, 연출 중에도 0. 공격 측만 `rotate(180)`, 그림자 필터는 회전 바깥. 그림 하나를 지우면 기본 테마 + 상단 안내. file:// 로도 리치 동작. 창 크기·dpr 변경 시 캔버스 = 16 × 칸 × dpr.
 
 ## 주요 변경 위치
-- 엔진: `startActivations`(startTurn), `activationBlocked`(canUnitMove·canUnitAttack), `noteActivation`(moveUnit·resolveAttack), `activationStatus`, `aiActionOptions`·`aiPickOption`(aiChooseAction 분리, 난수 순서 같음), `aiActivationLoop`, `simulateGames`의 `res.activation`, `diagnoseActivations`·`ACTIVATION_COMBOS`, `buildGameRecord`의 `activationLimit`·`activationCustom`, `validateScenario`·`scenarioNotes`.
-- 상태: `state.act = {side, limit, used, ids}`는 한도가 있을 때만 만든다(없으면 상태 JSON이 v5와 같음). 화면은 `state.actLimits`(설정값)를 넣고, 시뮬레이션은 넣지 않는다.
-- 화면: `#hud-act`, `unitHtml`(`act-spent`), `unitStatus`·`actCardText`, `renderControls`(`act-out`), 설정 `#seg-act`·`#act-rows`(`loadActPref`·`setActPref`·`renderActSettings`, 키 `chuncheon1950.activationLimits`), 범례 hl 탭, 규칙 화면 `introActRuleHtml`.
+- `js/rich-map.js`(새 파일, engine 다음·ui 앞): 지도 바탕을 canvas 에 한 번 그림. 수치는 맨 위 `K`(지형 그림 크기, 블러, 마을 띠·덤불, 활주로, 비네트·입자).
+- `js/scenarios/hostomel.js`: `art` (지형 키별 그림, `terrainOffset.city`, `unitSet`, `overlays` runway/patch). 규칙 로직은 읽지 않음.
+- `js/ui.js`: `DESIGN.rich`(유닛 크기·링·배지·하이라이트·연출), `applyTheme`·`loadArt`·`paintRichBg`·`themeOnLayout`, `richUnitParts`(그림 층 `.unit` + 맨 위 층 `.unit-top`), `renderHighlights` 리치 분기(`richCells`), 이동 0.25초·예광선·피격 링, 설정 `renderThemeSettings`.
+- `index.html`(설정 `#theme-rows`, `#notice`), `css/style.css`(`#board.rich ...`), `js/strings.js`(테마 문구, 병종 배지 글자).
 
-## 확정된 결정 (모호했던 부분)
-- `activations` 키는 진영 id가 아니라 역할(def/att). 설정의 한도 범위는 1 ~ 그 진영 전체 병력(증원 포함), 그다음이 '제한 없음'.
-- AI 비교 값은 '대기 대비 이득'(gain). 대기보다 나은 후보가 없으면 한도를 남긴다. 산개전술 도하 최우선 이동은 먼저 실행.
-- 매복으로 제자리에 멈춘 이동도 1회 소모. 이동 후 공격할 대상이 없어 자동으로 행동이 끝난 유닛은 '행동 완료'.
-- 기록의 `activationLimit`은 각 진영에 마지막으로 적용된 한도이고, `activationCustom`은 한 번이라도 기본값과 다르게 적용됐는지. 기존 기록은 불러올 때 `null`/`false`로 채운다.
-- 기록 묶음(난이도별)은 그대로 두었다. 같은 조건끼리 비교하려면 기록의 두 필드로 거른다.
+## 확정된 결정
+- 리치는 넓은 PC 배치에서만 켜짐(좁은 화면·휴대폰 가로는 항상 기본, 설정 항목도 숨김). 기본값 = 너비 900px 이상 + `(hover: hover) and (pointer: fine)`. 저장 키 `chuncheon1950.theme`, `chuncheon1950.gridAlways`.
+- 지형·안개·하이라이트·거점 표식은 기존 DOM 그대로 두고, 리치에서는 칸별 지형 기호와 격자선만 숨기고 캔버스를 깐다(안개 판정 코드 공유).
+- 격자선 항상 보기는 체크박스 대신 기존 설정과 같은 켬/끔 세그먼트.
+- 마스크는 직접 만든 배열 + putImageData (getImageData·ctx.filter 안 씀). 강물 그림은 이웃 쪽 0.1칸 안으로 좁힘(장식만).
+- 공격 대상 표시는 리치에서 붉은 링 대신 붉은 칸 윤곽(유닛 링과 겹치지 않게).
 
 ## 알려진 문제
-- AI끼리 승률: 춘천은 한도를 걸어도 공격 84~95%, 호스토멜은 한도 4/3에서 공격 59%. 밸런스는 사람이 해 보고 판단할 것.
-- 춘천 국군 AI는 한도의 65~84%만 쓴다(대기가 더 나은 턴이 많음).
-- 2인 대전에서는 설정 팝업에 두 진영의 한도 숫자가 보인다(명세상 공개 정보). 소모 횟수는 보이지 않는다.
+- `dist/index.html` 은 `dist/assets/` 가 없어 리치 그림을 못 불러오고 기본 테마로 돌아감(안내 표시).
+- 안개 덮개는 칸 단위 사각형이라 안개 경계에서 칸 모양이 보임. 범례 그림은 기본 기호 그대로.
+- 실제 마우스 Chrome 에서는 아직 안 봄(헤드리스 Edge 로만 확인).
 
 ## 다음에 볼 곳
-- 한도 조절: `js/scenarios/*.js`의 `activations` 한 곳. 조합 비교는 `ACTIVATION_COMBOS`(engine.js)와 `node tools/activations.js`.
+- 그림 조정: `RICH_MAP.K`(rich-map.js), `DESIGN.rich`(ui.js), 시나리오 `art`.
