@@ -1,28 +1,25 @@
-# HANDOFF (2026-11-10) — PC 리치 화면 테마 + 공격 시 방향 전환 (규칙 변경 없음, rulesVersion 6 유지)
+# HANDOFF (2026-11-10) — PC 리치 테마 + 공격 방향 전환 + GitHub 배포 (규칙 변경 없음, rulesVersion 6 유지)
 
-## 끝난 것과 검증
-- 작업 전 상태: git 태그 `stable-before-rich-ui` (이 폴더를 git 저장소로 새로 만듦, `assets-pack.zip` 은 .gitignore).
-- 엔진·규칙·AI 무변경: `node tools/check.js` 14개 항목 모두 SAME, `node tools/test.js` 통과 36·실패 0.
-- 화면 확인 (헤드리스 Edge + CDP, 스크립트는 세션 임시 폴더): 기본 테마와 휴대폰 세로·가로 화면의 지도 DOM과 HUD가 태그 버전과 글자 단위로 같음(두 시나리오). 안개 칸에 유닛·그림·배지 0개, 연출 중에도 0. 공격 측만 `rotate(180)`, 그림자 필터는 회전 바깥. 그림 하나를 지우면 기본 테마 + 상단 안내. file:// 로도 리치 동작. 창 크기·dpr 변경 시 캔버스 = 16 × 칸 × dpr.
+## 오늘까지 한 것과 검증
+- 행동 제한(v6, 11-09) → PC 리치 화면 테마 → 공격 시 유닛 방향 전환(리치 전용 연출). 엔진·규칙·AI는 리치 작업에서 무변경: `node tools/check.js` 14개 모두 SAME, `node tools/test.js` 통과 36·실패 0.
+- 화면 확인은 헤드리스 Edge + CDP(Chrome 확장 미연결 시): 기본 테마·휴대폰 세로·가로의 지도 DOM과 HUD가 이전 버전과 같음, 안개 칸에 유닛·그림·배지 0, 그림 하나 빠지면 기본 테마 + 안내, file:// 동작, 창 크기·dpr 변경 시 다시 그림. 방향 전환: 보병 최대 60°, 포병 116.6° 등 전체 회전, 그림자 오프셋 고정, 링·배지 회전 0, 턴 끝나면 모두 원위치.
+- git: 저장소 https://github.com/myakaka/war-game (공개). 커밋 `1aeb516`(에셋 전, 태그 `stable-before-rich-ui`) → `e2d5c02`(리치 테마) → `af429fd`(방향 전환). 작성자 이메일 오타(gamil)를 고쳐 기록을 다시 썼고 push 전이라 문제 없음. 원격 주소는 `https://myakaka@github.com/...`(이 PC에 다른 계정 karynadd 로그인이 저장돼 있어 계정 지정).
+- 배포: GitHub Pages(master / root) → https://myakaka.github.io/war-game/ 에서 리치 테마까지 동작 확인. `git push` 하면 1~2분 뒤 반영.
 
 ## 주요 변경 위치
-- `js/rich-map.js`(새 파일, engine 다음·ui 앞): 지도 바탕을 canvas 에 한 번 그림. 수치는 맨 위 `K`(지형 그림 크기, 블러, 마을 띠·덤불, 활주로, 비네트·입자).
-- `js/scenarios/hostomel.js`: `art` (지형 키별 그림, `terrainOffset.city`, `unitSet`, `overlays` runway/patch). 규칙 로직은 읽지 않음.
-- `js/ui.js`: `DESIGN.rich`(유닛 크기·링·배지·하이라이트·연출), `applyTheme`·`loadArt`·`paintRichBg`·`themeOnLayout`, `richUnitParts`(그림 층 `.unit` + 맨 위 층 `.unit-top`), `renderHighlights` 리치 분기(`richCells`), 이동 0.25초·예광선·피격 링, 설정 `renderThemeSettings`.
-- 공격 방향 전환(리치 전용 연출): `faceAngle`·`turnUnit`·`resetAngles`, 임시 값 `rich.angle`(유닛 id → 각도, 엔진·저장 무관). 예광선과 같은 조건(양 끝이 보임·연출 줄이기 꺼짐)일 때만, 예광선과 동시에 0.15초 돌고 피격 연출 뒤 0.2초에 복귀(둘 다 기다리지 않아 연출 시간 증가 없음). 보병·대전차 ±60도(`DESIGN.rich.face.limit`). 턴 종료·연출 정리 때 0으로.
-- `index.html`(설정 `#theme-rows`, `#notice`), `css/style.css`(`#board.rich ...`), `js/strings.js`(테마 문구, 병종 배지 글자).
+- `js/rich-map.js`(engine 다음·ui 앞): 지도 바탕 canvas. 수치는 `K`.
+- `js/scenarios/hostomel.js` `art`(지형 그림, `terrainOffset.city`, `unitSet`, runway/patch). 규칙 로직은 읽지 않음.
+- `js/ui.js`: `DESIGN.rich`, `applyTheme`·`loadArt`·`paintRichBg`·`themeOnLayout`, `richUnitParts`(`.unit` 그림 층 + `.unit-top`), `richCells`, 예광선·피격 링, `faceAngle`·`turnUnit`·`resetAngles`(임시 값 `rich.angle`), `renderThemeSettings`.
+- `index.html`(`#theme-rows`, `#notice`), `css/style.css`(`#board.rich`), `js/strings.js`(테마 문구, 병종 배지).
 
 ## 확정된 결정
-- 리치는 넓은 PC 배치에서만 켜짐(좁은 화면·휴대폰 가로는 항상 기본, 설정 항목도 숨김). 기본값 = 너비 900px 이상 + `(hover: hover) and (pointer: fine)`. 저장 키 `chuncheon1950.theme`, `chuncheon1950.gridAlways`.
-- 지형·안개·하이라이트·거점 표식은 기존 DOM 그대로 두고, 리치에서는 칸별 지형 기호와 격자선만 숨기고 캔버스를 깐다(안개 판정 코드 공유).
-- 격자선 항상 보기는 체크박스 대신 기존 설정과 같은 켬/끔 세그먼트.
-- 마스크는 직접 만든 배열 + putImageData (getImageData·ctx.filter 안 씀). 강물 그림은 이웃 쪽 0.1칸 안으로 좁힘(장식만).
-- 공격 대상 표시는 리치에서 붉은 링 대신 붉은 칸 윤곽(유닛 링과 겹치지 않게).
+- 리치는 넓은 PC 배치에서만(좁은 화면·휴대폰 가로는 기본 고정, 설정 항목 숨김). 기본값 = 너비 900px + 마우스. 키 `chuncheon1950.theme`, `chuncheon1950.gridAlways`.
+- 안개·하이라이트·거점 표식은 기존 DOM 그대로, 리치는 칸 지형 기호·격자선만 숨기고 캔버스를 깐다. 공격 대상은 붉은 칸 윤곽.
+- 방향 전환은 예광선과 같은 조건에서만, 기다리지 않음(연출 시간 증가 없음). 보병·대전차 ±60°.
 
 ## 알려진 문제
-- `dist/index.html` 은 `dist/assets/` 가 없어 리치 그림을 못 불러오고 기본 테마로 돌아감(안내 표시).
-- 안개 덮개는 칸 단위 사각형이라 안개 경계에서 칸 모양이 보임. 범례 그림은 기본 기호 그대로.
-- 실제 마우스 Chrome 에서는 아직 안 봄(헤드리스 Edge 로만 확인).
+- `dist/index.html` 단독으로는 그림이 없어 기본 테마(배포는 루트 index.html 로 해결). 필요하면 bundle 이 assets 복사(A안) 또는 그림 내장(B안).
+- 안개 경계에서 칸 모양이 보임. 범례 그림은 기본 기호. 실제 마우스 Chrome 에서는 아직 안 봄.
 
 ## 다음에 볼 곳
-- 그림 조정: `RICH_MAP.K`(rich-map.js), `DESIGN.rich`(ui.js), 시나리오 `art`.
+- 그림 조정: `RICH_MAP.K`, `DESIGN.rich`, 시나리오 `art`. 행동 한도 조정: 시나리오 `activations`.
