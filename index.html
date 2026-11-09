@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chuncheon 1950</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-screen="start">
+<div id="app" class="wide">
+  <header id="hud">
+    <div class="hud-row" id="hud-r1">
+      <span class="hud-title nw" id="hud-title"></span>
+      <span class="chip" id="hud-round"></span>
+      <span class="chip blue" id="hud-turn"></span>
+      <span class="chip" id="hud-act" hidden></span>
+      <div class="seg lang-seg" id="lang-seg" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div>
+    </div>
+    <div class="hud-row" id="hud-r2">
+      <span class="hud-objs" id="hud-objs"></span>
+      <span class="chip orange" id="hud-goal"></span>
+      <span class="chip" id="hud-units"></span>
+      <span class="chip green" id="hud-reinf" hidden></span>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div id="map-col">
+      <div id="map-host">
+        <div class="board-wrap" id="board-wrap">
+          <div class="board-frame">
+            <div></div>
+            <div class="col-labels" id="col-labels"></div>
+            <div class="row-labels" id="row-labels"></div>
+            <div id="board"></div>
+          </div>
+          <div id="banner" class="turn-banner" aria-hidden="true"></div>
+          <div id="dice"></div>
+        </div>
+      </div>
+      <button id="logbar" class="logbar" aria-controls="drawer" aria-expanded="false">
+        <span class="tx" id="logbar-text"></span><span class="chip red sm" id="logbar-new" hidden></span><span class="lb-ind" id="logbar-ind" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <aside id="side">
+      <section id="card" class="card">
+        <button id="card-sum" class="card-sum" aria-expanded="false" aria-controls="card-full"></button>
+        <div id="card-full" class="card-full">
+          <div class="pane-head"><span class="pane-title" data-i18n="panel.unit"></span><button class="x-btn" id="card-close" data-i18n-aria="aria.close">×</button></div>
+          <div id="unit-info"></div>
+          <div class="card-btns" id="card-btns">
+            <button id="btn-wait" data-i18n="btn.wait"></button>
+            <button id="btn-deselect" data-i18n="btn.deselect"></button>
+          </div>
+        </div>
+      </section>
+      <section id="tray" class="tray" hidden></section>
+
+      <div class="controls" id="controls">
+        <button id="btn-end-turn" class="primary"><span class="tx" id="end-label"></span><span class="cnt" id="end-cnt"></span></button>
+        <div class="act-count" id="act-count"></div>
+        <div class="icon-row">
+          <button class="icon-btn" id="btn-log" aria-controls="drawer" aria-expanded="false"><span class="ic" aria-hidden="true">☰</span><span class="lb tx" data-i18n="btn.log"></span></button>
+          <button class="icon-btn" id="btn-legend" aria-controls="pop-legend" aria-expanded="false"><span class="ic" aria-hidden="true">ⓘ</span><span class="lb tx" data-i18n="btn.legend"></span></button>
+          <button class="icon-btn" id="btn-settings" aria-controls="pop-settings" aria-expanded="false"><span class="ic" aria-hidden="true">⚙</span><span class="lb tx" data-i18n="btn.settings"></span></button>
+        </div>
+      </div>
+
+      <div id="pop-legend" class="pop" role="dialog" hidden>
+        <div class="pane-head"><span class="pane-title" data-i18n="panel.legend"></span><button class="x-btn" data-close="legend" data-i18n-aria="aria.close">×</button></div>
+        <div class="tabs" role="tablist" id="legend-tabs">
+          <button class="tab" role="tab" data-tab="terrain" data-i18n="legend.tab.terrain"></button>
+          <button class="tab" role="tab" data-tab="units" data-i18n="legend.tab.units"></button>
+          <button class="tab" role="tab" data-tab="marks" data-i18n="legend.tab.marks"></button>
+          <button class="tab" role="tab" data-tab="hl" data-i18n="legend.tab.hl"></button>
+        </div>
+        <div class="pop-body"><div class="legend" id="legend" role="tabpanel"></div></div>
+      </div>
+
+      <div id="pop-settings" class="pop" role="dialog" hidden>
+        <div class="pane-head"><span class="pane-title" data-i18n="settings.title"></span><button class="x-btn" data-close="settings" data-i18n-aria="aria.close">×</button></div>
+        <div class="pop-body">
+          <div class="set-row"><span class="set-lbl tx" id="speed-label"></span>
+            <div class="seg" id="speed-seg" role="group"><button data-speed="slow" data-i18n="speed.slow"></button><button data-speed="normal" class="active" data-i18n="speed.normal"></button><button data-speed="fast" data-i18n="speed.fast"></button></div></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.signalToggle" data-i18n-title="tip.signalToggle"></span>
+            <div class="seg" id="seg-signal" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.reduceMotion" data-i18n-title="tip.reduceMotion"></span>
+            <div class="seg" id="seg-reduce" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.actLimit" data-i18n-title="tip.actLimit"></span>
+            <div class="seg" id="seg-act" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div id="act-rows" role="group"></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lang.label"></span>
+            <div class="seg" id="seg-lang" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div></div>
+          <div class="set-row" id="diff-wrap"><span class="set-lbl tx" data-i18n="lbl.aiDifficulty"></span><select id="difficulty-select"></select></div>
+          <div class="set-btns"><button id="btn-restart" data-i18n="btn.restart"></button><button id="btn-menu" data-i18n="btn.menu"></button></div>
+        </div>
+      </div>
+    </aside>
+
+    <aside id="drawer" role="complementary">
+      <div class="pane-head"><span class="pane-title tx" data-i18n="panel.log"></span><kbd>L</kbd><button class="x-btn" id="drawer-close" data-i18n-aria="aria.close">×</button></div>
+      <div id="log"></div>
+    </aside>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+<div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+
+<!-- 실행 순서가 중요: 문구 → 규칙 데이터 → AI 설정 → 시나리오(새 시나리오는 여기에 한 줄 추가) → 엔진 → 화면 -->
+<script src="js/strings.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/ai-config.js"></script>
+<script src="js/scenarios/chuncheon.js"></script>
+<script src="js/scenarios/hostomel.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
