@@ -4777,8 +4777,9 @@ const RICH_MAP = (() => {
   /** 기본값: 너비 900px 이상 + 마우스 환경이면 리치. 사용자가 고르면 그 선택 */
   const autoTheme = () => (window.innerWidth >= DESIGN.layout.wideMinW && !!window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches ? 'rich' : 'basic');
   const wantTheme = () => ui.themePref || autoTheme();
-  /** 리치 테마를 쓸 수 있는 화면 배치: PC 넓은 화면만 (좁은 화면·휴대폰 가로는 항상 기본) */
-  const richLayout = () => ui.wide && !ui.compact;
+  /** 리치 테마를 쓸 수 있는 화면 배치 (RICH_ON_PHONE 이 false 면 PC 넓은 화면만) */
+  const RICH_ON_PHONE = true;   // 시험: 휴대폰(좁은 화면·휴대폰 가로)에서도 설정에서 고르면 리치. 기본값은 여전히 autoTheme (휴대폰은 기본)
+  const richLayout = () => RICH_ON_PHONE || (ui.wide && !ui.compact);
   const artStatus = () => (rich.assets[GAME_CONFIG.SCENARIO_ID] || {}).status || null;
 
   /** 그림 세트 불러오기. 하나라도 실패하면 이 시나리오는 기본 테마로 */
@@ -7474,7 +7475,7 @@ const RICH_MAP = (() => {
     try { localStorage.setItem(GRID_KEY, ui.gridAlways ? '1' : '0'); } catch (e) { /* 저장 불가 환경 */ }
     applyTheme();
   }
-  /** 설정의 테마 항목: PC 넓은 화면에서만 보임 (좁은 화면·휴대폰 가로는 기본 테마 고정이라 숨김) */
+  /** 설정의 테마 항목: 리치를 쓸 수 있는 화면 배치에서만 보임 (RICH_ON_PHONE 이 false 면 PC 넓은 화면만) */
   function renderThemeSettings() {
     const box = $('#theme-rows');
     if (!box) return;
