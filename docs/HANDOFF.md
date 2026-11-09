@@ -1,4 +1,4 @@
-# HANDOFF (2026-11-10) — PC 리치 화면 테마 (규칙 변경 없음, rulesVersion 6 유지)
+# HANDOFF (2026-11-10) — PC 리치 화면 테마 + 공격 시 방향 전환 (규칙 변경 없음, rulesVersion 6 유지)
 
 ## 끝난 것과 검증
 - 작업 전 상태: git 태그 `stable-before-rich-ui` (이 폴더를 git 저장소로 새로 만듦, `assets-pack.zip` 은 .gitignore).
@@ -9,6 +9,7 @@
 - `js/rich-map.js`(새 파일, engine 다음·ui 앞): 지도 바탕을 canvas 에 한 번 그림. 수치는 맨 위 `K`(지형 그림 크기, 블러, 마을 띠·덤불, 활주로, 비네트·입자).
 - `js/scenarios/hostomel.js`: `art` (지형 키별 그림, `terrainOffset.city`, `unitSet`, `overlays` runway/patch). 규칙 로직은 읽지 않음.
 - `js/ui.js`: `DESIGN.rich`(유닛 크기·링·배지·하이라이트·연출), `applyTheme`·`loadArt`·`paintRichBg`·`themeOnLayout`, `richUnitParts`(그림 층 `.unit` + 맨 위 층 `.unit-top`), `renderHighlights` 리치 분기(`richCells`), 이동 0.25초·예광선·피격 링, 설정 `renderThemeSettings`.
+- 공격 방향 전환(리치 전용 연출): `faceAngle`·`turnUnit`·`resetAngles`, 임시 값 `rich.angle`(유닛 id → 각도, 엔진·저장 무관). 예광선과 같은 조건(양 끝이 보임·연출 줄이기 꺼짐)일 때만, 예광선과 동시에 0.15초 돌고 피격 연출 뒤 0.2초에 복귀(둘 다 기다리지 않아 연출 시간 증가 없음). 보병·대전차 ±60도(`DESIGN.rich.face.limit`). 턴 종료·연출 정리 때 0으로.
 - `index.html`(설정 `#theme-rows`, `#notice`), `css/style.css`(`#board.rich ...`), `js/strings.js`(테마 문구, 병종 배지 글자).
 
 ## 확정된 결정

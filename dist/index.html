@@ -4421,6 +4421,8 @@ const RICH_MAP = (() => {
       target: { line: '#FF4D42', w: 2.6 },
       stepMs: 250,                                       // 이동: 칸 중심 사이 미끄러짐
       tracer: { ms: 150, line: '#FFE6A0', w: 2.2 },        // 공격: 짧은 예광선
+      // 공격할 때 그림만 대상 방향으로 돌림 (연출만). limit: 기본 방향 기준 최대 회전각 (null = 제한 없음)
+      face: { turnMs: 150, backMs: 200, limit: { infantry: 60, antitank: 60 } },
       hitRing: { line: '#FF3B30', w: 3 },                 // 피격: 대상 링 붉게 깜빡임
       resizeMs: 200,                                     // 크기가 연속으로 바뀌면 이 시간 뒤에 한 번 다시 그림
       noticeMs: 4500,
@@ -4766,6 +4768,8 @@ const RICH_MAP = (() => {
     bgKey: '',       // 지금 캔버스에 그려진 (시나리오, 크기)
     timer: 0,
     canvas: null,
+    angle: new Map(),   // 유닛 id → 그림의 임시 회전각 (기본 방향 기준, 도). 화면 전용: 엔진·저장·이벤트와 무관
+    angTok: new Map(),  // 유닛 id → 진행 중인 회전 연출 번호 (새 회전이 오면 이전 것은 멈춤)
   };
   ui.themePref = (() => { try { const v = localStorage.getItem(THEME_KEY); return v === 'basic' || v === 'rich' ? v : null; } catch (e) { return null; } })();
   ui.gridAlways = (() => { try { return localStorage.getItem(GRID_KEY) === '1'; } catch (e) { return false; } })();
@@ -4875,7 +4879,8 @@ const RICH_MAP = (() => {
     const R = U.ring * CS;
     let body = `<circle cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="${RU.ringFill}" stroke="${D.line}" stroke-width="${RU.ringW}" vector-effect="non-scaling-stroke"/>`;
     if (opts.selected) body += `<circle class="pulse-sel" style="animation-duration:${DESIGN.hl.sel.pulseMs}ms" cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="0.16" stroke="${RU.selLine}" stroke-width="${RU.selW}" vector-effect="non-scaling-stroke"/>`;
-    const rot = ROLE(side) === 'att' ? ' transform="rotate(180 20 20)"' : '';
+    const deg = (ROLE(side) === 'att' ? 180 : 0) + (opts.angle || 0);   // 공격 측은 180도 + 임시 회전각
+    const rot = deg ? ` transform="rotate(${+deg.toFixed(2)} 20 20)"` : '';
     body += `<g filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})"><image href="${esc(im.src)}" x="${(20 - w / 2).toFixed(2)}" y="${(20 - h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"${rot}/></g>`;
     const B = RU.badge, txt = t('unit.' + type + '.badge');
     const bh = B.h * CS, bw = Math.max(bh, (B.charW * [...txt].length + 2 * B.pad) * CS);
@@ -4906,6 +4911,45 @@ const RICH_MAP = (() => {
     el.className = rich.on ? 'fx-unit rich' : 'fx-unit';
     el.style.width = el.style.height = cs + 'px';
     return el;
+  }
+
+  /* ---------- 공격할 때 방향 전환 (리치 전용, 연출만) ----------
+     그림 <image> 의 rotate 만 바꾼다. 그림자 필터는 그 바깥 <g> 에 걸려 있어 그림 모양을 따라 돌지만
+     오프셋은 회전하지 않음 (항상 오른쪽 아래). 링·배지·체력은 다른 요소라 돌지 않음 */
+  const normDeg = (a) => ((a % 360) + 540) % 360 - 180;   // (-180, 180]
+  /** 공격자 칸 중심 → 대상 칸 중심 방향을 기본 방향(방어 측 위, 공격 측 아래) 기준 회전각으로. 보병·대전차는 ±60도 */
+  function faceAngle(side, type, from, to) {
+    const abs = Math.atan2(to.c - from.c, -(to.r - from.r)) * 180 / Math.PI;   // 위 = 0, 시계 방향 +
+    let a = normDeg(abs - (ROLE(side) === 'att' ? 180 : 0));
+    const lim = DESIGN.rich.face.limit[type];
+    if (lim != null) a = Math.max(-lim, Math.min(lim, a));
+    return a;
+  }
+  /** 화면에 있는 그 유닛 그림에 회전각 적용 (현재 화면 상태에서 위치를 찾음. 없으면 값만 기록) */
+  function applyUnitAngle(id, a) {
+    if (a) rich.angle.set(id, a); else rich.angle.delete(id);
+    const u = ui.view && getUnit(ui.view, id);
+    if (!u || !rich.on) return;
+    const im = cells[idx(u.r, u.c)].dyn.querySelector('.unit image');
+    if (!im) return;
+    const deg = (ROLE(u.side) === 'att' ? 180 : 0) + a;
+    if (deg) im.setAttribute('transform', `rotate(${+deg.toFixed(2)} 20 20)`); else im.removeAttribute('transform');
+  }
+  /** 지금 각도에서 목표 각도로 (짧은 쪽으로) 돌림. 같은 유닛의 새 회전이 시작되면 이전 회전은 그 자리에서 멈춤 */
+  function turnUnit(id, to, ms) {
+    const from = rich.angle.get(id) || 0, d = normDeg(to - from);
+    const my = (rich.angTok.get(id) || 0) + 1;
+    rich.angTok.set(id, my);
+    if (!d) return Promise.resolve();
+    return tween(ms * speedMul(), (p) => {
+      if (rich.angTok.get(id) !== my) return;
+      applyUnitAngle(id, from + d * (p * p * (3 - 2 * p)));
+    });
+  }
+  /** 모든 임시 회전값을 0으로 (턴이 넘어갈 때·연출 정리) */
+  function resetAngles() {
+    for (const id of [...rich.angle.keys()]) { rich.angTok.set(id, (rich.angTok.get(id) || 0) + 1); applyUnitAngle(id, 0); }
+    rich.angle.clear();
   }
 
   /* ---------- 보드 생성 ---------- */
@@ -4963,7 +5007,7 @@ const RICH_MAP = (() => {
     if (done) label += ', ' + t('aria.done');
     else if (spent) label += ', ' + t('aria.actSpent');
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
-      const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done });
+      const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0 });
       return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>`;
     }
     return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>`;
@@ -5644,6 +5688,7 @@ const RICH_MAP = (() => {
   }
   /** 연출 층 정리 (다시 시작·처음 화면·가림막) */
   function clearFx() {
+    resetAngles();
     if (fxLayer) fxLayer.innerHTML = '';
     ui.anim = { hideUnits: new Set(), hideFlag: null };
     const b = bannerEl;
@@ -5938,10 +5983,12 @@ const RICH_MAP = (() => {
     const mine = ev.side === me;
     const tVis = vis.has(idx(ev.target.r, ev.target.c));
     const fVis = vis.has(idx(ev.from.r, ev.from.c));
+    const faced = rich.on && !ui.reduceMotion && tVis && fVis ? ev.attackerId : null;   // 방향 전환: 예광선과 같은 조건 (보이는 공격만)
     if (rich.on && !ui.reduceMotion && tVis && fVis) {   // 리치: 공격자 → 대상 짧은 예광선 (양 끝이 모두 보일 때만)
       const X = DESIGN.rich.tracer, x1 = cellX(ev.from) + 20, y1 = cellY(ev.from) + 20, x2 = cellX(ev.target) + 20, y2 = cellY(ev.target) + 20;
       const svg = fxSvg(`<line x1="${x1}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="${X.line}" stroke-width="${X.w}" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`);
       const ln = svg.firstChild;
+      turnUnit(faced, faceAngle(ev.side, ev.unitType, ev.from, ev.target), DESIGN.rich.face.turnMs);   // 예광선과 동시에 (기다리지 않음)
       await tween(X.ms * speedMul(), (p) => {
         const a = Math.max(0, p * 1.6 - 0.6), b = Math.min(1, p * 1.6);
         ln.setAttribute('x1', String(x1 + (x2 - x1) * a)); ln.setAttribute('y1', String(y1 + (y2 - y1) * a));
@@ -5961,6 +6008,7 @@ const RICH_MAP = (() => {
     if (token !== ui.gameId) return;
     const dmg = events.filter((e) => (e.type === 'damage' || e.type === 'splashDamage') && vis.has(idx(e.pos.r, e.pos.c)));
     await Promise.all(dmg.map((e) => shakeFx(e.pos)));
+    if (faced) turnUnit(faced, 0, DESIGN.rich.face.backMs);   // 공격 연출이 끝나면 원래 방향으로 (기다리지 않음)
     if (token !== ui.gameId) return;
     ui.view = post; render();
     const dead = events.filter((e) => e.type === 'destroyed' && vis.has(idx(e.pos.r, e.pos.c)));
@@ -6430,6 +6478,7 @@ const RICH_MAP = (() => {
     ui.selectedId = null;
     ui.inspectId = null;
     hideTip();
+    resetAngles();
     const ended = ui.state.turn;
     const events = endTurn(ui.state);
     ui.view = ui.state;
@@ -6606,10 +6655,11 @@ const RICH_MAP = (() => {
     if (token !== ui.gameId) return;
     ui.actingId = null;
     ui.view = st;
-    if (st.winner) { ui.busy = false; render(); showResult(); return; }
+    if (st.winner) { resetAngles(); ui.busy = false; render(); showResult(); return; }
     const events = endTurn(st);
     annotate(events, visMapOf(st));
     logEvents(events);
+    resetAngles();   // 턴이 넘어가면 임시 회전값 초기화
     ui.busy = false;
     const ownArrivals = holdArrivals(events);   // 플레이어 증원: 배너와 함께 나타남
     render();
