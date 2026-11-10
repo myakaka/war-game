@@ -39,6 +39,7 @@
       moveAtk: { hatch: 'rgba(46,111,208,0.7)', hatchW: 1.7, period: 6, line: '#1D4FA0', w: 1.6, dash: '2 3' },
       target: { line: '#D32F2F', w: 2.6, r: 18, r2: 21.5, pulseMs: 1400 },
       arty: { fill: 'rgba(200,140,40,0.14)', line: '#B7791F', w: 2.2, dash: '5 3' },
+      artyFog: { fill: 'rgba(200,140,40,0.05)', line: 'rgba(183,121,31,0.5)', w: 1.4, dash: '2 4' },   // 간접 화력 사거리 중 안개 속 칸 (fires 시나리오): 흐리게
       impact: { line: '#D32F2F', centerFill: 'rgba(211,47,47,0.3)', centerW: 2.4, sideFill: 'rgba(211,47,47,0.15)', sideW: 1.6, sideDash: '4 3' },
       ff: { line: '#F59E0B', w: 2.6, tri: '#F59E0B' },
       signal: { fill: 'rgba(20,160,170,0.16)', line: '#12A0AA', w: 2.2, dash: '4 3', badge: '#0E7C86', att: 'rgba(176,48,48,0.12)', attLine: '#B03030' },
@@ -75,6 +76,15 @@
     },
     /* 터치 */
     touch: { balloonMs: 3000 },
+    /* 화력 설정 메뉴 (fires 시나리오): 항목별 범위·간격. 시나리오 기본값에서 시작 */
+    fireSettings: [
+      { type: 'artillery', key: 'range', min: 2, max: 8, step: 1 },
+      { type: 'artillery', key: 'cooldown', min: 0, max: 2, step: 1 },
+      { type: 'mortar', key: 'range', min: 2, max: 6, step: 1 },
+      { type: 'mortar', key: 'cooldown', min: 0, max: 2, step: 1 },
+      { type: 'mortar', key: 'indirectPenalty', min: 0, max: 30, step: 5 },
+    ],
+    impactSmall: 0.55,     // 박격포(한 칸) 탄착 연출의 고리 크기 배수
     /* 좁은 화면 조작: 턴 종료 재확인 시간, 공격 확인 시트 (명중 단계 경계는 표시용이며 규칙값이 아님) */
     endArmMs: 3000,
     atkSheet: { hiAt: 60, loBelow: 40, maxChips: 4, margin: 6 },
@@ -93,6 +103,8 @@
         artillery: { img: 'artillery', by: 'h', size: 1.69, ring: 0.78 },
         recon: { img: 'recon', by: 'h', size: 1.28, ring: 0.67 },
         signal: { img: 'comms', by: 'h', size: 1.56, ring: 0.78 },
+        // 박격포: 그림(mortar.png)이 없거나 못 불러오면 포병 그림을 fallbackScale 배로 (그림 하나가 없어도 테마는 유지)
+        mortar: { img: 'mortar', by: 'w', size: 1.1, ring: 0.6, optional: true, fallback: 'artillery', fallbackScale: 0.7 },
       },
       ringFill: 0.18, ringW: 2.5, selW: 4.5, selLine: '#E8F1FF',
       shadow: { blur: 0.03, dx: 0.06, dy: 0.06, alpha: 0.35 },
@@ -293,6 +305,7 @@
       case 'recon': return `<path d="M12.5 24.5L27.5 13.5" ${s}/>`;
       case 'signal': return `<path d="M22.5 12.5L17 19.5L23 19L17.5 26" ${s}/>`;
       case 'antitank': return `<path d="M12.5 25L20 13L27.5 25" ${s}/>`;
+      case 'mortar': return `<circle cx="20" cy="23" r="2.4" fill="${col}"/><path d="M20 20.5V13.5M17 16.4L20 13.2L23 16.4" ${s}/>`;
       default: return '';
     }
   }
@@ -479,7 +492,11 @@
         else img[it.kind] = im;
         res();
       };
-      im.onerror = () => rej(new Error(it.src));
+      im.onerror = () => {
+        const U = it.kind === 'unit' && DESIGN.rich.units[it.key];
+        if (U && U.optional) { res(); return; }   // 선택 그림 (박격포): 없으면 대체 그림 사용
+        rej(new Error(it.src));
+      };
       im.src = it.src;
     }))).then(() => {
       rich.assets[id] = { status: 'ok', img };
@@ -556,8 +573,15 @@
    * 공격 측은 그림만 180도 회전 (그림자 필터는 회전 바깥에 걸어 방향이 같음)
    */
   function richUnitParts(side, type, opts = {}) {
-    const D = DESIGN.side[ROLE(side)], RU = DESIGN.rich, U = RU.units[type] || RU.units.infantry;
-    const im = richImg().unit[type] || richImg().unit.infantry;
+    const D = DESIGN.side[ROLE(side)], RU = DESIGN.rich;
+    let U = RU.units[type] || RU.units.infantry;
+    let im = richImg().unit[type];
+    if (!im && U.fallback && richImg().unit[U.fallback]) {   // 전용 그림이 없음 → 대체 병종 그림을 줄여서
+      const F = RU.units[U.fallback];
+      im = richImg().unit[U.fallback];
+      U = { ...F, size: F.size * U.fallbackScale, ring: U.ring };
+    }
+    if (!im) im = richImg().unit.infantry;
     const ar = im.w / im.h;
     const w = U.by === 'h' ? U.size * CS * ar : U.size * CS, h = U.by === 'h' ? U.size * CS : U.size * CS / ar;
     const R = U.ring * CS;
@@ -690,11 +714,15 @@
     let label = t('aria.unit', { side: S(u.side), unit: U(u.type), hp: u.hp, max: GAME_CONFIG.MAX_HP });
     if (done) label += ', ' + t('aria.done');
     else if (spent) label += ', ' + t('aria.actSpent');
+    // 쿨다운: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 사격 대기는 표시하지 않음)
+    const cool = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer ? cooldownTurnsLeft(ui.view, u) : 0;
+    if (cool) label += ', ' + t('aria.cooldown', { n: cool });
+    const coolHtml = cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>` : '';
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
       const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0 });
-      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>`;
+      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
     }
-    return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>`;
+    return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>${coolHtml}`;
   }
 
   /** 본부·거점 표식 (공개 정보) */
@@ -749,19 +777,28 @@
       const o = getUnitAt(st, p.r, p.c);
       if (o && o.side !== me && vis.has(i)) set.add(i);
     }
-    if (!ty.indirect) {
+    if (!ty.indirect || ty.moveFire) {
+      const R = fireRange(st, sel.side, sel.type);   // 간접 화력 설정이 없으면 병종 사거리
       for (const k of ui.moveAtkSet) {
         const p = posOf(k);
         for (const e of st.units) {
           if (e.side === me || !vis.has(idx(e.r, e.c))) continue;
           const d = manhattan(p, e);
-          if (d >= ty.rangeMin && d <= ty.rangeMax) set.add(idx(e.r, e.c));
+          if (d >= R.min && d <= R.max) set.add(idx(e.r, e.c));
         }
       }
     }
     return set;
   }
 
+  /** 간접 화력 사거리 영역. fires 시나리오는 진영 시야 안 칸(또렷)과 안개 속 칸(흐리게)을 나눠 그림 — 칸 구분만이고 적 유무는 드러내지 않음 */
+  function fireRegionSvg(st, me) {
+    if (!GAME_CONFIG.FIRES) return regionSvg(ui.atkSet, artyStyle());
+    const vis = getVisibleTiles(st, me), seen = new Set(), fog = new Set();
+    for (const i of ui.atkSet) (vis.has(i) ? seen : fog).add(i);
+    const F = DESIGN.hl.artyFog;
+    return regionSvg(fog, { fill: F.fill, line: F.line, w: F.w, dash: F.dash }) + regionSvg(seen, artyStyle());
+  }
   /** 상태 하이라이트 층 (아래: 영역 채움·사선·윤곽 / 위: 링·배지) */
   function renderHighlights(st, me, sel, deployTargetsSet = null) {
     let under = hatchDefs('hl-hatch'), over = '';
@@ -772,7 +809,7 @@
       const ty = GAME_CONFIG.UNIT_TYPES[sel.type], M2 = DESIGN.rich.move, T2 = DESIGN.rich.target;
       under += richCells(ui.moveSet, M2);
       under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
-      if (ty.indirect) under += regionSvg(ui.atkSet, artyStyle());
+      if (ty.indirect) under += fireRegionSvg(st, me);
       if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += `<rect x="${cellX(p) + 1.3}" y="${cellY(p) + 1.3}" width="${CS - 2.6}" height="${CS - 2.6}" fill="none" stroke="${T2.line}" stroke-width="${T2.w}" vector-effect="non-scaling-stroke"/>`; }
       if (ty.isSignal && sel.side === me) {
         const R = GAME_CONFIG.COMBAT.signalRange, B = DESIGN.hl.sigBadge;
@@ -785,7 +822,7 @@
       const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
       under += regionSvg(ui.moveSet, moveStyle());
       under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
-      if (ty.indirect) under += regionSvg(ui.atkSet, artyStyle());
+      if (ty.indirect) under += fireRegionSvg(st, me);
       if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += targetRing(unitCx(p), unitCy(p)); }
       // 통신 선택: 보너스를 받는 아군 공격 유닛 위에 +20 배지 (아군 통신만)
       if (ty.isSignal && sel.side === me) {
@@ -826,7 +863,7 @@
     ui.moveLeftAt = new Map();   // 칸 → 도착 시 남은 이동력 (자기 진영이 아는 정보만으로 계산됨)
     if (sel) {
       const selT = GAME_CONFIG.UNIT_TYPES[sel.type];
-      const showMoveAtk = GAME_CONFIG.ENABLE_MOVE_ATTACK && selT.canAttack && !selT.indirect;
+      const showMoveAtk = GAME_CONFIG.ENABLE_MOVE_ATTACK && selT.canAttack && !(selT.indirect && !selT.moveFire) && !onCooldown(st, sel);
       for (const tile of getReachableTiles(st, sel.id)) {
         const k = idx(tile.r, tile.c);
         ui.moveSet.add(k);
@@ -951,7 +988,11 @@
   const symHtml = (side, type) => `<span class="uc-sym" aria-hidden="true">${unitSvg(side, type, { noHp: true })}</span>`;
   /** 방어 보정 = 이 칸에 선 유닛을 노리는 공격의 명중률 보정의 반대 부호 (도심 -20% → 방어 +20) */
   const defModText = (ter) => { const d = -ter.hitMod; return d ? `${d > 0 ? '+' : ''}${d}` : '0'; };
-  const rangeText = (ty) => (ty.canAttack ? (ty.rangeMin === ty.rangeMax ? `${ty.rangeMax}` : `${ty.rangeMin}~${ty.rangeMax}`) : t('stat.rangeNone'));
+  const rangeText = (ty, u = null) => {
+    if (!ty.canAttack) return t('stat.rangeNone');
+    const R = u ? fireRange(ui.view, u.side, u.type) : { min: ty.rangeMin, max: ty.rangeMax };   // 간접 화력 설정 반영 (공개 값)
+    return R.min === R.max ? `${R.max}` : `${R.min}~${R.max}`;
+  };
 
   /** 카드에 보여 줄 유닛: 선택한 내 유닛, 또는 지금 보이는 유닛 (시야 밖은 null) */
   function cardUnit() {
@@ -970,9 +1011,13 @@
     const ty = GAME_CONFIG.UNIT_TYPES[u.type];
     const MA = GAME_CONFIG.ENABLE_MOVE_ATTACK;
     let note, chip;
+    const cool = !u.acted && cooldownTurnsLeft(ui.view, u);
     if (!u.acted && activationBlocked(ui.view, u)) {
       chip = { text: t('card.actSpent'), cls: 'chip orange' };
       note = t('status.actSpentNote');
+    } else if (cool) {   // 간접 화력 쿨다운 (내 유닛): 이동은 가능
+      chip = { text: t('card.cooldown'), cls: 'chip orange' };
+      note = (cool === 1 ? t('status.coolNext') : t('status.coolN', { n: cool })) + (u.moved ? '' : t('status.coolMove'));
     } else if (u.acted) {
       chip = { text: t('status.done'), cls: 'chip gray' };
       note = ui.note && ui.note.id === u.id ? t(ui.note.reason.k, ui.note.reason.p) : '';
@@ -982,11 +1027,12 @@
       note = reason ? t('status.movedBlocked', { reason: { t: reason.k, p: reason.p } }) : t('status.movedCanAttack', { left: moveLeftOf(u), cost: attackCost(u.type), pen: GAME_CONFIG.MOVE_ATTACK_PENALTY });
     } else if (u.moved) {
       chip = { text: t('card.moved'), cls: 'chip' };
-      note = (ty.indirect || !GAME_CONFIG.ATTACK_AFTER_MOVE) ? t('status.movedNoAttack') : t('status.movedLegacy');
+      note = ((ty.indirect && !ty.moveFire) || !GAME_CONFIG.ATTACK_AFTER_MOVE) ? t('status.movedNoAttack') : t('status.movedLegacy');
     } else {
       chip = { text: t('card.ready'), cls: 'chip green' };
       if (MA && !ty.indirect && ty.canAttack) note = t('status.idleMA', { cost: attackCost(u.type) });
-      else if (ty.indirect) note = t('status.idleArty', { range: `${ty.rangeMin}~${ty.rangeMax}` }) + (MA ? t('status.artyNoFireAfterMove') : '');
+      else if (ty.indirect && ty.moveFire) note = t('status.idleArty', { range: rangeText(ty, u) }) + (MA ? t('status.mortarMoveFire', { cost: attackCost(u.type), pen: GAME_CONFIG.MOVE_ATTACK_PENALTY }) : '');
+      else if (ty.indirect) note = t('status.idleArty', { range: rangeText(ty, u) }) + (MA ? t('status.artyNoFireAfterMove') : '');
       else note = t('status.idle');
     }
     return { chip, note };
@@ -996,10 +1042,10 @@
   function moveInfo(u) {
     const ty = GAME_CONFIG.UNIT_TYPES[u.type];
     const left = u.acted ? 0 : moveLeftOf(u);
-    const MA = GAME_CONFIG.ENABLE_MOVE_ATTACK && ty.canAttack && !ty.indirect;
+    const MA = GAME_CONFIG.ENABLE_MOVE_ATTACK && ty.canAttack && !(ty.indirect && !ty.moveFire);
     const cost = attackCost(u.type);
     let sub = '';
-    if (ty.indirect) sub = t('tip.artyMove');
+    if (ty.indirect && !ty.moveFire) sub = t('tip.artyMove');
     else if (!ty.canAttack) sub = t('card.noAtk');
     else if (MA && !u.acted) sub = t('card.maRange', { n: Math.max(0, left - cost) });
     return { left, max: ty.move, cost: MA ? cost : null, sub };
@@ -1039,7 +1085,7 @@
     }
     const e = effectiveStats(u);
     const cell = (k, v, base) => `<div><div class="k tx">${esc(t(k))}</div><div class="v">${v}${base != null && base !== v ? `<s>${base}</s>` : ''}</div></div>`;
-    h += `<div class="stat5">${cell('stat.atkSoft', e.atkSoft, ty.atkSoft)}${cell('stat.atkArmor', e.atkArmor, ty.atkArmor)}${cell('stat.def', e.def, ty.def)}${cell('stat.vision', ty.vision)}${cell('stat.range', rangeText(ty))}</div>`;
+    h += `<div class="stat5">${cell('stat.atkSoft', e.atkSoft, ty.atkSoft)}${cell('stat.atkArmor', e.atkArmor, ty.atkArmor)}${cell('stat.def', e.def, ty.def)}${cell('stat.vision', ty.vision)}${cell('stat.range', rangeText(ty, u))}</div>`;
     return h;
   }
 
@@ -1556,11 +1602,13 @@
     svg.remove();
   }
   /** 포격 착탄: 충격 링 + 중심/인접 섬광 + 파편 (연출 줄이기: 섬광 색칠만 정지 표시) */
-  async function impactFx(pos, vis) {
-    const token = ui.gameId, mul = speedMul(), X = DESIGN.fx.impact;
+  async function impactFx(pos, vis, single = false) {
+    const token = ui.gameId, mul = speedMul(), X0 = DESIGN.fx.impact;
+    const k = single ? DESIGN.impactSmall : 1;   // 박격포(한 칸): 같은 연출을 작게, 인접 칸 번쩍임 없음
+    const X = { ...X0, r1: X0.r1 * k, debris: Math.round(X0.debris * k) };
     const cx = cellX(pos) + 20, cy = cellY(pos) + 20;
     let flashes = `<rect x="${cellX(pos)}" y="${cellY(pos)}" width="${CS}" height="${CS}" fill="${X.center}"/>`;
-    for (const q of nbrs4(pos)) if (vis.has(idx(q.r, q.c))) flashes += `<rect x="${cellX(q)}" y="${cellY(q)}" width="${CS}" height="${CS}" fill="${X.side}"/>`;
+    if (!single) for (const q of nbrs4(pos)) if (vis.has(idx(q.r, q.c))) flashes += `<rect x="${cellX(q)}" y="${cellY(q)}" width="${CS}" height="${CS}" fill="${X.side}"/>`;
     if (ui.reduceMotion) {
       const svg = fxSvg(flashes);
       await rawWait(X.msRM * mul);
@@ -1580,7 +1628,7 @@
       ring.setAttribute('stroke-width', String(X.w0 + (X.w1 - X.w0) * p));
       ring.setAttribute('opacity', String(1 - p));
       for (const l of lines) {
-        const a = +l.dataset.a, r0 = 6 + 22 * easeOut(p), r1 = r0 + 6 * (1 - p);
+        const a = +l.dataset.a, r0 = (6 + 22 * easeOut(p)) * k, r1 = r0 + 6 * k * (1 - p);
         l.setAttribute('x1', String(cx + Math.cos(a) * r0)); l.setAttribute('y1', String(cy + Math.sin(a) * r0));
         l.setAttribute('x2', String(cx + Math.cos(a) * r1)); l.setAttribute('y2', String(cy + Math.sin(a) * r1));
         l.setAttribute('opacity', String(1 - p));
@@ -1712,7 +1760,7 @@
       if (token !== ui.gameId) return;
     }
     if (!ev.hit) { if (tVis) await missFx(ev.target); }
-    else if (ev.indirect && tVis) await impactFx(ev.target, vis);
+    else if (ev.indirect && tVis) await impactFx(ev.target, vis, GAME_CONFIG.UNIT_TYPES[ev.unitType].splash === false);
     else if (mine && !tVis && !hotseat()) pushLog(me, M('log.hitUnknown', null, me));
     if (token !== ui.gameId) return;
     const dmg = events.filter((e) => (e.type === 'damage' || e.type === 'splashDamage') && vis.has(idx(e.pos.r, e.pos.c)));
@@ -1938,7 +1986,7 @@
         break;
       }
       case 'units':
-        for (const type of Object.keys(GAME_CONFIG.UNIT_TYPES)) html += item(sw(unitSvg(DEF(), type, { noHp: true })), typeName(type));
+        for (const type of Object.keys(GAME_CONFIG.UNIT_TYPES).filter(scenarioHasType)) html += item(sw(unitSvg(DEF(), type, { noHp: true })), typeName(type));
         html += item(sw(unitSvg(DEF(), 'infantry', { noHp: true })), t('legend.sideSouth', SP()));
         html += item(sw(unitSvg(ATT(), 'infantry', { noHp: true })), t('legend.sideNorth', SP()));
         break;
@@ -1988,7 +2036,10 @@
     const hc = computeHitChance(st, sel.id, p);   // 확인창과 같은 함수·같은 값
     const H = DESIGN.hl;
     let g = '';
-    if (GAME_CONFIG.UNIT_TYPES[sel.type].indirect) {
+    const selTy = GAME_CONFIG.UNIT_TYPES[sel.type];
+    if (selTy.indirect && selTy.splash === false) {   // 박격포: 목표 칸만
+      g += `<rect x="${cellX(p)}" y="${cellY(p)}" width="${CS}" height="${CS}" fill="${H.impact.centerFill}" stroke="${H.impact.line}" stroke-width="${H.impact.centerW}"/>`;
+    } else if (selTy.indirect) {
       for (const q of nbrs4(p)) {
         g += `<rect x="${cellX(q)}" y="${cellY(q)}" width="${CS}" height="${CS}" fill="${H.impact.sideFill}" stroke="${H.impact.line}" stroke-width="${H.impact.sideW}" stroke-dasharray="${H.impact.sideDash}"/>`;
       }
@@ -2018,7 +2069,7 @@
         if (selU && ui.moveSet.has(i) && GAME_CONFIG.ENABLE_MOVE_ATTACK) {
           const selT = GAME_CONFIG.UNIT_TYPES[selU.type];
           const left = ui.moveLeftAt.get(i);
-          if (selT.indirect) pre = `<div class="hint">${esc(t('tip.artyMove'))}</div><hr style="border:0;border-top:1px solid var(--line);margin:6px 0">`;
+          if (selT.indirect && !selT.moveFire) pre = `<div class="hint">${esc(t('tip.artyMove'))}</div><hr style="border:0;border-top:1px solid var(--line);margin:6px 0">`;
           else if (selT.canAttack) {
             const cost = attackCost(selU.type);
             const ok = left >= cost;
@@ -2053,6 +2104,9 @@
     if (hc.fogged) {
       html += `<div class="big">${esc(t('hit.unknown'))}</div><div class="hint">${esc(t('hit.fogNote', { n: C.fogPenalty }))}</div>`;
       if (hc.movedAttack) html += `<div class="warn">${esc(t('hit.movedWarn', { n: GAME_CONFIG.MOVE_ATTACK_PENALTY }))}</div>`;
+      const ip = hc.parts.find((x) => x.key === 'indirect');   // 간접 사격 추가 감점 (고정값이라 안개와 무관)
+      if (ip) html += `<div class="warn">${esc(t('hit.indirectWarn', { n: ip.value }))}</div>`;
+      if (ty.fixedDamage != null) html += `<div class="hint">${esc(t('tgt.fixedDmg', { n: ty.fixedDamage }))}</div>`;
     } else {
       html += `<div class="big">${esc(hitHeadline(hc))}</div>`;
       html += `<div class="hint">${esc(hitFormulaLine(hc))}</div>`;
@@ -2068,7 +2122,8 @@
         html += `<div style="margin-top:4px" class="hint">${esc(t('tgt.empty'))}</div>`;
       }
     }
-    if (ty.indirect) {
+    if (ty.indirect && ty.splash === false) html += `<div class="hint">${esc(t('mortar.single'))}</div>`;
+    else if (ty.indirect) {
       html += `<div class="hint">${esc(t('arty.splash', { n: C.splashDamage }))}</div>`;
       const friendly = [];   // 오폭 경고는 자기 유닛만 (상대 정보 없음)
       const center = getUnitAt(st, p.r, p.c);
@@ -2120,19 +2175,22 @@
     const st = ui.state, me = ui.viewer;
     const S = DESIGN.atkSheet;
     const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
-    const tgtName = hc.fogged ? t('sheet.fog') : tu ? typeName(tu.type) : t('sheet.empty');
+    // 안개 속 칸: 대상 이름 대신 '미확인 칸', 명중률 '?' (적 유무를 드러내지 않음). 고정 피해 병종은 피해를 보여 줌 (대상과 무관한 값)
+    const tgtName = hc.fogged ? t('sheet.unknownCell') : tu ? typeName(tu.type) : t('sheet.empty');
     const pctTx = hc.fogged ? '?' : hc.chance + '%';
-    const sum = !hc.fogged && tu ? t('sheet.sum', { unit: U(sel.type), target: tgtName, pct: pctTx, dmg: hc.damage })
+    const dmg = ty.fixedDamage != null ? ty.fixedDamage : (!hc.fogged && tu ? hc.damage : null);
+    const sum = dmg != null ? t('sheet.sum', { unit: U(sel.type), target: tgtName, pct: pctTx, dmg })
       : t('sheet.sumNoDmg', { unit: U(sel.type), target: tgtName, pct: pctTx });
     const lvl = hc.fogged ? 'unk' : hc.chance >= S.hiAt ? 'hi' : hc.chance < S.loBelow ? 'lo' : 'mid';
     const sign = (v) => (v > 0 ? '+' : '\u2212') + Math.abs(v);
     // 칩: 기존 창이 보여 주는 보정 중 0 이 아닌 것만 (시야 밖이면 시야 밖·이동 후 공격만). 큰 값부터
-    const parts = hc.parts.filter((x) => x.key !== 'base' && x.value !== 0 && (!hc.fogged || x.key === 'fog' || x.key === 'moved'));
+    const parts = hc.parts.filter((x) => x.key !== 'base' && x.value !== 0 && (!hc.fogged || x.key === 'fog' || x.key === 'moved' || x.key === 'indirect'));
     const chips = parts.slice().sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .map((x) => ({ tx: `${partLabel(x, true)} ${sign(x.value)}`, cls: x.value < 0 ? 'red' : 'green' }));
-    if (ty.indirect) {   // 오폭 경고는 기존 창과 같은 조건 (자기 유닛만)
+    if (ty.indirect && ty.splash !== false) {   // 오폭 경고: 피해 범위(목표 + 인접 4칸)의 자기 유닛 수 (아군 위치는 늘 아는 정보)
       const near = [getUnitAt(st, target.r, target.c), ...DIRS.map(([dr, dc]) => getUnitAt(st, target.r + dr, target.c + dc))];
-      if (near.some((o) => o && o.side === me)) chips.unshift({ tx: t('sheet.ff'), cls: 'orange' });
+      const n = near.filter((o) => o && o.side === me).length;
+      if (n) chips.unshift({ tx: t('sheet.ffN', { n }), cls: 'red ff' });
     }
     const shown = chips.length > S.maxChips ? chips.slice(0, S.maxChips - 1) : chips;
     const more = chips.length - shown.length;
@@ -2491,6 +2549,7 @@
     ui.deploy = null;
     ui.state = createInitialState(done);
     ui.state.actLimits = actLimitsOf(ui.act);   // 설정 메뉴의 행동 한도 (시뮬레이션은 쓰지 않음)
+    if (GAME_CONFIG.FIRES) ui.state.firesOv = firesOvOf(ui.fire);   // 화력 설정 (fires 시나리오만. 없으면 상태에 키를 만들지 않음)
     const first = startTurn(ui.state);   // 첫 진영의 1라운드 예약 투입이 있으면 여기서 등장
     ui.view = ui.state;
     ui.selectedId = null;
@@ -2791,6 +2850,8 @@
     ui.view = ui.state;
     loadActPref();
     renderActSettings();
+    loadFirePref();
+    renderFireSettings();
     applyScenarioStrings();
     rich.on = false;
     boardEl.classList.remove('rich', 'grid-on');
@@ -2884,6 +2945,16 @@
     });
     return `<li>${esc(t('intro.act', { list }))}</li>`;
   }
+  /** 규칙 화면의 간접 화력 한 줄 (fires 시나리오만. 값은 시나리오 기본값 = 공개 정보) */
+  function introFireRuleHtml() {
+    const F = GAME_CONFIG.FIRES;
+    if (!F) return '';
+    const v = (type, k) => (F[type] && F[type][k] != null ? F[type][k] : 0);
+    let s = `<li>${esc(t(F.blindFire !== false ? 'intro.blindFire' : 'intro.noBlindFire', { n: GAME_CONFIG.COMBAT.fogPenalty }))}</li>`;
+    if (F.artillery) s += `<li>${esc(t('intro.artyCool', { range: v('artillery', 'range'), cd: v('artillery', 'cooldown') }))}</li>`;
+    if (F.mortar && scenarioHasType('mortar')) s += `<li>${esc(t('intro.mortar', { range: v('mortar', 'range'), cd: v('mortar', 'cooldown'), dmg: GAME_CONFIG.UNIT_TYPES.mortar.fixedDamage }))}</li>`;
+    return s;
+  }
   function showRules(back) {
     const C = GAME_CONFIG;
     const art = C.UNIT_TYPES.artillery;
@@ -2904,7 +2975,8 @@
         ${introMoveRuleHtml()}
         ${introActRuleHtml()}
         <li>${t('intro.pass')}</li>
-        <li>${t('intro.arty', { range: `${art.rangeMin}~${art.rangeMax}`, splash: C.COMBAT.splashDamage })}</li>
+        <li>${t('intro.arty', { range: rangeText(art, { side: sideByRole('def'), type: 'artillery' }), splash: C.COMBAT.splashDamage })}</li>
+        ${introFireRuleHtml()}
         ${introHitRuleHtml()}
         <li>${t('intro.symbols', SP())}</li>
         <li>${t('intro.fog')}</li>
@@ -3212,6 +3284,7 @@
     applyScenarioStrings();
     applyModeUi();
     renderActSettings();
+    renderFireSettings();
     renderThemeSettings();
     renderLegend();
     const diffSel = $('#difficulty-select');
@@ -3369,6 +3442,84 @@
     $('#btn-act-reset').onclick = () => setActPref(actDefaults());
   }
 
+  /* ---------- 화력 설정 (fires 시나리오, 시나리오별 localStorage). 값은 그 진영의 다음 턴부터 적용 ---------- */
+  const FIRE_KEY = 'chuncheon1950.fires';
+  const scenarioHasType = (type) => GAME_CONFIG.ROUND_ORDER.some((s) => GAME_CONFIG.DEPLOYMENT[s].some((d) => d.type === type) || GAME_CONFIG.REINFORCEMENTS.some((g) => g.side === s && g.type === type));
+  const fireItems = () => (GAME_CONFIG.FIRES ? DESIGN.fireSettings.filter((it) => GAME_CONFIG.FIRES[it.type] && scenarioHasType(it.type)) : []);
+  function fireDefaults() {
+    const F = GAME_CONFIG.FIRES || {}, p = {};
+    for (const it of fireItems()) { p[it.type] = p[it.type] || {}; p[it.type][it.key] = F[it.type][it.key] ?? 0; }
+    return p;
+  }
+  /** 저장값 → ui.fire = { 병종: { 항목: 값 } }. 범위를 벗어나거나 없는 값은 시나리오 기본값 */
+  function loadFirePref() {
+    const p = fireDefaults();
+    try {
+      const all = JSON.parse(localStorage.getItem(FIRE_KEY) || '{}');
+      const v = all && all[GAME_CONFIG.SCENARIO_ID];
+      if (v && typeof v === 'object') for (const it of fireItems()) {
+        const x = v[it.type] && v[it.type][it.key];
+        if (Number.isInteger(x) && x >= it.min && x <= it.max) p[it.type][it.key] = x;
+      }
+    } catch (e) { /* 저장 불가 환경 */ }
+    ui.fire = p;
+    return p;
+  }
+  function saveFirePref() {
+    try {
+      const all = JSON.parse(localStorage.getItem(FIRE_KEY) || '{}') || {};
+      all[GAME_CONFIG.SCENARIO_ID] = ui.fire;
+      localStorage.setItem(FIRE_KEY, JSON.stringify(all));
+    } catch (e) { /* 저장 불가 환경 */ }
+  }
+  /** 설정 → 엔진의 state.firesOv (안개 속 사격 여부는 넣지 않음: 시나리오 값만) */
+  const firesOvOf = (p) => JSON.parse(JSON.stringify(p || fireDefaults()));
+  function setFirePref(type, key, val) {
+    ui.fire = { ...ui.fire, [type]: { ...ui.fire[type], [key]: val } };
+    saveFirePref();
+    if (ui.state && GAME_CONFIG.FIRES) ui.state.firesOv = firesOvOf(ui.fire);   // engine startFires 가 그 진영의 다음 턴에 읽음
+    renderFireSettings();
+  }
+  function renderFireSettings() {
+    const box = $('#fire-rows');
+    const items = fireItems();
+    box.hidden = !items.length;   // 간접 화력 설정이 없는 시나리오(춘천)에서는 숨김
+    if (!items.length) { box.innerHTML = ''; return; }
+    if (!ui.fire || items.some((it) => !ui.fire[it.type] || ui.fire[it.type][it.key] == null)) loadFirePref();
+    const rows = items.map((it) => {
+      const v = ui.fire[it.type][it.key];
+      const lbl = t('fire.lbl.' + it.key, { unit: U(it.type) });
+      const val = t('fire.val.' + it.key, { n: v });
+      return `<div class="set-row act-row"><span class="set-lbl tx" title="${esc(lbl)}">${esc(lbl)}</span>`
+        + `<div class="stepper" role="group" aria-label="${esc(lbl + ': ' + val)}">`
+        + `<button type="button" data-fire="${it.type}.${it.key}" data-d="-1" aria-label="${esc(t('aria.fireDec', { what: lbl }))}"${v <= it.min ? ' disabled' : ''}>−</button>`
+        + `<output class="tx" aria-live="polite" title="${esc(val)}">${esc(val)}</output>`
+        + `<button type="button" data-fire="${it.type}.${it.key}" data-d="1" aria-label="${esc(t('aria.fireInc', { what: lbl }))}"${v >= it.max ? ' disabled' : ''}>+</button>`
+        + `</div></div>`;
+    }).join('');
+    box.innerHTML = `<div class="set-row"><span class="set-lbl tx" title="${esc(t('tip.fires'))}">${esc(t('lbl.fires'))}</span></div>` + rows
+      + `<div class="act-foot"><span class="hint tx" title="${esc(t('act.nextTurn'))}">${esc(t('act.nextTurn'))}</span>`
+      + `<button type="button" id="btn-fire-reset">${esc(t('btn.actReset'))}</button></div>`;
+    box.setAttribute('aria-label', t('lbl.fires'));
+    box.querySelectorAll('[data-fire]').forEach((b) => {
+      b.onclick = () => {
+        const [type, key] = b.dataset.fire.split('.'), d = Number(b.dataset.d);
+        const it = items.find((x) => x.type === type && x.key === key);
+        const next = Math.max(it.min, Math.min(it.max, ui.fire[type][key] + d * it.step));
+        setFirePref(type, key, next);
+        const again = box.querySelector(`[data-fire="${type}.${key}"][data-d="${d}"]`);
+        const back = box.querySelector(`[data-fire="${type}.${key}"][data-d="${-d}"]`);
+        if (again && !again.disabled) again.focus(); else if (back) back.focus();
+      };
+    });
+    $('#btn-fire-reset').onclick = () => {
+      ui.fire = fireDefaults();
+      saveFirePref();
+      if (ui.state && GAME_CONFIG.FIRES) ui.state.firesOv = firesOvOf(ui.fire);
+      renderFireSettings();
+    };
+  }
+
   /* ---------- 바인딩 ---------- */
   $('#btn-end-turn').onclick = onEndTurn;
   $('#btn-wait').onclick = () => {
@@ -3463,6 +3614,7 @@
   ui.view = ui.state;
   syncSeg('#seg-signal', ui.showSignal);
   loadActPref();   // 행동 제한 설정 (이 시나리오)
+  loadFirePref();   // 화력 설정 (이 시나리오, fires 가 있을 때만 항목이 생김)
   setReduceMotion(initialReduceMotion(), false);
   applyTheme();    // 그림 세트가 있으면 불러오기 시작 (끝날 때까지 기본 테마)
   setLanguage(initialLang());   // 정적 문구·범례·난이도 목록·화면을 현재 언어로

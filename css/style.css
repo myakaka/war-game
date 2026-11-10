@@ -526,6 +526,11 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
 #board.rich .unit-top svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .fx-unit.rich svg { position: absolute; left: 0; top: 0; }
 .theme-note { padding: 0 2px 6px; }
+/* 간접 화력 쿨다운 배지 (내 유닛만): 칸 오른쪽 위 */
+.cool-badge { position: absolute; top: 0; right: 0; z-index: 9; pointer-events: none; display: flex; }
+.cool-badge > span { background: #4B5563; color: #fff; border: 1px solid #F9FAFB; border-radius: 4px; padding: 0 2px; font-weight: 800; line-height: 1.15;
+  font-size: max(8px, calc(var(--cell) * 0.27)); white-space: nowrap; word-break: keep-all; }
+.atk-sheet .sh-chips .chip.ff { font-weight: 800; border-width: 2px; }   /* 포병 오폭 경고 칩: 붉은 색 강조 */
 .notice {
   position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
   background: rgba(20, 24, 32, 0.92); color: #f3f4f6; border: 1px solid var(--line); border-radius: 8px;

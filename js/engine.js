@@ -83,7 +83,7 @@ function normalizeDeployment(d) {
 function applyScenarioOverrides(s, ov) {
   if (!ov) return s;
   if (typeof ov === 'function') { ov(s); return s; }
-  const { rounds, moveArrivals, addDeployments, ...rest } = ov;
+  const { rounds, moveArrivals, addDeployments, fires, counts, ...rest } = ov;
   if (rounds != null) {
     s.rounds = rounds;
     for (const list of Object.values(s.victory)) for (const v of list) if (v.type === 'surviveRounds') v.rounds = rounds;
@@ -91,6 +91,16 @@ function applyScenarioOverrides(s, ov) {
   // moveArrivals: [{ side, from, to }] — from 라운드의 예약 투입을 to 라운드로
   for (const m of moveArrivals || []) for (const d of s.deployments) if (d.side === m.side && d.round === m.from) d.round = m.to;
   for (const d of addDeployments || []) s.deployments.push(JSON.parse(JSON.stringify(d)));
+  // fires: null = 간접 화력 설정 제거 (v6 규칙), 객체 = 시나리오 값에 깊게 합침
+  if (fires === null) delete s.fires;
+  else if (fires) s.fires = deepMerge(s.fires || {}, JSON.parse(JSON.stringify(fires)));
+  // counts: [{ side, type, count }] — 그 진영·병종의 예약 투입(cells 가 있는 항목) 수. 0 이면 항목 제거
+  for (const k of counts || []) {
+    const d = s.deployments.find((x) => x.side === k.side && x.type === k.type && x.cells);
+    if (!d) continue;
+    if (k.count <= 0) s.deployments.splice(s.deployments.indexOf(d), 1);
+    else d.count = k.count;
+  }
   Object.assign(s, rest);
   return s;
 }
@@ -179,6 +189,19 @@ function validateScenario(s) {
     if (typeof a !== 'object' || Object.keys(a).some((k) => k !== 'def' && k !== 'att')) E('scenErr.activations', { role: '-', n: '-' });
     else for (const role of ['def', 'att']) if (!(Number.isInteger(a[role]) && a[role] >= 1)) E('scenErr.activations', { role, n: a[role] });
   }
+  if (s.fires != null) {
+    const f = s.fires;
+    const int0 = (v) => Number.isInteger(v) && v >= 0;
+    if (typeof f !== 'object') E('scenErr.fires', { key: 'fires', v: String(f) });
+    else for (const [k, v] of Object.entries(f)) {
+      if (k === 'blindFire') { if (typeof v !== 'boolean') E('scenErr.fires', { key: k, v: String(v) }); continue; }
+      if (!UNIT_TYPES[k] || !UNIT_TYPES[k].indirect || !v || typeof v !== 'object') { E('scenErr.fires', { key: k, v: '-' }); continue; }
+      for (const [kk, vv] of Object.entries(v)) {
+        if (!['range', 'cooldown', 'indirectPenalty'].includes(kk) || !int0(vv)) E('scenErr.fires', { key: `${k}.${kk}`, v: String(vv) });
+        else if (kk === 'range' && vv < UNIT_TYPES[k].rangeMin) E('scenErr.fires', { key: `${k}.${kk}`, v: String(vv) });
+      }
+    }
+  }
   return errs;
 }
 
@@ -253,6 +276,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.OVERLAYS = JSON.parse(JSON.stringify(s.overlays || []));
   C.ARRIVAL_RADIUS = s.arrivalRadius ?? RULES.ARRIVAL_RADIUS;
   C.ACTIVATIONS = s.activations ? { def: s.activations.def ?? null, att: s.activations.att ?? null } : null;   // 역할별 행동 한도 (null = 제한 없음)
+  C.FIRES = s.fires ? JSON.parse(JSON.stringify(s.fires)) : null;   // 간접 화력 설정 (null = v6 규칙)
   C.ANCHORS = {};
   for (const side of C.ROUND_ORDER) {
     const pts = norm.filter((d) => d.side === side).flatMap((d) => d.cells);
@@ -374,6 +398,7 @@ function createInitialState(deploy = null) {
 function startTurn(state) {
   for (const u of state.units) if (u.side === state.turn) { u.moved = false; u.acted = false; delete u.moveLeft; }
   startActivations(state);
+  startFires(state);
   const arrivals = processArrivals(state);   // 예약 투입 (이 진영, 이 라운드까지 예정된 것)
   updateMemory(state);
   return [{ type: 'turnStart', side: state.turn, round: state.round }, ...arrivals];
@@ -412,6 +437,65 @@ function noteActivation(state, u) {
   const a = state.act;
   if (a && a.side === u.side && !a.ids.includes(u.id)) { a.ids.push(u.id); a.used++; }
 }
+/* ---------- 간접 화력 (시나리오 fires, 규칙 v7) ----------
+ * GAME_CONFIG.FIRES 가 null 이면 v6 규칙 그대로 (병종 사거리, 쿨다운 없음, 사거리 안 모든 칸 사격, 상태에 새 값 없음).
+ * state.firesOv: 화면(설정 메뉴)이 정한 값 { artillery: {range, cooldown}, mortar: {...} }. 없으면(undefined) 시나리오 값.
+ *   그 진영의 턴이 시작될 때 state.firesNow[진영] 으로 옮겨 그 턴 동안 고정 (행동 제한 설정과 같은 방식). 시뮬레이션은 쓰지 않는다.
+ * 쿨다운: 쏜 유닛에 lastFiredRound(그 라운드 번호)를 저장. cooldown = c 이면 라운드 차이가 c 이하인 동안 사격 불가.
+ */
+function startFires(state) {
+  if (!GAME_CONFIG.FIRES || state.firesOv === undefined) return;
+  const now = state.firesNow || (state.firesNow = {});
+  now[state.turn] = state.firesOv ? deepMerge(GAME_CONFIG.FIRES, state.firesOv) : JSON.parse(JSON.stringify(GAME_CONFIG.FIRES));
+  now[state.turn].blindFire = GAME_CONFIG.FIRES.blindFire;   // 안개 속 사격 여부는 시나리오 값만
+}
+/** side 진영에 지금 적용되는 간접 화력 설정 (없으면 null = v6 규칙) */
+function firesOf(state, side) {
+  if (!GAME_CONFIG.FIRES) return null;
+  return (state && state.firesNow && state.firesNow[side]) || GAME_CONFIG.FIRES;
+}
+/** 병종의 사거리 { min, max } (side 진영의 간접 화력 설정 반영) */
+function fireRange(state, side, type) {
+  const t = GAME_CONFIG.UNIT_TYPES[type];
+  const f = firesOf(state, side);
+  const max = f && f[type] && f[type].range != null ? f[type].range : t.rangeMax;
+  return { min: t.rangeMin, max };
+}
+const inFireRange = (state, u, from, p) => { const R = fireRange(state, u.side, u.type), d = manhattan(from, p); return d >= R.min && d <= R.max; };
+/** 쿨다운 턴 수 (설정이 없거나 간접 화력이 아니면 0) */
+function fireCooldown(state, u) {
+  const f = firesOf(state, u.side);
+  return f && unitType(u).indirect && f[u.type] && f[u.type].cooldown ? f[u.type].cooldown : 0;
+}
+/** 지금 쿨다운 때문에 사격할 수 없는가 */
+function onCooldown(state, u) {
+  const c = fireCooldown(state, u);
+  return c > 0 && u.lastFiredRound != null && state.round - u.lastFiredRound <= c;
+}
+/**
+ * 화면용: 이 유닛이 사격하지 못하는 자기 진영 턴이 앞으로 몇 번 남았는가 (지금이 자기 턴이면 이번 턴 포함). 0 = 사격 가능.
+ * 상대 유닛의 값은 화면에 쓰지 않는다 (안개 규칙)
+ */
+function cooldownTurnsLeft(state, u) {
+  const c = fireCooldown(state, u);
+  if (!c || u.lastFiredRound == null) return 0;
+  const order = GAME_CONFIG.ROUND_ORDER;
+  // 자기 진영이 다음에 사격을 시도할 수 있는 턴의 라운드: 지금 자기 턴이고 아직 행동하지 않았으면 이번 라운드
+  const next = state.turn === u.side ? state.round + (u.acted ? 1 : 0)
+    : state.round + (order.indexOf(u.side) < order.indexOf(state.turn) ? 1 : 0);
+  return Math.max(0, u.lastFiredRound + c + 1 - next);
+}
+/** 간접 화력의 명중률 추가 감점 (%p, 0 이상) */
+function indirectPenaltyOf(state, u) {
+  const f = firesOf(state, u.side);
+  return f && unitType(u).indirect && f[u.type] && f[u.type].indirectPenalty ? f[u.type].indirectPenalty : 0;
+}
+/** 간접 화력이 안개 속 칸을 쏠 수 있는가 (fires 가 없으면 v6 규칙대로 가능) */
+function blindFireAllowed(state, side) {
+  const f = firesOf(state, side);
+  return !f || f.blindFire !== false;
+}
+
 /** 화면용: side 진영의 이번 턴 행동 현황. 그 진영의 턴이 아니거나 한도가 없으면 null (상대 것은 돌려주지 않음) */
 function activationStatus(state, side) {
   const a = state.act;
@@ -524,6 +608,8 @@ function attackPowerVs(attacker, defenderType) {
 
 /** 피해 = 공격력 - 방어력 (0 이하이면 minDamage) */
 function calcDamage(attacker, defender) {
+  const fixed = GAME_CONFIG.UNIT_TYPES[attacker.type].fixedDamage;
+  if (fixed != null) return fixed;   // 박격포: 명중 시 고정 피해
   const diff = attackPowerVs(attacker, defender.type) - effectiveStats(defender).def;
   return diff > 0 ? diff : GAME_CONFIG.COMBAT.minDamage;
 }
@@ -553,7 +639,7 @@ function moveAttackBlockReason(u) {
   if (!t.canAttack) return { k: 'ma.cannotAttackType' };
   if (!u.moved) return null;
   if (!GAME_CONFIG.ENABLE_MOVE_ATTACK) return { k: 'ma.movedNoAttack' };
-  if (t.indirect) return { k: 'ma.artyMoved' };
+  if (t.indirect && !t.moveFire) return { k: 'ma.artyMoved' };
   const left = moveLeftOf(u), cost = attackCost(u.type);
   if (left >= cost) return null;
   if (terrainAt(u.r, u.c).consumesAll && left === 0) return { k: 'ma.terrainEnd', p: { terrain: { t: terrainNameKey(terrainAt(u.r, u.c)) } } };
@@ -577,7 +663,7 @@ function rollDice(rng) { return 1 + Math.floor(rng() * diceSides()); }
  * movedAttack: 이동 후 공격이면 MOVE_ATTACK_PENALTY (ENABLE_MOVE_ATTACK 일 때만)
  * parts[]: { key, p, value } — key 는 언어와 무관한 항목 코드 (화면에서 'part.<key>' 문자열로 표시)
  */
-function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAttack = false }) {
+function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAttack = false, indirectPenalty = 0 }) {
   const C = GAME_CONFIG.COMBAT;
   const parts = [{ key: 'base', value: C.baseHit }];
   if (defender) {
@@ -589,6 +675,7 @@ function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAt
   if (signal) parts.push({ key: 'signal', value: C.signalBonus });
   if (fogged) parts.push({ key: 'fog', value: C.fogPenalty });
   if (movedAttack && GAME_CONFIG.ENABLE_MOVE_ATTACK) parts.push({ key: 'moved', value: GAME_CONFIG.MOVE_ATTACK_PENALTY });
+  if (indirectPenalty) parts.push({ key: 'indirect', value: -indirectPenalty });   // fires.<병종>.indirectPenalty (0 이면 항목 없음)
   const raw = parts.reduce((s, p) => s + p.value, 0);
   const chance = finalHitChance(raw);
   return { chance, raw, parts, sides: diceSides(), need: hitNeed(chance) };
@@ -614,7 +701,7 @@ function computeHitChance(state, attackerId, targetPos) {
   const movedAttack = isMoveAttack(a);
   const res = calcHitBreakdown({
     attacker: a, defender: target, terrain: terrainAt(targetPos.r, targetPos.c),
-    signal: hasSignalSupport(state, a), fogged, movedAttack,
+    signal: hasSignalSupport(state, a), fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, a),
   });
   return { ...res, fogged, movedAttack, targetId: target ? target.id : null, damage: target ? calcDamage(a, target) : 0, indirect: !!unitType(a).indirect };
 }
@@ -668,13 +755,15 @@ function canUnitAttack(state, u) {
   if (activationBlocked(state, u)) return false;
   const t = unitType(u);
   if (!t.canAttack) return false;
+  if (onCooldown(state, u)) return false;   // 간접 화력 쿨다운 (fires 가 없으면 항상 false)
+  const noMoveFire = t.indirect && !t.moveFire;   // 포병: 이동한 턴에는 사격 불가. 박격포(moveFire)는 다른 병종처럼 이동 후 공격 가능
   if (GAME_CONFIG.ENABLE_MOVE_ATTACK) {
     // 이동한 유닛: 포병은 불가, 그 외는 남은 이동력 >= 공격 비용일 때만
-    if (u.moved && (t.indirect || moveLeftOf(u) < attackCost(u.type))) return false;
+    if (u.moved && (noMoveFire || moveLeftOf(u) < attackCost(u.type))) return false;
     return true;
   }
   // 이동한 턴에는 공격 불가 (포병은 규칙 설정과 관계없이 항상)
-  if (u.moved && (t.indirect || !GAME_CONFIG.ATTACK_AFTER_MOVE)) return false;
+  if (u.moved && (noMoveFire || !GAME_CONFIG.ATTACK_AFTER_MOVE)) return false;
   return true;
 }
 
@@ -783,9 +872,10 @@ function getAttackableTiles(state, unitId) {
   const t = unitType(u);
   const out = [];
   if (t.indirect) {
+    // 사거리 안 모든 칸 (빈 칸·안개 속 포함). fires.blindFire 가 false 면 진영 시야 안의 칸만
+    const vis = blindFireAllowed(state, u.side) ? null : getVisibleTiles(state, u.side);
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      const d = manhattan(u, { r, c });
-      if (d >= t.rangeMin && d <= t.rangeMax) out.push({ r, c });
+      if (inFireRange(state, u, u, { r, c }) && (!vis || vis.has(idx(r, c)))) out.push({ r, c });
     }
   } else {
     const vis = getVisibleTiles(state, u.side);
@@ -822,7 +912,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
     const hits = [];
     const center = getUnitAt(state, targetPos.r, targetPos.c);
     if (center) hits.push({ unit: center, amount: calcDamage(a, center), splash: false });
-    if (t.indirect) {
+    if (t.indirect && t.splash !== false) {   // 포병: 인접 4칸 (적·아군 모두). 박격포는 한 칸만
       for (const [dr, dc] of DIRS) {
         const o = getUnitAt(state, targetPos.r + dr, targetPos.c + dc);
         if (o) hits.push({ unit: o, amount: GAME_CONFIG.COMBAT.splashDamage, splash: true });
@@ -839,6 +929,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   }
   a.moved = true;   // 공격 후 이동 불가
   a.acted = true;
+  if (GAME_CONFIG.FIRES && t.indirect) a.lastFiredRound = state.round;   // 쿨다운 기준 (fires 가 없으면 기록하지 않음)
   updateMemory(state);
   pushVictoryIfAny(state, events);
   return events;
@@ -997,8 +1088,15 @@ function buildAiContext(state, side, diff = null) {
   const plan = has('crossingPlan') && stored && stored.kind !== 'spread' ? stored : null;
   const spread = has('spreadCrossing') && stored && stored.kind === 'spread' ? stored : null;
   const anyTactics = featList.length > 0;
+  let others = null;   // 이 유닛을 뺀 아군 시야 (박격포 이동 후 사격 판단용, 필요할 때만 계산)
+  const visOthers = (u) => {
+    if (others && others.id === u.id) return others.vis;
+    const vis2 = getVisibleTiles({ units: state.units.filter((x) => x.id !== u.id) }, side);
+    others = { id: u.id, vis: vis2 };
+    return vis2;
+  };
   return {
-    side, vis, visibleEnemies, known, hqThreat, isAttacker, plan, spread, has, T, tactics: anyTactics,
+    side, vis, visibleEnemies, known, hqThreat, isAttacker, plan, spread, has, T, tactics: anyTactics, visOthers,
     allies: state.units.filter((u) => u.side === side),
     enemyArty: has('artyHunt') || plan ? aiEnemyArtillery(state, side, vis, T) : [],
   };
@@ -1420,10 +1518,11 @@ function aiEstimateThreat(state, ctx, u, pos) {
     const et = GAME_CONFIG.UNIT_TYPES[e.type];
     if (!et.canAttack) continue;
     const d = manhattan(e, pos);
-    if (et.indirect) { if (d < et.rangeMin || d > et.rangeMax) continue; }
-    else if (d > et.move + et.rangeMax) continue;
+    const R = et.indirect ? fireRange(state, enemyOf(u.side), e.type) : { min: et.rangeMin, max: et.rangeMax };
+    if (et.indirect && !et.moveFire) { if (d < R.min || d > R.max) continue; }
+    else if (d > et.move + R.max) continue;
     // 이동 후 공격 규칙: 다가와서 치는 적은 명중률 보정 (ENABLE_MOVE_ATTACK 가 꺼져 있으면 calcHitBreakdown 이 무시)
-    const hc = calcHitBreakdown({ attacker: e, defender: me, terrain: ter, signal: false, fogged: false, movedAttack: !et.indirect && d > et.rangeMax });
+    const hc = calcHitBreakdown({ attacker: e, defender: me, terrain: ter, signal: false, fogged: false, movedAttack: !(et.indirect && !et.moveFire) && d > R.max });
     total += (hc.chance / 100) * Math.min(calcDamage(e, me), me.hp);
   }
   return total * GAME_CONFIG.AI.UNIT_VALUE[u.type];
@@ -1481,10 +1580,31 @@ function aiScorePosition(state, ctx, u, pos, goals, diff) {
     case 'rear': {
       const nd = nearestKnownEnemyDist(ctx, pos);
       if (nd <= 1) s -= W.artyExposed;
+      const R = fireRange(state, u.side, u.type);
       let inRange = 0;
-      for (const e of ctx.known) { const d = manhattan(e, pos); if (d >= t.rangeMin && d <= t.rangeMax) inRange++; }
+      for (const e of ctx.known) { const d = manhattan(e, pos); if (d >= R.min && d <= R.max) inRange++; }
       s += W.artyInRange * Math.min(2, inRange);
-      if (!ctx.isAttacker && C.CROSSINGS.some((x) => { const d = manhattan(x, pos); return d >= t.rangeMin && d <= t.rangeMax; })) s += W.artyCoverCrossing;
+      if (!ctx.isAttacker && C.CROSSINGS.some((x) => { const d = manhattan(x, pos); return d >= R.min && d <= R.max; })) s += W.artyCoverCrossing;
+      break;
+    }
+    case 'mortarRear': {
+      // 박격포: 보이는 적과 2칸 이하인 칸은 피하고, 목표 쪽 앞(1~3칸)에 아군 보병이 있는 칸을 선호. 다음 턴 사거리 안의 아는 적
+      let nv = Infinity;
+      for (const e of ctx.visibleEnemies) nv = Math.min(nv, manhattan(e, pos));
+      if (nv <= 2) s -= W.mortarClose;
+      if (goals.length) {
+        const my = goalDistance(u.type, goals, pos);
+        let front = 0;
+        for (const a of ctx.allies) {
+          if (a.id === u.id || a.type !== 'infantry' || manhattan(a, pos) > 3) continue;
+          if (goalDistance(a.type, goals, a) < my) front++;
+        }
+        s += W.mortarBehind * Math.min(2, front);
+      }
+      const R = fireRange(state, u.side, u.type);
+      let inRange = 0;
+      for (const e of ctx.known) { const d = manhattan(e, pos); if (d >= R.min && d <= R.max) inRange++; }
+      s += W.artyInRange * Math.min(2, inRange);
       break;
     }
     case 'supportBehind': {
@@ -1549,7 +1669,7 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
   // battery: 어려움 대포병 사격 — 추정 위치의 적 포병을 가상의 표적으로 평가
   const target = tg.kind === 'visible' ? getUnitAt(state, tg.r, tg.c)
     : tg.kind === 'battery' ? { type: 'artillery', hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c } : null;
-  const hc = calcHitBreakdown({ attacker: u, defender: target, terrain: terrainAt(tg.r, tg.c), signal, fogged, movedAttack });
+  const hc = calcHitBreakdown({ attacker: u, defender: target, terrain: terrainAt(tg.r, tg.c), signal, fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, u) });
   const p = (hc.chance / 100) * (tg.kind === 'battery' ? tg.conf : 1);
   let s = 0;
   if (target) {
@@ -1563,7 +1683,7 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
   } else if (tg.kind === 'blind') {
     s += W.blindFire * (1 - tg.age / (AI.BLIND_FIRE_MAX_AGE + 1));
   }
-  if (t.indirect) {
+  if (t.indirect && t.splash !== false) {
     const splash = C.COMBAT.splashDamage;
     for (const [dr, dc] of DIRS) {
       const o = getUnitAt(state, tg.r + dr, tg.c + dc);
@@ -1580,11 +1700,15 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
 }
 
 /** 포병 사격 후보: 보이는 적 우선, 없으면 기억 기반 시야 밖 사격 */
-function aiArtilleryTargets(state, ctx, u, rng) {
+function aiArtilleryTargets(state, ctx, u, rng, from = u) {
   const AI = GAME_CONFIG.AI;
-  const t = unitType(u);
-  const inRange = (p) => { const d = manhattan(u, p); return d >= t.rangeMin && d <= t.rangeMax; };
+  const inRange = (p) => inFireRange(state, u, from, p);
   const list = [];
+  // 간접 화력 설정이 있는 시나리오: 보이는 적만 쏨 (안개 속 추측 사격·대포병 추정 사격은 하지 않음)
+  if (GAME_CONFIG.FIRES) {
+    for (const e of ctx.visibleEnemies) if (inRange(e)) list.push({ r: e.r, c: e.c, kind: 'visible' });
+    return list;
+  }
   // 어려움: 보이지 않는 적 포병(기억/추정 위치)에 대포병 사격 후보
   for (const a of ctx.enemyArty) {
     if (!inRange(a) || ctx.vis.has(idx(a.r, a.c))) continue;
@@ -1640,10 +1764,15 @@ function aiActionOptions(state, u, rng, diff) {
     let movedAttack = false;
     if (MA) {
       // 이동 후 공격: 포병 불가, 도착 후 남은 이동력 >= 공격 비용 (강 칸은 남은 이동력 0 이라 자동으로 제외)
-      if (!stay && (t.indirect || d.remaining < attackCost(u.type))) continue;
+      if (!stay && ((t.indirect && !t.moveFire) || d.remaining < attackCost(u.type))) continue;
       movedAttack = stay ? isMoveAttack(u) : true;   // 제자리: 매복 등으로 이미 이동한 유닛이면 보정 적용
     } else if (!stay && !GAME_CONFIG.ATTACK_AFTER_MOVE) continue;   // 이동하면 공격 불가
-    if (t.indirect) {
+    if (t.indirect && t.moveFire) {   // 박격포: 도착 칸에서 사거리 안의 보이는 적
+      // 이동하면 박격포 자신의 시야가 바뀜: 다른 아군이 보고 있거나 도착 칸에서도 보이는 적만 (이동 후 안개 속 사격이 되지 않게)
+      const keep = (p) => ctx.visOthers(u).has(idx(p.r, p.c)) || manhattan(d, p) <= t.vision;
+      const tgs = stay ? artyTargets : aiArtilleryTargets(state, ctx, u, rng, d).filter(keep);
+      for (const tg of tgs) options.push({ move: d.remaining == null ? d : { r: d.r, c: d.c }, target: tg, score: base + aiScoreAttack(state, ctx, u, d, tg, movedAttack) });
+    } else if (t.indirect) {
       if (stay) for (const tg of artyTargets) options.push({ move: d, target: tg, score: base + aiScoreAttack(state, ctx, u, d, tg) });
     } else {
       for (const [dr, dc] of DIRS) {
@@ -1851,6 +1980,11 @@ function simulateGames(n = 100, opts = {}) {
   const combat = { pairs: {}, terrain: {}, attacksByType: {}, moveAttacksByType: {}, atVsArmor: 0, atVsArmorMoved: 0 };
   const aiStats = { illegal: 0 };
   const actUse = {};   // 행동 제한: 역할별 { turns, used, limit } (한도가 있을 때만 채움 → 없으면 결과 형식이 v5 와 같음)
+  // 간접 화력 지표 (fires 가 있는 시나리오 또는 opts.fireStats 일 때만 → 없으면 결과 형식이 v6 와 같음)
+  const fs = (GAME_CONFIG.FIRES || opts.fireStats) ? {
+    shots: {}, fogShots: 0, fogHits: 0, visShots: 0, visHits: 0, ffShots: {}, ffDamage: {},
+    lossSum: perSide(0), capture: {}, mortarSeen: 0, mortarLost: 0,
+  } : null;
   const bump = (o, k, v = 1) => { o[k] = (o[k] || 0) + v; };
   // splitRng (기본 true): 주사위와 AI 노이즈를 서로 다른 시드 스트림으로. false 면 변경 전처럼 한 스트림
   const splitRng = opts.splitRng !== false;
@@ -1877,6 +2011,26 @@ function simulateGames(n = 100, opts = {}) {
           if (st.act.used > st.act.limit) throw new Error(t('err.activationExceeded'));
           const au = actUse[roleOf(turnSide)] || (actUse[roleOf(turnSide)] = { turns: 0, used: 0, limit: 0 });
           au.turns++; au.used += st.act.used; au.limit += st.act.limit;
+        }
+        if (fs) for (const a of actions) {
+          let shot = null;   // 지금 처리 중인 간접 사격 (뒤따르는 피해 이벤트를 묶음)
+          for (const e of a.events) {
+            if (e.type === 'diceRoll') {
+              shot = e.indirect ? { side: e.side, type: e.unitType, ff: 0 } : null;
+              if (!shot) continue;
+              bump(fs.shots, e.unitType);
+              if (e.fogged) { fs.fogShots++; if (e.hit) fs.fogHits++; } else { fs.visShots++; if (e.hit) fs.visHits++; }
+            } else if (shot && (e.type === 'damage' || e.type === 'splashDamage') && e.side === shot.side) {
+              const k = `${roleOf(shot.side)}:${shot.type}`;   // 쏜 역할·병종별
+              if (!shot.ff) bump(fs.ffShots, k);   // 아군 피해가 난 사격 1회
+              shot.ff += e.amount; bump(fs.ffDamage, k, e.amount);
+            } else if (e.type === 'captured' && e.side === ATT) {
+              const c = fs.capture[e.objectiveId] || (fs.capture[e.objectiveId] = { games: 0, sum: 0, seen: null });
+              if (c.seen !== i) { c.seen = i; c.games++; c.sum += st.round; }   // 판마다 처음 점령한 라운드
+            }
+            if (e.type === 'arrival' && e.unitType === 'mortar') fs.mortarSeen++;
+            if (e.type === 'destroyed' && e.unitType === 'mortar') fs.mortarLost++;
+          }
         }
         for (const a of actions) {
           for (const e of a.events) {
@@ -1931,6 +2085,10 @@ function simulateGames(n = 100, opts = {}) {
         if (st.winner) break;
         const tev = endTurn(st);
         if (detail) for (const e of tev) if (e.type === 'arrival') detail.arrivals[e.side]++;
+        if (fs) for (const e of tev) if (e.type === 'arrival' && e.unitType === 'mortar') fs.mortarSeen++;
+      }
+      if (fs) {
+        for (const s of SIDES) fs.lossSum[s] += sideTotalUnits(s) - (st.pending || []).filter((p) => p.side === s).length - st.units.filter((u) => u.side === s).length;
       }
       if (detail) {
         for (const s of SIDES) {
@@ -1981,6 +2139,20 @@ function simulateGames(n = 100, opts = {}) {
     antitankVsArmorMovedShare: avg(combat.atVsArmorMoved * 100, combat.atVsArmor),
   };
   res.illegalMoves = aiStats.illegal;
+  if (fs) {
+    const pct = (a, b) => (b ? +((a / b) * 100).toFixed(1) : null);
+    res.fires = {
+      shotsPerGame: Object.fromEntries(Object.entries(fs.shots).map(([k, v]) => [k, avg(v, done)])),
+      ffShotsPerGame: Object.fromEntries(Object.entries(fs.ffShots).map(([k, v]) => [k, avg(v, done)])),   // 아군 피해가 난 간접 사격 수 (판당, '역할:병종')
+      ffAvgDamage: Object.fromEntries(Object.entries(fs.ffShots).map(([k, v]) => [k, avg(fs.ffDamage[k], v)])),   // 그 사격 1회당 아군 피해 합
+      fogShare: pct(fs.fogShots, fs.fogShots + fs.visShots), // 간접 사격 중 안개 속 칸 비율 (%)
+      fogHitRate: pct(fs.fogHits, fs.fogShots),
+      visHitRate: pct(fs.visHits, fs.visShots),
+      avgLosses: Object.fromEntries(SIDES.map((s) => [s, avg(fs.lossSum[s], done)])),
+      captureRound: Object.fromEntries(Object.entries(fs.capture).map(([k, v]) => [k, { games: v.games, avgRound: avg(v.sum, v.games) }])),
+      mortarLostRate: pct(fs.mortarLost, fs.mortarSeen),
+    };
+  }
   if (Object.keys(actUse).length) {
     res.activation = Object.fromEntries(Object.entries(actUse).map(([role, v]) => [role, { avgUsed: avg(v.used, v.turns), useRate: avg(v.used * 100, v.limit) }]));
   }
@@ -2208,6 +2380,29 @@ function diagnoseScenario(id = 'hostomel', n = 100, opts = {}) {
 }
 
 /** 행동 제한 진단: 시나리오별 한도 조합 (def/att) */
+/**
+ * 간접 화력 진단 조합 (호스토멜). overrides 는 applyScenarioOverrides 형식 (fires 는 시나리오 값에 깊게 합침, null 이면 제거)
+ *   A = v6 규칙 (fires 없음, 박격포 0) · C = 시나리오 기본값
+ */
+const FIRE_COMBOS = {
+  A: { fires: null, counts: [{ side: 'att', type: 'mortar', count: 0 }] },
+  B: { counts: [{ side: 'att', type: 'mortar', count: 0 }] },
+  C: {},
+  D: { counts: [{ side: 'att', type: 'mortar', count: 1 }] },
+  E: { counts: [{ side: 'att', type: 'mortar', count: 3 }] },
+  F: { fires: { mortar: { cooldown: 1 } } },
+  G: { fires: { artillery: { cooldown: 0 } } },
+  H: { fires: { blindFire: false } },
+};
+/** 조합별 simulateGames 결과 (같은 시드). 반환: { 조합: res } */
+function diagnoseFires(n = 100, opts = {}) {
+  const out = {};
+  for (const [k, ov] of Object.entries(opts.combos || FIRE_COMBOS)) {
+    out[k] = simulateGames(n, { quiet: true, ...opts, scenario: opts.scenario || 'hostomel', overrides: JSON.parse(JSON.stringify(ov)), fireStats: true });
+  }
+  return out;
+}
+
 const ACTIVATION_COMBOS = {
   hostomel: [null, { def: 4, att: 4 }, { def: 3, att: 4 }, { def: 4, att: 3 }, { def: 5, att: 5 }],
   chuncheon: [null, { def: 5, att: 6 }, { def: 4, att: 6 }, { def: 5, att: 5 }, { def: 4, att: 4 }],
@@ -2295,5 +2490,6 @@ if (typeof module !== 'undefined' && module.exports) {
     buildGameRecord, summarizeGameRecords, aiUpdatePlan, resolveProfile, listTacticProfiles, compareTacticProfiles,
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,
     diagnoseActivations, activationStatus, activationLimits, hasActivated, activationBlocked, scenarioNotes, sideTotalUnits,
+    diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
   };
 }

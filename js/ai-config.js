@@ -27,7 +27,7 @@ const TACTIC_PROFILES = {
     weights: { noise: 0.3, risk: 1.4 },
     features: ['crossingPlan', 'signalFocus', 'reconSpotting', 'artyHunt'],
     constants: {
-      UNIT_ORDER: ['recon', 'artillery', 'armor', 'infantry', 'signal', 'antitank'],   // 정찰이 먼저 시야 확보 → 포병 사격
+      UNIT_ORDER: ['recon', 'artillery', 'mortar', 'armor', 'infantry', 'signal', 'antitank'],   // 정찰이 먼저 시야 확보 → 포병 사격
       MASS_MIN: 5,                    // 이 수 이상 모이기 전에는 강에 들어가지 않음
       MASS_TYPES: ['infantry', 'armor', 'antitank'],   // 집결 수에 세는 병종
       STAGE_RADIUS: 3,                // 집결 칸(아군 쪽 강변, 축 열)으로부터 이 거리 안이면 집결로 셈
@@ -86,7 +86,7 @@ const TACTIC_PROFILES = {
 const TACTIC_FEATURE_NEEDS = { crossingPlan: 'river', spreadCrossing: 'river' };
 
 const AI_CONFIG = {
-  UNIT_ORDER: ['artillery', 'armor', 'infantry', 'recon', 'signal', 'antitank'],
+  UNIT_ORDER: ['artillery', 'mortar', 'armor', 'infantry', 'recon', 'signal', 'antitank'],
   TOP_K: 3,                       // 상위 몇 개 중에서 고를지
   PICK_MARGIN: 0.5,               // 점수 비례 선택 시 최하위 후보에게 주는 기본 몫
   BLIND_FIRE_MAX_AGE: 5,          // 이 라운드 수 이내에 목격한 적만 시야 밖 사격
@@ -101,9 +101,9 @@ const AI_CONFIG = {
   DEFENDER_LEASH: 2,              // 수비 측 유닛이 가장 가까운 거점에서 벗어나도 되는 거리
   HQ_ALERT_RADIUS: 6,             // 수비 측: 본부 이 거리 안에 적이 보이면 요격
   PATH_COST: { plain: 1, city: 1, mountain: 3, river: 2, forest: 2, paddy: 2 },   // 목표 거리 계산용 근사 비용 (진입 불가는 지형의 impassableFor 를 따름)
-  UNIT_VALUE: { infantry: 1.0, armor: 1.6, artillery: 1.4, recon: 0.8, signal: 2.0, antitank: 1.3 },   // 통신은 고가치 표적
+  UNIT_VALUE: { infantry: 1.0, armor: 1.6, artillery: 1.4, recon: 0.8, signal: 2.0, antitank: 1.3, mortar: 1.2 },   // 통신은 고가치 표적
   // 병종별 보정 종류 (aiScorePosition 참고)
-  TYPE_BONUS: { artillery: 'rear', signal: 'supportBehind', recon: 'vision', armor: 'crossing', antitank: 'huntArmor' },
+  TYPE_BONUS: { artillery: 'rear', signal: 'supportBehind', recon: 'vision', armor: 'crossing', antitank: 'huntArmor', mortar: 'mortarRear' },
   WEIGHTS: {
     damage: 3.0,             // w1 예상 피해
     kill: 4.0,               // 격파 기대 보너스
@@ -130,6 +130,8 @@ const AI_CONFIG = {
     leash: 1.5,              // 수비 측: 거점 이탈 거리 1당 감점
     hqThreatTarget: 2.0,     // 수비 측: 본부를 위협하는 적 공격 시 가치 배수
     crossingFire: 1.5,       // 수비 측 포병: 도하 지점/강 위 목표 사격
+    mortarClose: 6.0,        // 박격포: 보이는 적과 2칸 이하인 칸 감점 (다른 칸이 없으면 그래도 감)
+    mortarBehind: 1.0,       // 박격포: 목표 쪽으로 1~3칸 앞에 있는 아군 보병 1기당 (최대 2기)
   },
   DEFAULT_PROFILE: 'normal',
   TACTIC_PROFILES,

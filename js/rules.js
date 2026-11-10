@@ -6,7 +6,7 @@
    ===================================================================== */
 const RULES = {
   MAX_HP: 4,
-  RULES_VERSION: 6,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations)
+  RULES_VERSION: 7,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로)
   ENABLE_ACTIVATION_LIMIT: true,            // true: 시나리오 activations 의 진영별 행동 한도 적용 · false: 한도 무시 (v5 와 완전히 같은 동작)
   ATTACK_AFTER_MOVE: false,                 // (ENABLE_MOVE_ATTACK 가 false 일 때만 사용) false: 한 유닛은 한 턴에 이동 또는 공격 중 하나만 (포병은 항상 false)
   ENABLE_MOVE_ATTACK: true,                 // true: 남은 이동력 >= 공격 비용이면 이동 후 공격 가능 (포병·통신 제외)
@@ -39,6 +39,8 @@ const UNIT_TYPES = {
   recon:     { move: 5, vision: 5, atkSoft: 1, atkArmor: 0, def: 1, rangeMin: 1, rangeMax: 1, canAttack: true, nameKey: 'unit.recon', symbol: 'recon' },
   signal:    { move: 2, vision: 3, atkSoft: 0, atkArmor: 0, def: 1, rangeMin: 0, rangeMax: 0, canAttack: false, isSignal: true, nameKey: 'unit.signal', symbol: 'signal' },
   antitank:  { move: 2, vision: 2, atkSoft: 1, atkArmor: 6, def: 2, rangeMin: 1, rangeMax: 1, canAttack: true, nameKey: 'unit.antitank', symbol: 'antitank' },
+  // 박격포: 간접 사격이지만 한 칸만 (splash: false), 이동 후 사격 가능 (moveFire), 명중 시 고정 피해 (fixedDamage). 이동·공격·방어는 보병과 같게 시작
+  mortar:    { move: 2, vision: 2, atkSoft: 3, atkArmor: 1, def: 3, rangeMin: 2, rangeMax: 4, canAttack: true, indirect: true, splash: false, moveFire: true, fixedDamage: 1, nameKey: 'unit.mortar', symbol: 'mortar' },
 };
 // 병종의 공격 비용은 RULES.ATTACK_COST_DIVISOR 로 계산 (attackCost)
 
@@ -76,6 +78,9 @@ const TERRAIN_TYPES = {
  *   overlays       장식 표식 (규칙 영향 없음). { kind: 'runway', col, rows:[a,b] }
  *   arrivalRadius  예약 투입 후보 칸이 막혔을 때 찾는 최대 거리
  *   activations    { def: N, att: M }  역할별 한 턴 행동 한도 (유닛이 그 턴 처음 이동·공격할 때 1회). 없거나 null 이면 제한 없음
+ *   fires          간접 화력 설정 (없으면 v6 규칙 그대로: 포병은 병종 사거리, 쿨다운 없음, 사거리 안 모든 칸 사격)
+ *                  { blindFire: bool (false 면 간접 화력은 보이는 칸만), <간접 병종>: { range, cooldown, indirectPenalty? } }
+ *                  range = 최대 사거리(최소는 병종 rangeMin), cooldown = 쏜 뒤 사격할 수 없는 자기 진영 턴 수, indirectPenalty = 명중률 추가 감점(%p)
  */
 const SCENARIOS = [];
 const DEFAULT_SCENARIO_ID = 'chuncheon';

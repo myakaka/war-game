@@ -384,3 +384,143 @@ test('validateScenario: activations 형식 검사', () => {
   assert.deepEqual([...E.validateScenario({ ...base, activations: { def: 99, att: 99 } })], [], '유닛 수보다 큰 한도는 오류가 아님');
   assert.ok(E.scenarioNotes({ ...base, activations: { def: 99, att: 99 } }).length === 2, '정보성 안내');
 });
+
+/* ---------------- 간접 화력 (규칙 v7, 시나리오 fires) ---------------- */
+// 화면 검증과 같은 방식으로 상태를 직접 놓고 판정만 확인 (수치는 시나리오·병종 데이터에서 읽음)
+function firesState(id = 'hostomel') {
+  E.loadScenario(id);
+  const st = E.createInitialState();
+  E.startTurn(st);
+  return st;
+}
+const put = (st, u) => { st.units.push({ moved: false, acted: false, hp: C().MAX_HP, ...u }); return st.units[st.units.length - 1]; };
+const clearAround = (st, keep) => { st.units = st.units.filter((u) => keep.includes(u.id)); };
+
+test('fires: 춘천에는 간접 화력 설정이 없고 포병 사거리·쿨다운이 v6 그대로', () => {
+  const st = firesState('chuncheon');
+  assert.equal(C().FIRES, null);
+  const a = st.units.find((u) => u.type === 'artillery' && u.side === st.turn);
+  const R = E.fireRange(st, a.side, 'artillery');
+  assert.equal(JSON.stringify(R), JSON.stringify({ min: C().UNIT_TYPES.artillery.rangeMin, max: C().UNIT_TYPES.artillery.rangeMax }));
+  assert.equal(E.fireCooldown(st, a), 0);
+  assert.ok(E.blindFireAllowed(st, a.side), 'v6: 포병은 사거리 안 모든 칸 (안개 속 포함)');
+});
+
+test('fires: 안개 속 칸 사격 가능, 시야 밖 감점은 진영 시야 기준 (쏘는 유닛이 못 봐도 아군이 보면 감점 없음)', () => {
+  const st = firesState();
+  const side = st.turn, F = C().FIRES;
+  const a = st.units.find((u) => u.side === side && u.type === 'artillery');
+  clearAround(st, [a.id]);
+  const far = { r: a.r - F.artillery.range, c: a.c };   // 포병 시야(1) 밖
+  const e = put(st, { id: 'A90', side: other(side), type: 'infantry', r: far.r, c: far.c });
+  assert.ok(E.getAttackableTiles(st, a.id).some((p) => p.r === far.r && p.c === far.c), '안개 속 칸도 목표');
+  let hc = E.computeHitChance(st, a.id, far);
+  assert.ok(hc.fogged && hc.parts.some((x) => x.key === 'fog' && x.value === C().COMBAT.fogPenalty));
+  put(st, { id: 'D90', side, type: 'recon', r: far.r + 1, c: far.c });   // 아군 정찰이 관측
+  hc = E.computeHitChance(st, a.id, far);
+  assert.ok(!hc.fogged && !hc.parts.some((x) => x.key === 'fog'));
+  assert.ok(e);
+});
+
+test('fires: blindFire=false 면 간접 화력은 진영 시야 안 칸만', () => {
+  E.loadScenario('hostomel', { fires: { blindFire: false } });
+  const st = E.createInitialState(); E.startTurn(st);
+  const a = st.units.find((u) => u.side === st.turn && u.type === 'artillery');
+  const vis = E.getVisibleTiles(st, a.side);
+  const list = E.getAttackableTiles(st, a.id);
+  assert.ok(list.length > 0 && list.every((p) => vis.has(p.r * C().MAP.length + p.c)));
+  E.loadScenario('hostomel');
+});
+
+test('fires: 포병은 쏜 뒤 자기 진영의 다음 턴에 사격 불가·이동 가능, 그다음 턴에 다시 가능 (인접 4칸 피해 유지)', () => {
+  const st = firesState();
+  const side = st.turn, cd = C().FIRES.artillery.cooldown;
+  assert.equal(cd, 1);
+  const a = st.units.find((u) => u.side === side && u.type === 'artillery');
+  clearAround(st, [a.id]);
+  const tgt = { r: a.r - 2, c: a.c };
+  const e = put(st, { id: 'A91', side: other(side), type: 'infantry', r: tgt.r, c: tgt.c });
+  const f = put(st, { id: 'D91', side, type: 'infantry', r: tgt.r, c: tgt.c + 1 });   // 인접 아군 (오폭 대상)
+  const ev = E.resolveAttack(st, a.id, tgt, () => 0);   // 주사위 최솟값 = 명중
+  assert.ok(ev.some((x) => x.type === 'splashDamage' && x.unitId === f.id), '인접 아군도 피해');
+  assert.ok(ev.some((x) => x.type === 'damage' && x.unitId === e.id));
+  assert.equal(a.lastFiredRound, st.round);
+  E.endTurn(st); E.endTurn(st);   // 상대 턴 → 다음 자기 턴
+  assert.equal(st.turn, side);
+  assert.equal(E.onCooldown(st, a), true);
+  assert.equal(E.getAttackableTiles(st, a.id).length, 0);
+  assert.ok(E.getReachableTiles(st, a.id).length > 0, '쿨다운 중에도 이동 가능');
+  assert.equal(E.cooldownTurnsLeft(st, a), 1);
+  E.endTurn(st); E.endTurn(st);
+  assert.equal(E.onCooldown(st, a), false);
+  assert.ok(E.getAttackableTiles(st, a.id).length > 0);
+});
+
+test('fires: 박격포는 이동 후 사격 가능, 한 칸만 고정 피해, 행동 1회', () => {
+  const st = firesState();
+  E.endTurn(st);   // 공격군 턴 (1라운드 투입)
+  const side = st.turn;
+  const m = st.units.find((u) => u.side === side && u.type === 'mortar');
+  assert.ok(m, '박격포 투입');
+  clearAround(st, [m.id]);
+  const T = C().UNIT_TYPES.mortar;
+  const reach = E.getReachableTiles(st, m.id).find((p) => p.remaining >= E.attackCost('mortar'));
+  E.moveUnit(st, m.id, reach);
+  const tgt = { r: m.r, c: m.c - 2 };
+  const e = put(st, { id: 'D92', side: other(side), type: 'armor', r: tgt.r, c: tgt.c });
+  const nb = put(st, { id: 'D93', side: other(side), type: 'infantry', r: tgt.r + 1, c: tgt.c });
+  put(st, { id: 'A92', side, type: 'recon', r: tgt.r, c: tgt.c + 1 });   // 관측
+  const hc = E.computeHitChance(st, m.id, tgt);
+  assert.ok(hc.movedAttack && hc.parts.some((x) => x.key === 'moved'));
+  assert.equal(hc.damage, T.fixedDamage);
+  const used = st.act ? st.act.used : null;
+  const ev = E.resolveAttack(st, m.id, tgt, () => 0);
+  assert.ok(ev.some((x) => x.type === 'damage' && x.unitId === e.id && x.amount === T.fixedDamage));
+  assert.ok(!ev.some((x) => x.type === 'splashDamage'), '인접 칸 피해 없음');
+  assert.equal(nb.hp, C().MAX_HP);
+  if (used != null) assert.equal(st.act.used, used, '이동 후 공격은 합쳐서 1회');
+});
+
+test('fires: 설정 메뉴 값(state.firesOv)은 그 진영의 다음 턴부터 적용', () => {
+  const st = firesState();
+  st.firesOv = { artillery: { range: 7, cooldown: 0 } };
+  const side = st.turn;
+  assert.equal(E.fireRange(st, side, 'artillery').max, C().FIRES.artillery.range, '이번 턴은 그대로');
+  E.endTurn(st);
+  assert.equal(E.fireRange(st, side, 'artillery').max, C().FIRES.artillery.range, '상대 턴에도 그대로');
+  E.endTurn(st);
+  assert.equal(E.fireRange(st, side, 'artillery').max, 7);
+  assert.equal(E.firesOf(st, side).blindFire, C().FIRES.blindFire, '안개 속 사격 여부는 시나리오 값');
+});
+
+test('fires: AI 는 간접 화력으로 보이는 칸의 적만 쏨 (선택 시점 기준, 쿨다운 준수)', () => {
+  E.loadScenario('hostomel');
+  for (let g = 0; g < 6; g++) {
+    const { rng, diceRng } = seeded(4242 + g * 31);
+    const st = E.createInitialState(); E.startTurn(st);
+    let guard = 0;
+    while (!st.winner && guard++ < 60) {
+      const side = st.turn;
+      const before = E.cloneState(st);
+      const acts = E.aiTakeTurn(st, side, rng, 'normal', { recordSnapshots: true, diceRng });
+      acts.forEach((a, k) => {
+        if (!a.target || !C().UNIT_TYPES[a.unitType].indirect) return;
+        assert.equal(a.target.kind, 'visible', '추측·대포병 사격 없음');
+        const ref = k ? acts[k - 1].snapshot : before;   // 목표를 고른 시점 = 직전 행동이 끝난 상태
+        const vis = E.getVisibleTiles(ref, side);
+        assert.ok(vis.has(a.target.r * C().MAP.length + a.target.c), '고를 때 보이던 칸');
+        const u = ref.units.find((x) => x.id === a.unitId);
+        assert.ok(!E.onCooldown(ref, u), '쿨다운 중에는 사격하지 않음');
+      });
+      if (!st.winner) E.endTurn(st);
+    }
+  }
+});
+
+test('validateScenario: fires 형식 검사', () => {
+  const base = JSON.parse(JSON.stringify(E.SCENARIOS.find((s) => s.id === 'hostomel')));
+  for (const bad of [{ blindFire: 1 }, { mortar: { range: -1 } }, { mortar: { cooldown: 0.5 } }, { infantry: { range: 2 } }, { artillery: { range: 1 } }, { mortar: { foo: 1 } }]) {
+    assert.ok(E.validateScenario({ ...base, fires: bad }).length > 0, JSON.stringify(bad));
+  }
+  assert.deepEqual([...E.validateScenario({ ...base, fires: { blindFire: false, mortar: { range: 3, cooldown: 2, indirectPenalty: 20 } } })], []);
+});
