@@ -75,6 +75,9 @@
     },
     /* 터치 */
     touch: { balloonMs: 3000 },
+    /* 좁은 화면 조작: 턴 종료 재확인 시간, 공격 확인 시트 (명중 단계 경계는 표시용이며 규칙값이 아님) */
+    endArmMs: 3000,
+    atkSheet: { hiAt: 60, loBelow: 40, maxChips: 4, margin: 6 },
     /* 배치 구역 (초록 반투명 채움 + 초록 점선 윤곽) */
     deployZone: { fill: 'rgba(46,158,91,0.20)', line: '#2E9E5B', w: 2.4, dash: '6 4' },
     /* 시나리오 장식 표식 (규칙 영향 없음): 활주로 = 회색 띠 + 흰 점선 중심선 */
@@ -140,6 +143,8 @@
     balloonTimer: 0,
     useCurtain: true,      // 2인 대전 화면 가림막
     manualDeploy: true,    // 직접 배치로 시작
+    endArmed: false,       // 좁은 화면: 턴 종료 첫 누름 뒤 재확인 대기 (DESIGN.endArmMs 뒤 해제)
+    endArmTimer: 0,
   };
   const hotseat = () => ui.mode === 'hotseat';
   let ALL_TILES = new Set(Array.from({ length: N * N }, (_, i) => i));
@@ -1092,6 +1097,28 @@
     renderControls();
   }
 
+  /** 좁은 화면: 남은 행동(행동 제한 n/N 의 n > 0)과 아직 행동할 수 있는 유닛이 있으면 턴 종료를 한 번 더 확인 */
+  function endNeedsConfirm() {
+    const st = ui.state, me = ui.viewer;
+    if (ui.wide || ui.deploy || !st || st.winner || !me || me === 'all' || st.turn !== me) return false;
+    const act = activationStatus(st, me);
+    if (!act || act.left === 0) return false;   // 행동 제한이 꺼져 있거나 다 쓴 경우: 한 번에 종료
+    return st.units.some((x) => x.side === me && !x.acted && !activationBlocked(st, x));
+  }
+  function disarmEnd(redraw = true) {
+    clearTimeout(ui.endArmTimer);
+    ui.endArmTimer = 0;
+    if (!ui.endArmed) return;
+    ui.endArmed = false;
+    if (redraw) renderControls();
+  }
+  function armEnd() {
+    ui.endArmed = true;
+    clearTimeout(ui.endArmTimer);
+    ui.endArmTimer = setTimeout(() => disarmEnd(), DESIGN.endArmMs);
+    renderControls();
+  }
+
   /** 턴 종료 버튼 (배치 중: 배치 완료 / 종료 후: 결과 보기) + 행동 가능 유닛 수 */
   function renderControls() {
     const st = ui.view, me = ui.viewer;
@@ -1113,6 +1140,9 @@
     // 행동 한도를 다 쓰면 턴 종료 버튼 강조 (연출 줄이기: 움직임 없이 테두리만)
     const act = !ui.deploy && st && !st.winner && me && me !== 'all' ? activationStatus(st, me) : null;
     btn.classList.toggle('act-out', !!act && act.left === 0 && playerCanAct());
+    if (ui.endArmed && !(enabled && endNeedsConfirm())) disarmEnd(false);
+    if (ui.endArmed) label = t('btn.endTurnArm');
+    btn.classList.toggle('armed', ui.endArmed);
     $('#end-label').textContent = label;
     $('#end-cnt').textContent = n == null ? '' : String(n);
     $('#end-cnt').hidden = n == null;
@@ -2068,6 +2098,7 @@
     const kind = ty.indirect ? 'fire' : 'attack';
     const pct = hc.fogged ? '' : `<div class="confirm-pct ${hc.chance >= 50 ? 'good' : 'bad'}">${hc.chance}%</div>`;
     hideTip();
+    if (!ui.wide) { showAttackSheet(id, target, sel, hc, tu, what, kind, pct); return; }
     showOverlay(`<div class="atk-confirm">
       <h2>${esc(t('confirm.title.' + kind))}</h2>
       <div style="margin-bottom:8px">${esc(t('confirm.line', { unit: U(sel.type), from: P(sel), what }))}</div>
@@ -2080,6 +2111,80 @@
     $('#btn-atk-yes').onclick = confirmAttack;
     $('#btn-atk-no').onclick = cancelAttack;
     $('#btn-atk-yes').focus();
+  }
+  /**
+   * 좁은 화면 공격 확인 시트: 요약 한 줄 · 명중 막대 · 보정 칩(최대 DESIGN.atkSheet.maxChips) + 접힌 '자세히'(기존 창 내용 전부).
+   * 보여 주는 값은 기존 창과 같은 계산값이고 시야 밖이면 기존 창처럼 명중률·대상·보정 내역을 숨김 (안개 규칙)
+   */
+  function showAttackSheet(id, target, sel, hc, tu, what, kind, pct) {
+    const st = ui.state, me = ui.viewer;
+    const S = DESIGN.atkSheet;
+    const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
+    const tgtName = hc.fogged ? t('sheet.fog') : tu ? typeName(tu.type) : t('sheet.empty');
+    const pctTx = hc.fogged ? '?' : hc.chance + '%';
+    const sum = !hc.fogged && tu ? t('sheet.sum', { unit: U(sel.type), target: tgtName, pct: pctTx, dmg: hc.damage })
+      : t('sheet.sumNoDmg', { unit: U(sel.type), target: tgtName, pct: pctTx });
+    const lvl = hc.fogged ? 'unk' : hc.chance >= S.hiAt ? 'hi' : hc.chance < S.loBelow ? 'lo' : 'mid';
+    const sign = (v) => (v > 0 ? '+' : '\u2212') + Math.abs(v);
+    // 칩: 기존 창이 보여 주는 보정 중 0 이 아닌 것만 (시야 밖이면 시야 밖·이동 후 공격만). 큰 값부터
+    const parts = hc.parts.filter((x) => x.key !== 'base' && x.value !== 0 && (!hc.fogged || x.key === 'fog' || x.key === 'moved'));
+    const chips = parts.slice().sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+      .map((x) => ({ tx: `${partLabel(x, true)} ${sign(x.value)}`, cls: x.value < 0 ? 'red' : 'green' }));
+    if (ty.indirect) {   // 오폭 경고는 기존 창과 같은 조건 (자기 유닛만)
+      const near = [getUnitAt(st, target.r, target.c), ...DIRS.map(([dr, dc]) => getUnitAt(st, target.r + dr, target.c + dc))];
+      if (near.some((o) => o && o.side === me)) chips.unshift({ tx: t('sheet.ff'), cls: 'orange' });
+    }
+    const shown = chips.length > S.maxChips ? chips.slice(0, S.maxChips - 1) : chips;
+    const more = chips.length - shown.length;
+    const chipHtml = shown.map((c) => `<span class="chip ${c.cls}" title="${esc(c.tx)}"><span class="tx">${esc(c.tx)}</span></span>`).join('')
+      + (more ? `<span class="chip gray"><span class="tx">${esc(t('sheet.moreChips', { n: more }))}</span></span>` : '');
+    const lvlTx = t('sheet.lvl.' + lvl);
+    const open = !!ui.sheetOpen;
+    showOverlay(`<div class="atk-sheet">
+      <div class="sh-body" id="sh-body">
+        <div class="sh-sum" title="${esc(sum)}">${esc(sum)}</div>
+        <div class="sh-hit lvl-${lvl}" role="img" aria-label="${esc(pctTx + ' · ' + lvlTx)}"><div class="sh-meter"><span style="width:${hc.fogged ? 0 : hc.chance}%"></span></div><span class="sh-lvl">${esc(lvlTx)}</span></div>
+        ${chipHtml ? `<div class="sh-chips">${chipHtml}</div>` : ''}
+        <button class="sh-more" id="sh-more" aria-expanded="${open}" aria-controls="sh-detail">${esc(t(open ? 'sheet.less' : 'sheet.more'))}</button>
+        <div class="sh-detail" id="sh-detail"${open ? '' : ' hidden'}>
+          <h2>${esc(t('confirm.title.' + kind))}</h2>
+          <div style="margin-bottom:8px">${esc(t('confirm.line', { unit: U(sel.type), from: P(sel), what }))}</div>
+          ${pct}
+          ${attackPreviewHtml(st, sel, target, me)}
+          <div class="hint" style="margin-top:6px">${esc(t('confirm.terrain', { terrain: TR(terrainAt(target.r, target.c).key) }))}</div>
+        </div>
+      </div>
+      <div class="sh-foot"><button id="btn-atk-no">${esc(t('sheet.no'))}</button><button class="primary" id="btn-atk-yes">${esc(t('sheet.yes.' + kind))}</button></div>
+    </div>`, () => showAttackConfirm(id, target), 'sheet');
+    ui.confirm = { id, target };
+    $('#btn-atk-yes').onclick = confirmAttack;
+    $('#btn-atk-no').onclick = cancelAttack;
+    $('#sh-more').onclick = () => {   // 접기·펼치기 (언어를 바꿔 다시 그려도 상태 유지)
+      const o = $('#sh-detail').hidden;
+      ui.sheetOpen = o;
+      $('#sh-detail').hidden = !o;
+      $('#sh-more').setAttribute('aria-expanded', String(o));
+      $('#sh-more').textContent = t(o ? 'sheet.less' : 'sheet.more');
+      keepUnitsAboveSheet();   // 시트 높이가 바뀌면 지도 위치도 다시 맞춤
+    };
+    $('#btn-atk-yes').focus();
+    keepUnitsAboveSheet();
+  }
+  /** 시트가 공격자·대상 칸을 가리면 지도를 그만큼 위로 밈 (상태 변화 없음, 상단 상태 줄 아래까지만) */
+  function keepUnitsAboveSheet() {
+    const wrap = $('#board-wrap');
+    const c = ui.confirm;
+    const sel = c && getUnit(ui.state, c.id);
+    if (!sel || ui.wide || !$('#overlay').classList.contains('sheet')) { wrap.style.transform = ''; return; }
+    // 지금 적용 중인 이동량(전환 중이면 그 순간 값)을 빼서 원래 위치 기준으로 계산
+    const tf = getComputedStyle(wrap).transform;
+    const cur = tf && tf !== 'none' ? new DOMMatrixReadOnly(tf).m42 : 0;
+    const rs = [idx(sel.r, sel.c), idx(c.target.r, c.target.c)].map((i) => cells[i].el.getBoundingClientRect());
+    const limit = $('#modal').getBoundingClientRect().top - DESIGN.atkSheet.margin;
+    const top = $('#hud').getBoundingClientRect().bottom + DESIGN.atkSheet.margin;
+    const low = Math.max(...rs.map((r) => r.bottom)) - cur, high = Math.min(...rs.map((r) => r.top)) - cur;
+    const shift = Math.min(Math.max(0, low - limit), Math.max(0, high - top));
+    wrap.style.transform = shift > 0 ? `translateY(${-Math.ceil(shift)}px)` : '';
   }
   function confirmAttack() {
     const c = ui.confirm;
@@ -2154,6 +2259,8 @@
     if (ui.deploy) { onDeployDone(); return; }
     if (ui.state && ui.state.winner) { if (!$('#overlay').classList.contains('show')) showResult(); return; }
     if (!playerCanAct()) return;
+    if (!ui.endArmed && endNeedsConfirm()) { armEnd(); return; }   // 첫 누름: 버튼만 확인 상태로
+    disarmEnd(false);
     ui.selectedId = null;
     ui.inspectId = null;
     hideTip();
@@ -2616,7 +2723,7 @@
   }
 
   /* ---------- 오버레이 (공격 확인·시작·승패·가림막·요약). 열려 있는 동안 포커스를 안에 가둠 ---------- */
-  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain'];
+  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain', 'sheet'];
   /** redraw: 언어를 바꿨을 때 이 창을 현재 언어로 다시 그리는 함수. kind: 배경 종류 */
   function showOverlay(html, redraw = null, kind = 'confirm') {
     const ov = $('#overlay');
@@ -2641,6 +2748,8 @@
     const ov = $('#overlay');
     ov.classList.remove('show', ...OVERLAY_KINDS);
     $('#modal').innerHTML = '';
+    ui.sheetOpen = false;
+    $('#board-wrap').style.transform = '';   // 공격 시트로 밀었던 지도 원위치
     const back = ui.overlayReturn;
     ui.overlayReturn = null;
     if (back && back.isConnected && back.offsetParent && !back.disabled) back.focus();
@@ -2966,8 +3075,8 @@
       if (ui.state && ui.screen !== 'start') { renderHeader(); renderPanel(); }
     } else fitHud();
     renderLogbar();
-    const abarH = wide ? 0 : $('#controls').offsetHeight;   // 바닥 안전 영역 포함
-    if (!wide) root.setProperty('--abar-h', abarH + 'px');
+    root.setProperty('--abar-free', '0px');   // 올리기 전 높이로 지도 크기 계산
+    const abarH = wide ? 0 : $('#controls').offsetHeight;   // 바닥 안전 영역 포함. 높이는 CSS 고정값 (숨김 상태에서 잰 0 이 굳지 않게 JS 로 덮어쓰지 않음)
     const extra = lbl + L.frameBorder;
     let availW, availH;
     if (ui.screen === 'start' || ui.screen === 'curtain') {
@@ -2989,6 +3098,11 @@
     root.setProperty('--cell', cell + 'px');
     ui.cellSize = cell;
     themeOnLayout();
+    if (!wide && (ui.screen === 'game' || ui.screen === 'deploy')) {   // 게임 화면 아래 빈 공간만큼 조작 줄을 올림 (게임 중에는 높이가 같아 위치 고정)
+      const free = H - $('#side').getBoundingClientRect().bottom - L.narrowGap - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--abar-h'));
+      root.setProperty('--abar-free', Math.max(0, Math.floor(free)) + 'px');
+    }
+    if (ui.confirm) keepUnitsAboveSheet();
   }
   let layoutRaf = 0;
   const onResize = () => { cancelAnimationFrame(layoutRaf); layoutRaf = requestAnimationFrame(() => { hideBalloon(); hideTip(); fitLayout(); }); };
@@ -3332,6 +3446,8 @@
     }
   });
   window.addEventListener('resize', onResize);
+  // 좁은 화면: 지도 열(로그 줄 포함)·카드 크기가 render 밖에서 바뀌어도 조작 줄 위치를 다시 맞춤
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!ui.wide) onResize(); }); ro.observe($('#map-col')); ro.observe($('#side')); }
   window.addEventListener('orientationchange', onResize);
 
   loadScenario(loadScenarioPref());   // 지난번에 고른 시나리오 (기본 춘천)

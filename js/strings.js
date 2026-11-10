@@ -70,6 +70,9 @@ const STRINGS = {
     'confirm.title.attack': '공격할까요?', 'confirm.title.fire': '포격할까요?',
     'confirm.line': '아군 {unit} {from} → {what}', 'confirm.whatFog': '{pos} (시야 밖)', 'confirm.whatUnit': '{who} {pos}', 'confirm.whatEmpty': '빈 칸 {pos}',
     'confirm.terrain': '지형: {terrain}', 'confirm.yes.attack': '공격 (Enter)', 'confirm.yes.fire': '포격 (Enter)', 'confirm.no': '취소 (Esc)',
+    'sheet.sum': '{unit} → {target} · 명중 {pct} · 피해 {dmg}', 'sheet.sumNoDmg': '{unit} → {target} · 명중 {pct}', 'sheet.fog': '시야 밖', 'sheet.empty': '빈 칸',
+    'sheet.lvl.hi': '높음', 'sheet.lvl.mid': '보통', 'sheet.lvl.lo': '낮음', 'sheet.lvl.unk': '알 수 없음', 'sheet.moreChips': '+{n}개', 'sheet.ff': '아군 피해',
+    'sheet.more': '자세히', 'sheet.less': '접기', 'sheet.yes.attack': '공격', 'sheet.yes.fire': '포격', 'sheet.no': '취소', 'btn.endTurnArm': '한 번 더 누르면 종료',
 
     // 주사위
     'dice.title': '{who} → {pos}', 'dice.enemyFire': '적 포격', 'dice.movedTag': ' · 이동 후 공격',
@@ -376,6 +379,9 @@ const STRINGS = {
     'confirm.title.attack': 'Attack?', 'confirm.title.fire': 'Fire?',
     'confirm.line': 'Your {unit} {from} → {what}', 'confirm.whatFog': '{pos} (out of sight)', 'confirm.whatUnit': '{who} {pos}', 'confirm.whatEmpty': 'Empty tile {pos}',
     'confirm.terrain': 'Terrain: {terrain}', 'confirm.yes.attack': 'Attack (Enter)', 'confirm.yes.fire': 'Fire (Enter)', 'confirm.no': 'Cancel (Esc)',
+    'sheet.sum': '{unit} → {target} · Hit {pct} · Dmg {dmg}', 'sheet.sumNoDmg': '{unit} → {target} · Hit {pct}', 'sheet.fog': 'Out of sight', 'sheet.empty': 'Empty tile',
+    'sheet.lvl.hi': 'High', 'sheet.lvl.mid': 'Medium', 'sheet.lvl.lo': 'Low', 'sheet.lvl.unk': 'Unknown', 'sheet.moreChips': '+{n} more', 'sheet.ff': 'Friendly fire',
+    'sheet.more': 'Details', 'sheet.less': 'Hide', 'sheet.yes.attack': 'Attack', 'sheet.yes.fire': 'Fire', 'sheet.no': 'Cancel', 'btn.endTurnArm': 'Tap again to end',
 
     'dice.title': '{who} → {pos}', 'dice.enemyFire': 'Enemy fire', 'dice.movedTag': ' · Move & attack',
     'dice.subD10': 'Hit {need}/10 ({pct}%) · hits on d10 ≤ {need}', 'dice.subD10Fog': 'Hit chance unknown (out of sight {n}%) · d10',
