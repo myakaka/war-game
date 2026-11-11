@@ -665,3 +665,130 @@ test('대칭 시나리오: simulateGames 가 무승부를 따로 세고, 진단 
   const h = E.simulateGames(2, { scenario: 'hostomel', quiet: true });
   assert.ok(!('draws' in h) && !('sym' in h));
 });
+
+/* ---------------- 대칭 AI 정보 모듈 (ai-intel.js) ---------------- */
+const KI = () => C().AI.SYMMETRIC.INTEL;
+const symMid = () => midStates('symmetric', 14);
+
+test('intel: 보이면 위치 갱신, 보이는 칸이 비면 기록 삭제, 안 보이면 신뢰도 감소·불확실 반경 증가', () => {
+  const st = fresh('symmetric');
+  const ru = st.units.find((u) => u.side === 'ru' && u.type === 'infantry');
+  // 우크라이나군 시야 안으로 옮김 → 보임
+  ru.r = 10; ru.c = 13;
+  run('updateMemory')(st);
+  let rec = E.intelRecords(st, 'ua', KI()).find((e) => e.id === ru.id);
+  assert.ok(rec && rec.seen && rec.r === 10 && rec.c === 13 && rec.conf === 1 && rec.radius === 0);
+  // 마지막으로 본 칸이 지금 시야 밖 → 마지막 위치 유지, 라운드가 지날수록 신뢰도 감소·반경 증가
+  ru.r = 4; ru.c = 2;
+  st.memory.ua[ru.id] = { ...st.memory.ua[ru.id], r: 5, c: 3, vacated: false };   // (5,3) 에서 본 것으로 (우크라이나군 시야 밖 칸)
+  assert.ok(!E.getVisibleTiles(st, 'ua').has(5 * 16 + 3));
+  st.round += 2;
+  rec = E.intelRecords(st, 'ua', KI()).find((e) => e.id === ru.id);
+  assert.ok(rec && !rec.seen && rec.r === 5 && rec.c === 3);
+  assert.ok(rec.conf < 1 && rec.radius === 2 * C().UNIT_TYPES.infantry.move);
+  const later = (() => { st.round += 1; return E.intelRecords(st, 'ua', KI()).find((e) => e.id === ru.id); })();
+  assert.ok(later.conf < rec.conf && later.radius > rec.radius);
+  // 기억한 칸이 보이는데 비어 있음 → 기록 삭제
+  const ua = st.units.find((u) => u.side === 'ua' && u.type === 'infantry');   // 시야 2: (5,3) 은 보이고 실제 위치 (4,2) 는 안 보임
+  ua.r = 7; ua.c = 3;
+  run('updateMemory')(st);
+  assert.ok(!E.intelRecords(st, 'ua', KI()).some((e) => e.id === ru.id));
+  // 시작 배치 기록(공개 설정): 못 본 유닛은 시작 칸으로, 그 칸이 보이면 삭제
+  const s2 = fresh('symmetric');
+  const setupRec = E.intelRecords(s2, 'ua', KI()).find((e) => e.id === 'R1');
+  assert.deepEqual([setupRec.r, setupRec.c], [3, 2]);
+  const scout = s2.units.find((u) => u.side === 'ua' && u.type === 'recon');
+  scout.r = 5; scout.c = 2;
+  s2.units.find((u) => u.id === 'R1').r = 0;   // 실제로는 다른 곳으로 이동
+  run('updateMemory')(s2);
+  assert.ok(!E.intelRecords(s2, 'ua', KI()).some((e) => e.id === 'R1' && e.r === 3 && e.c === 2));
+});
+
+test('intel: 보이지 않는 적의 위치·체력·쿨다운·증원을 바꿔도 기억·위험 지도가 같음', () => {
+  let checked = 0;
+  for (const st of symMid()) {
+    const side = st.turn, enemy = side === 'ru' ? 'ua' : 'ru';
+    const known = seenBy(st, side);
+    const hidden = st.units.filter((u) => u.side === enemy && !known(u));
+    if (!hidden.length) continue;
+    const vis = E.getVisibleTiles(st, side);
+    const alt = E.cloneState(st);
+    for (const u of alt.units) {
+      if (!hidden.some((h) => h.id === u.id)) continue;
+      u.hp = 1; u.lastFiredRound = alt.round;
+      // 아무도 없고 보이지 않는 다른 칸으로 옮김
+      for (let i = 0; i < 256; i++) { const r = Math.floor(i / 16), c = i % 16; if (!vis.has(i) && !alt.units.some((x) => x.r === r && x.c === c) && !(C().TERRAIN[C().MAP[r][c]].impassableFor || []).includes(u.type)) { u.r = r; u.c = c; break; } }
+    }
+    for (const p of alt.pending) if (p.side === enemy) p.round += 3;
+    const sig = (s) => JSON.stringify(E.intelRecords(s, side, KI())) + JSON.stringify([...E.threatMap(s, side, 'infantry', KI()).dmg]);
+    assert.equal(sig(alt), sig(st), `round ${st.round} ${side}`);
+    checked++;
+  }
+  assert.ok(checked > 0);
+});
+
+test('대칭 AI: 그 턴 내내 보지 못한 적의 쿨다운을 바꿔도 AI 행동이 같음', () => {
+  let checked = 0;
+  for (const st of symMid()) {
+    const side = st.turn;
+    const after = E.cloneState(st);
+    const { rng, diceRng } = seeded(11);
+    E.aiTakeTurn(after, side, rng, 'normal', { recordSnapshots: false, diceRng });
+    const known = seenBy(st, side), knownAfter = seenBy(after, side);
+    const hidden = st.units.filter((u) => u.side !== side && !known(u) && !knownAfter(u) && C().UNIT_TYPES[u.type].indirect);
+    if (!hidden.length) continue;
+    const alt = E.cloneState(st);
+    for (const u of alt.units) if (hidden.some((h) => h.id === u.id)) u.lastFiredRound = alt.round;
+    assert.equal(aiActions(alt, side, 11), aiActions(st, side, 11), `round ${st.round} ${side}`);
+    checked++;
+  }
+  assert.ok(checked > 0, '시야 밖 간접 화력 유닛이 있는 상태를 찾지 못함');
+});
+
+test('쿨다운 안전 구간: 상대 포병이 방금 쐈다는 단서가 있을 때만 (포병 1기, 가장 최근 상대 턴)', () => {
+  const st = fresh('symmetric');
+  st.turn = 'ua'; st.round = 3;   // ru 가 선공 → ru 의 가장 최근 턴 = 3라운드
+  assert.equal(E.intelArtyResting(st, 'ua'), false, '단서 없음');
+  st.aiIntel.ua.clues.push({ round: 2, kind: 'artillery' });
+  assert.equal(E.intelArtyResting(st, 'ua'), false, '지난 라운드 단서는 안전 구간이 아님');
+  st.aiIntel.ua.clues.push({ round: 3, kind: null });
+  assert.equal(E.intelArtyResting(st, 'ua'), false, '병종을 모르는 단서');
+  st.aiIntel.ua.clues.push({ round: 3, kind: 'artillery' });
+  assert.equal(E.intelArtyResting(st, 'ua'), true);
+  // 위험 지도에서 포병 항이 빠짐
+  const K = KI();
+  const on = E.threatMap(st, 'ua', 'infantry', K, null, false), off = E.threatMap(st, 'ua', 'infantry', K, null, true);
+  assert.ok(off.dmg.reduce((a, b) => a + b, 0) < on.dmg.reduce((a, b) => a + b, 0));
+  assert.equal(off.artyP.reduce((a, b) => a + b, 0), 0);
+});
+
+test('간접 사격 단서: 보이지 않는 곳에서 온 사격만, 피해 모양으로 병종 추정', () => {
+  const st = fresh('symmetric');
+  const art = st.units.find((u) => u.side === 'ru' && u.type === 'artillery');
+  const tgt = st.units.find((u) => u.side === 'ua' && u.type === 'infantry');
+  st.turn = 'ru'; E.startTurn(st);
+  art.r = 7; art.c = 9; tgt.r = 12; tgt.c = 9;   // 거리 5, 우크라이나군 시야 밖에서 사격
+  run('updateMemory')(st);
+  const always = () => 0;   // 주사위 1 → 명중
+  E.resolveAttack(st, art.id, { r: tgt.r, c: tgt.c }, always);
+  const clue = st.aiIntel.ua.clues.at(-1);
+  assert.equal(clue.round, st.round);
+  assert.equal(clue.kind, 'artillery', '중심 피해 2 → 포병');
+});
+
+test('대칭 AI: 같은 시드면 모든 행동이 같고(새 AI·기존 AI·turtle), 다른 시나리오 상태에는 새 필드가 없음', () => {
+  for (const pair of [['normal', 'normal'], ['v1:normal', 'turtle'], ['hard', 'easy']]) {
+    const o = { scenario: 'symmetric', quiet: true, ru: pair[0], ua: pair[1] };
+    assert.equal(JSON.stringify(E.simulateGames(3, o)), JSON.stringify(E.simulateGames(3, o)), pair.join('/'));
+  }
+  const r = E.simulateGames(3, { scenario: 'symmetric', quiet: true, ru: 'turtle', ua: 'normal' });
+  assert.equal(r.errors, 0);
+  for (const id of ['chuncheon', 'hostomel']) {
+    const st = fresh(id);
+    E.startTurn(st);
+    const { rng, diceRng } = seeded(5);
+    E.aiTakeTurn(st, st.turn, rng, 'normal', { recordSnapshots: false, diceRng });
+    assert.ok(!('aiIntel' in st), id);
+  }
+  assert.ok('aiIntel' in fresh('symmetric'));
+});

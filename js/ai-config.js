@@ -138,6 +138,46 @@ const AI_CONFIG = {
     HOLD: 14,                // 아군이 점유한 거점 칸 위에 머묾 (점유 방식 presence: 떠나면 점유를 잃음)
     APPROACH_GROWTH: 0.1,    // 이 라운드 뒤로 1라운드마다 거점 접근 가중치 +10% (교착 방지)
     GROWTH_START: 4,
+    // 새 대칭 AI (v2): 위험 지도·본 적 기억·간접 화력 활용·집결 진입·위협 제거 (js/ai-intel.js). 'v1:<난이도>' 프로필이면 위 기존 방식만
+    INTEL: {
+      INTEL_FROM_SETUP: true,  // 아직 못 본 상대 시작 유닛을 공개된 시작 배치 위치로 기억에 넣음
+      CONF_DECAY: 0.7,         // 안 보이는 1라운드마다 신뢰도 × 이 값
+      RADIUS_CAP: 8,           // 불확실 반경 상한 (칸)
+      SPREAD: 0.35,            // 위치 불확실성 가중: 신뢰도 / (1 + SPREAD × 반경)
+      MIN_WEIGHT: 0.05,        // 이보다 가중치가 작은 기록은 위험 계산에서 뺌
+    },
+    V2: {
+      urgencyRelief: 0.6,      // 압박 1 일 때 위험 가중치를 이 비율만큼 줄임
+      supportValue: 1.5,       // 포병·박격포·통신의 위험 가중 배수
+      lowHpMult: 1.6,          // 체력 2 이하 유닛의 위험 가중 배수 (위험 구역에서 빠져나옴)
+      rearDirect: 4,           // 포병·박격포·통신: 그 칸의 직접 공격 기대 피해 1당 감점
+      minGarrison: 1,          // 거점마다 남길 최소 수비 유닛 수
+      garrisonLeave: 10,       // 마지막 수비 유닛이 거점을 떠나는 감점
+      leashRadius: 3,          // 위협을 쫓아 거점 칸에서 떨어질 수 있는 최대 거리
+      leash: 2.0,              // 그보다 1칸 멀어질 때마다 감점
+      clearLane: 3.0,          // 아군 포병의 표적 옆(파편 칸)에서 비켜 주는 이동 (표적 가치 1당)
+      reconWatch: 0.12,        // 정찰: 거점 3칸 안의 안 보이던 칸을 새로 볼 때 1칸당
+      threatKill: 6,           // 공격: 위협 점수 × 기대 피해 비율
+      finish: 3,               // 체력이 낮은 위협 마무리 (격파 기대 1당)
+      focus: 1.2,              // 이미 맞은 적에게 집중
+      counterRadius: 3,        // 반격: 이 거리 안에서 거점에 들어온 적을 목표로
+      fogMinConf: 0.25,        // 안개 속 사격 후보: 기억 신뢰도 하한
+      fogMaxRadius: 4,         // 안개 속 사격 후보: 불확실 반경 상한
+      likelyConf: 0.2,         // '올 가능성이 높은 칸'(상대·다툼 거점 칸) 사격 후보의 가정 신뢰도
+      maxFogTargets: 6,        // 유닛당 안개 속 사격 후보 수 상한 (계산 시간)
+      fireReady: { visible: 5, intel: 3, likely: 2 },
+      ffAdjacent: 4,           // 포병 표적 옆 아군 1기당 감점 (이때는 fireReady 가산 없음)
+      artyCover: 1.5,          // 포병·박격포 위치: 사거리 안의 (내 것이 아닌) 거점 칸 1개당 (최대 4)
+      artyIntelCover: 1.5,     // 포병·박격포 위치: 사거리 안의 기억한 적 (가중치 합, 최대 3)
+      artyReach: 2.5,          // 포병·박격포: 가장 가까운 (내 것이 아닌) 거점 칸이 최대 사거리보다 1칸 멀 때마다 감점
+      indirectHoldCut: 0.8,    // 포병·박격포가 거점 칸에 설 때 점령·유지 점수에서 덜어 내는 비율   // 간접 사격 후보 가산 (보이는 적 / 기억한 위치 / 올 가능성이 높은 칸)
+      // 난이도별 (프로필 id → 등급: easy / normal / hard·hardSpread)
+      LEVELS: {
+        easy:   { riskWeight: 1.5, highRisk: 0.6, minSupport: 0, gatePenalty: 0 },   // 위험을 거의 무시
+        normal: { riskWeight: 7, highRisk: 0.35, minSupport: 2, gatePenalty: 6 },
+        hard:   { riskWeight: 12, highRisk: 0.3, minSupport: 2, gatePenalty: 10 },
+      },
+    },
   },
   DEFAULT_PROFILE: 'normal',
   TACTIC_PROFILES,

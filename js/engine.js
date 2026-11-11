@@ -471,6 +471,7 @@ function createInitialState(deploy = null) {
     winReason: null,
   };
   if (C.OBJECTIVE_CONTROL === 'presence') updateObjectiveControl(state);
+  if (C.AI_MODE === 'symmetric') intelInit(state);   // ai-intel.js: 대칭 시나리오만 state.aiIntel
   updateMemory(state);
   return state;
 }
@@ -857,6 +858,7 @@ function updateMemory(state) {
       else m.vacated = true;                     // 어딘가로 이동함
     }
   }
+  if (state.aiIntel) intelOnVision(state);   // 대칭 시나리오 AI 정보 (ai-intel.js)
 }
 
 /* =========================== 6. 이동 =========================== */
@@ -1040,6 +1042,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
     state.units = state.units.filter((u) => u.hp > 0);
     if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence') events.push(...updateObjectiveControl(state));
   }
+  if (state.aiIntel && t.indirect) intelOnIndirectFire(state, a, targetPos, events);   // 맞은 진영의 간접 사격 단서
   a.moved = true;   // 공격 후 이동 불가
   a.acted = true;
   if (GAME_CONFIG.FIRES && t.indirect) a.lastFiredRound = state.round;   // 쿨다운 기준 (fires 가 없으면 기록하지 않음)
@@ -1131,19 +1134,23 @@ function distanceField(unitTypeKey, goal) {
   const done = new Array(N * N).fill(false);
   const g = idx(goal.r, goal.c);
   dist[g] = 0;
-  for (;;) {
-    let cur = -1;
-    for (let i = 0; i < dist.length; i++) if (!done[i] && dist[i] < Infinity && (cur < 0 || dist[i] < dist[cur])) cur = i;
-    if (cur < 0) break;
-    done[cur] = true;
-    const { r, c } = posOf(cur);
-    const cost = enterCost(r, c);   // 이웃 → cur 로 들어오는 비용
-    if (!isFinite(cost)) continue;
-    for (const [dr, dc] of DIRS) {
-      const nr = r + dr, nc = c + dc;
-      if (!inBounds(nr, nc)) continue;
-      const ni = idx(nr, nc);
-      if (dist[cur] + cost < dist[ni]) dist[ni] = dist[cur] + cost;
+  // 다익스트라 (비용은 작은 정수 → 버킷 큐. 결과는 예전의 전체 탐색 방식과 같음)
+  const buckets = [[g]];
+  for (let d = 0; d < buckets.length; d++) {
+    const list = buckets[d];
+    if (!list) continue;
+    for (const cur of list) {
+      if (done[cur] || dist[cur] !== d) continue;
+      done[cur] = true;
+      const { r, c } = posOf(cur);
+      const cost = enterCost(r, c);   // 이웃 → cur 로 들어오는 비용
+      if (!isFinite(cost)) continue;
+      for (const [dr, dc] of DIRS) {
+        const nr = r + dr, nc = c + dc;
+        if (!inBounds(nr, nc)) continue;
+        const ni = idx(nr, nc);
+        if (dist[cur] + cost < dist[ni]) { dist[ni] = dist[cur] + cost; (buckets[dist[ni]] || (buckets[dist[ni]] = [])).push(ni); }
+      }
     }
   }
   _distCache.set(key, dist);
@@ -1225,11 +1232,13 @@ function buildAiContext(state, side, diff = null) {
     others = { id: u.id, vis: vis2 };
     return vis2;
   };
-  return {
+  const ctx = {
     side, vis, visibleEnemies, known, hqThreat, isAttacker, neutral, plan, spread, has, T, tactics: anyTactics, visOthers,
     allies: state.units.filter((u) => u.side === side),
     enemyArty: has('artyHunt') || plan ? aiEnemyArtillery(state, side, vis, T) : [],
   };
+  if (neutral && diff && diff.sym && diff.sym.v2) ctx.v2 = symV2Context(state, side, diff.sym.level, ctx);   // 새 대칭 AI (ai-intel.js)
+  return ctx;
 }
 
 /* ---------- 어려움 전용 전술 (공격 측) ---------- */
@@ -1651,6 +1660,7 @@ function aiNeutralGoals(state, ctx, u) {
     const cells = objectiveCells(o);
     if (o.owner !== ctx.side || cells.some((p) => samePos(p, u))) for (const p of cells) goals.push(p);
   }
+  if (ctx.v2) symV2Goals(state, ctx, u, goals);   // 반격: 거점 근처에 들어온 적 (전투 유닛)
   if (!goals.length) for (const e of ctx.known) goals.push({ r: e.r, c: e.c });
   return goals;
 }
@@ -1725,6 +1735,7 @@ function aiScorePosition(state, ctx, u, pos, goals, diff) {
   }
   if (ctx.tactics) s += aiTacticsPosition(state, ctx, u, pos);
   if (ctx.spread) s += aiSpreadPosition(state, ctx, u, pos);
+  if (ctx.v2) s += symV2Position(state, ctx, u, pos);   // 위험·집결·수비·추격 제한·비켜 주기·정찰 (ai-intel.js)
   switch (AI.TYPE_BONUS[u.type]) {
     case 'rear': {
       const nd = nearestKnownEnemyDist(ctx, pos);
@@ -1816,10 +1827,12 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
   const fogged = !ctx.vis.has(idx(tg.r, tg.c));
   const signal = hasSignalSupport(state, u, from);
   // battery: 어려움 대포병 사격 — 추정 위치의 적 포병을 가상의 표적으로 평가
+  // intel/likely: 새 대칭 AI 의 안개 속 사격 (기억한 위치·올 가능성이 높은 칸). 기억한 병종·체력으로 가상의 표적
   const target = tg.kind === 'visible' ? getUnitAt(state, tg.r, tg.c)
-    : tg.kind === 'battery' ? { type: 'artillery', hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c } : null;
+    : tg.kind === 'battery' ? { type: 'artillery', hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c }
+    : (tg.kind === 'intel' || tg.kind === 'likely') ? { id: tg.id, type: tg.type, hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c } : null;
   const hc = calcHitBreakdown({ attacker: u, defender: target, terrain: terrainAt(tg.r, tg.c), signal, fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, u) });
-  const p = (hc.chance / 100) * (tg.kind === 'battery' ? tg.conf : 1);
+  const p = (hc.chance / 100) * (tg.kind === 'battery' || tg.kind === 'intel' || tg.kind === 'likely' ? tg.conf : 1);
   let s = 0;
   if (target) {
     const dmg = calcDamage(u, target);
@@ -1845,6 +1858,7 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
     }
     if (!ctx.isAttacker && C.CROSSINGS.some((x) => manhattan(x, tg) <= 1)) s += W.crossingFire;
   }
+  if (ctx.v2 && target) s += symV2Attack(state, ctx, u, target, p, tg.kind);   // 위협 제거·마무리·집중 (ai-intel.js)
   return s;
 }
 
@@ -1856,6 +1870,7 @@ function aiArtilleryTargets(state, ctx, u, rng, from = u) {
   // 간접 화력 설정이 있는 시나리오: 보이는 적만 쏨 (안개 속 추측 사격·대포병 추정 사격은 하지 않음)
   if (GAME_CONFIG.FIRES) {
     for (const e of ctx.visibleEnemies) if (inRange(e)) list.push({ r: e.r, c: e.c, kind: 'visible' });
+    if (ctx.v2) list.push(...symV2FogTargets(state, ctx, u, inRange));   // 새 대칭 AI: 기억한 위치·올 가능성이 높은 칸 (안개 속 사격)
     return list;
   }
   // 어려움: 보이지 않는 적 포병(기억/추정 위치)에 대포병 사격 후보
@@ -1918,7 +1933,7 @@ function aiActionOptions(state, u, rng, diff) {
     } else if (!stay && !GAME_CONFIG.ATTACK_AFTER_MOVE) continue;   // 이동하면 공격 불가
     if (t.indirect && t.moveFire) {   // 박격포: 도착 칸에서 사거리 안의 보이는 적
       // 이동하면 박격포 자신의 시야가 바뀜: 다른 아군이 보고 있거나 도착 칸에서도 보이는 적만 (이동 후 안개 속 사격이 되지 않게)
-      const keep = (p) => ctx.visOthers(u).has(idx(p.r, p.c)) || manhattan(d, p) <= t.vision;
+      const keep = (p) => p.kind === 'intel' || p.kind === 'likely' || ctx.visOthers(u).has(idx(p.r, p.c)) || manhattan(d, p) <= t.vision;   // intel/likely 는 원래 안개 속 사격
       const tgs = stay ? artyTargets : aiArtilleryTargets(state, ctx, u, rng, d).filter(keep);
       for (const tg of tgs) options.push({ move: d.remaining == null ? d : { r: d.r, c: d.c }, target: tg, score: base + aiScoreAttack(state, ctx, u, d, tg, movedAttack) });
     } else if (t.indirect) {
@@ -1962,7 +1977,16 @@ function aiTakeTurn(state, side, rng = Math.random, difficulty = 'normal', opts 
   const AI = GAME_CONFIG.AI;
   // rng = AI 노이즈 스트림, opts.diceRng = 주사위 스트림 (없으면 rng 하나로 둘 다 — 변경 전과 같은 순서)
   const diceRng = opts.diceRng || rng;
+  // 대칭 시나리오: 'turtle' = 진단용 수비 봇, 'v1:<난이도>' = 기존 중립 AI, 그 밖 = 새 AI (v2, ai-intel.js)
+  let sym = null;
+  if (GAME_CONFIG.AI_MODE === 'symmetric') {
+    if (difficulty === 'turtle') return turtleTakeTurn(state, side, rng, { ...opts, diceRng });
+    const v1 = typeof difficulty === 'string' && difficulty.startsWith('v1:');
+    if (v1) difficulty = difficulty.slice(3);
+    sym = { v2: !v1, level: difficulty === 'easy' ? 'easy' : (difficulty === 'hard' || difficulty === 'hardSpread') ? 'hard' : 'normal' };
+  }
   const diff = resolveProfile(difficulty);
+  if (sym) diff.sym = sym;
   const record = opts.recordSnapshots !== false;
   const attacker = side === attackerSide() || GAME_CONFIG.AI_MODE === 'symmetric';   // 중립 모드는 양쪽 모두 같은 전술 기능
   const feat = (f) => attacker && diff.features.includes(f);
@@ -2140,6 +2164,10 @@ function simulateGames(n = 100, opts = {}) {
   if (drawable) res.draws = 0;
   const sym = GAME_CONFIG.SYMMETRIC ? { clashSum: 0, clashGames: 0, flips: {}, stall: 0, stallBase: 0, byMover: { first: 0, second: 0 } } : null;
   if (sym) for (const o of GAME_CONFIG.OBJECTIVES) sym.flips[o.id] = 0;
+  // 진영별 지표 (대칭 AI 진단): 상대 간접 화력에 잃은 유닛, 간접 사격·안개 속 사격·오사, 거점 3칸 안 격파와 걸린 라운드, 맞고만 있던 라운드
+  if (sym) sym.side = Object.fromEntries(SIDES.map((x) => [x, { indLoss: 0, indLossEarly: 0, shots: { artillery: 0, mortar: 0 }, fogShots: 0, fogHits: 0, ff: 0, nearKills: 0, killRoundSum: 0, killCnt: 0, passive: 0, time: [] }]));
+  const symObjCells = sym ? GAME_CONFIG.OBJECTIVES.flatMap((o) => (o.cells || [{ r: o.r, c: o.c }])) : [];
+  const nearObj = (p) => symObjCells.some((q) => manhattan(q, p) <= 3);
   // splitRng (기본 true): 주사위와 AI 노이즈를 서로 다른 시드 스트림으로. false 면 변경 전처럼 한 스트림
   const splitRng = opts.splitRng !== false;
 
@@ -2155,6 +2183,34 @@ function simulateGames(n = 100, opts = {}) {
       if (detail) for (const ev of startTurn(st)) if (ev.type === 'arrival') detail.arrivals[ev.side]++;
       let crossStart = null, measureArty = false, acrossSeen = false;
       let firstClash = null, clashLate = false;   // sym: 첫 교전 라운드, 5라운드 이후 교전 여부
+      const entered = {}, passivePending = {};      // sym: 유닛이 거점 3칸 안에 처음 들어온 라운드, 직전 상대 턴에 맞은 진영
+      const symSide = (actions, turnSide, ownedBefore) => {
+        const S = sym.side;
+        if (passivePending[turnSide]) {   // 직전 상대 턴에 거점을 점유한 채 맞았는데, 이번 턴에 반격(공격·사격)이 없음
+          if (!actions.some((a) => a.events.some((e) => e.type === 'diceRoll' && e.side === turnSide))) S[turnSide].passive++;
+          delete passivePending[turnSide];
+        }
+        const hurt = {};
+        for (const a of actions) {
+          let shot = null;
+          for (const e of a.events) {
+            if (e.type === 'diceRoll') {
+              shot = e.indirect ? { side: e.side, ff: false } : null;
+              if (shot) { S[e.side].shots[e.unitType] = (S[e.side].shots[e.unitType] || 0) + 1; if (e.fogged) { S[e.side].fogShots++; if (e.hit) S[e.side].fogHits++; } }
+            } else if (e.type === 'damage' || e.type === 'splashDamage') {
+              if (e.side !== turnSide) hurt[e.side] = true;
+              if (shot && e.side === shot.side && !shot.ff) { shot.ff = true; S[shot.side].ff++; }
+            } else if (e.type === 'destroyed') {
+              if (shot && shot.side !== e.side) { S[e.side].indLoss++; if (st.round <= 5) S[e.side].indLossEarly++; }
+              if (e.side !== a.side && nearObj(e.pos)) {
+                S[a.side].nearKills++;
+                if (entered[e.unitId] != null) { S[a.side].killRoundSum += st.round - entered[e.unitId]; S[a.side].killCnt++; }
+              }
+            }
+          }
+        }
+        for (const x of Object.keys(hurt)) if (ownedBefore[x] > 0) passivePending[x] = true;
+      };
       const symEvents = (evs) => {
         for (const e of evs) {
           if (e.type === 'diceRoll' && e.targetType) { if (firstClash == null) firstClash = st.round; if (st.round > 4) clashLate = true; }
@@ -2167,7 +2223,12 @@ function simulateGames(n = 100, opts = {}) {
         const onBankBefore = turnSide === ATK
           ? new Set(st.units.filter((u) => u.side === ATK && SIM_CROSS_TYPES.includes(u.type) && onOwnBank(ATK, u)).map((u) => u.id))
           : null;
+        const ownedBefore = sym ? Object.fromEntries(SIDES.map((x) => [x, st.objectives.filter((o) => o.owner === x).length])) : null;
+        const clock = opts.clock || (() => Date.now());   // 계산 시간 측정용 (Node 진단은 performance.now 를 넘김)
+        const t0 = sym && opts.timing ? clock() : 0;
         const actions = aiTakeTurn(st, st.turn, rng, diffs[st.turn], { recordSnapshots: false, diceRng, stats: aiStats });
+        if (sym && opts.timing) sym.side[turnSide].time.push(clock() - t0);   // 계산 시간은 opts.timing 일 때만 (결과가 실행마다 달라지므로)
+        if (sym) symSide(actions, turnSide, ownedBefore);
         if (st.act && st.act.side === turnSide) {
           if (st.act.used > st.act.limit) throw new Error(t('err.activationExceeded'));
           const au = actUse[roleOf(turnSide)] || (actUse[roleOf(turnSide)] = { turns: 0, used: 0, limit: 0 });
@@ -2246,7 +2307,10 @@ function simulateGames(n = 100, opts = {}) {
         }
         if (st.winner) break;
         const tev = endTurn(st);
-        if (sym) symEvents(tev);
+        if (sym) {
+          symEvents(tev);
+          for (const u of st.units) if (entered[u.id] == null && nearObj(u)) entered[u.id] = st.round;
+        }
         if (detail) for (const e of tev) if (e.type === 'arrival') detail.arrivals[e.side]++;
         if (fs) for (const e of tev) if (e.type === 'arrival' && e.unitType === 'mortar') fs.mortarSeen++;
       }
@@ -2330,6 +2394,19 @@ function simulateGames(n = 100, opts = {}) {
       avgFirstClashRound: avg(sym.clashSum, sym.clashGames), clashGames: sym.clashGames,
       flipsPerGame: Object.fromEntries(Object.entries(sym.flips).map(([k, v]) => [k, avg(v, done)])),   // 거점 주인 변경 (점유자 없음으로 바뀐 것 포함) 판당
       stallRate: pct(sym.stall, sym.stallBase), stallBase: sym.stallBase,   // 5라운드 이후까지 간 판 중 5라운드부터 교전이 한 번도 없던 판
+      bySide: Object.fromEntries(SIDES.map((x) => {
+        const v = sym.side[x];
+        const o = {
+          indLossPerGame: avg(v.indLoss, done), indLossEarlyPerGame: avg(v.indLossEarly, done),
+          artyShotsPerGame: avg(v.shots.artillery || 0, done), mortarShotsPerGame: avg(v.shots.mortar || 0, done),
+          fogShotsPerGame: avg(v.fogShots, done), fogHitRate: pct(v.fogHits, v.fogShots), ffPerGame: avg(v.ff, done),
+          nearKillsPerGame: avg(v.nearKills, done), avgRoundsToKill: avg(v.killRoundSum, v.killCnt), passivePerGame: avg(v.passive, done),
+          lossPerGame: res.fires ? null : null,
+        };
+        delete o.lossPerGame;
+        if (opts.timing && v.time.length) o.time = { avg: +(v.time.reduce((a, b) => a + b, 0) / v.time.length).toFixed(1), max: +Math.max(...v.time).toFixed(1) };
+        return [x, o];
+      })),
     };
   }
   if (Object.keys(actUse).length) {
@@ -2656,6 +2733,36 @@ function diagnoseSymmetric(n = 100, opts = {}) {
   return rows;
 }
 
+/**
+ * 대칭 AI 진단: 대결마다 AI 가 선공일 때와 후공일 때를 따로 simulateGames(n) (같은 시드).
+ * matchups: [{ key, ai, foe }] (프로필: 'normal' 등 = 새 AI, 'v1:normal' = 기존 중립 AI, 'turtle' = 수비 봇)
+ * 돌려주는 값: { [key]: { first: 결과, second: 결과 } } — 결과의 aiSide·foeSide 로 진영별 지표를 읽음. opts.clock 을 주면 계산 시간 포함
+ */
+function diagnoseSymmetricAI(n = 200, opts = {}) {
+  const id = opts.scenario || 'symmetric';
+  const matchups = opts.matchups || [
+    { key: 'v1-turtle', ai: 'v1:normal', foe: 'turtle' }, { key: 'v2-turtle', ai: 'normal', foe: 'turtle' },
+    { key: 'v2-v1', ai: 'normal', foe: 'v1:normal' }, { key: 'v2-v2', ai: 'normal', foe: 'normal' },
+    { key: 'easy-turtle', ai: 'easy', foe: 'turtle' }, { key: 'hard-turtle', ai: 'hard', foe: 'turtle' },
+  ];
+  const out = {};
+  const prev = GAME_CONFIG.SCENARIO_ID;
+  loadScenario(id);
+  const [F, S2] = GAME_CONFIG.ROUND_ORDER;
+  loadScenario(prev);
+  for (const m of matchups) {
+    out[m.key] = {};
+    for (const order of ['first', 'second']) {
+      const aiSide = order === 'first' ? F : S2, foeSide = order === 'first' ? S2 : F;
+      const r = simulateGames(n, { seed: opts.seed, quiet: true, scenario: id, [aiSide]: m.ai, [foeSide]: m.foe, timing: !!opts.clock, clock: opts.clock });
+      r.aiSide = aiSide; r.foeSide = foeSide;
+      out[m.key][order] = r;
+      if (opts.onResult) opts.onResult(m, order, r);
+    }
+  }
+  return out;
+}
+
 /* =========================== 11. 게임 기록 =========================== */
 /** 끝난 게임의 요약 기록 (콘솔 출력/저장용). 손실 = 전장에 나온 유닛 중 잃은 수 (도착 대기 유닛 제외) */
 function buildGameRecord(state, difficulty, mode = 'ai') {
@@ -2714,7 +2821,7 @@ if (typeof module !== 'undefined' && module.exports) {
     buildGameRecord, summarizeGameRecords, aiUpdatePlan, resolveProfile, listTacticProfiles, compareTacticProfiles,
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,
     diagnoseActivations, activationStatus, activationLimits, hasActivated, activationBlocked, scenarioNotes, sideTotalUnits,
-    diagnoseSymmetric, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
+    diagnoseSymmetric, diagnoseSymmetricAI, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
     diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
   };
 }
