@@ -1,4 +1,4 @@
-# 규칙서 (rulesVersion 7)
+# 규칙서 (rulesVersion 9)
 
 현재 코드 기준. 수치의 원본은 `js/rules.js`, `js/ai-config.js`, `js/scenarios/*.js`. 규칙을 바꾸면 이 문서도 같이 고친다.
 
@@ -65,19 +65,26 @@
   - AI: 한도가 있으면 행동하지 않은 유닛 전체의 후보(이동, 이동 후 공격, 제자리 공격)를 매번 다시 점수화해 하나씩 실행한다. 비교 값은 '그 유닛의 대기 점수보다 얼마나 나은가'이고, 대기보다 나은 후보가 없으면 남은 한도를 쓰지 않는다. 산개전술의 도하 최우선 이동은 다른 후보보다 먼저.
 - **직접 배치:** 시작 전 배치 구역 안에서. 춘천은 국군 8~11행·2인 대전 북한군 4~5행, 호스토멜은 방어군만 2~13행·2~9열.
 - **예약 투입:** 정해진 라운드에 그 진영 턴이 시작될 때 등장하고 그 턴부터 행동한다. 후보 칸이 막히면 3칸 안 가장 가까운 빈 칸(난수 없음), 없으면 다음 라운드로 미룬다. 상대 거점·본부 칸에는 놓지 않는다.
-- **판정 순서:** ① `enterHQ` 적 본부에서 이동을 마치면 즉시 승리 → ② `annihilation` 적 전멸(도착 예정 유닛이 남아 있으면 전멸 아님) → ③ `holdObjectives(n)` 라운드 종료 시 거점 n개 이상 → ④ `surviveRounds(n)` n라운드를 버팀.
+- **판정 순서:** ① `enterHQ` 적 본부에서 이동을 마치면 즉시 승리 → ② `annihilation` 적 전멸(도착 예정 유닛이 남아 있으면 전멸 아님) → ③ `holdObjectives(n)` 라운드 종료 시 거점 n개 이상 → ④ `surviveRounds(n)` n라운드를 버팀 / `roundLimitScore` 마지막 라운드 종료 시 판정.
+- **거점 점유 (v8):** 기본(`sticky`)은 거점 칸에서 이동을 마친 진영이 소유하고 떠나도 유지. `objectiveControl: 'presence'`이면 지금 거점 안(여러 칸이면 어느 칸이든)에 유닛이 있고 상대 유닛이 없는 진영이 점유, 양쪽 다 있거나 아무도 없으면 점유자 없음(이동·격파·증원 도착 때마다 갱신). `holdObjectives`는 확인 시점에 n개 이상이면 바로 승리(연속 유지 라운드 없음).
+- **라운드 제한 판정 (v8, `roundLimitScore`):** 마지막 라운드가 끝나면 점유 거점 수가 많은 쪽 → 같으면 남은 총 체력(도착 대기 유닛은 최대 체력으로 셈)이 많은 쪽 → 같으면 무승부. 양쪽이 동시에 전멸해도 무승부.
+- **선공 (v8):** `firstMover`가 있으면 라운드 순서 = [선공, 후공]. `secondMoverBonus`는 후공 진영의 1라운드 턴에만 행동 한도를 그만큼 늘린다(기본 0, 행동 제한이 있을 때만).
 - **춘천:** 북한군 = 본부 진입·전멸·거점 3개 / 국군 = 본부 진입·전멸·25라운드 생존.
 - **호스토멜:** 공격군 = 거점 2개·전멸 / 방어군 = 12라운드 생존·전멸.
+- **대칭 전장 (가상):** 16×16, 180도 회전 대칭, 14라운드, 러시아군(위) 선공, 행동 한도 5/5, 간접 화력은 호스토멜과 같은 값. 거점 3개(왼쪽 측면 (8,2), 중앙 마을 (7,7)~(8,8) 4칸 묶음, 오른쪽 측면 (7,13)), 점유 방식 `presence`. 양쪽 = 전멸·14라운드 판정(v9: 거점 2개 즉시 승리 없음, 14라운드가 끝났을 때 거점이 더 많은 쪽 → 체력 → 무승부). 고정 배치(직접 배치 없음), 증원 4라운드 보병 2, 8라운드 기갑 1·보병 1. AI는 중립 모드(`aiProfile: 'symmetric'`): 역할과 무관하게 양쪽이 같은 목표(점유하지 않은 거점, 지금 서 있는 아군 거점)와 점수(거점 위 머묾 14, 5라운드부터 라운드마다 접근 가중치 +10%)를 쓴다.
 
 ## 시나리오 구조 (`js/scenarios/*.js` → `SCENARIOS.push({...})`, `index.html`에 script 한 줄 추가)
 | 필드 | 내용 |
 |---|---|
 | `id`, `nameKey`, `descKey`, `subKey`, `scaleMeters` | 식별자, 표시 문자열 키, 한 칸의 실제 거리 |
 | `map`, `sides`, `playerSide`, `turnOrder`, `rounds` | 지도, 진영(`{id: {role: 'def'|'att', nameKey, color}}`), 플레이어 진영, 턴 순서, 최대 라운드 |
-| `hq`, `objectives` | 진영별 본부 칸 또는 `null` / `[{id, nameKey, shortNameKey, pos, startOwner}]` |
+| `hq`, `objectives` | 진영별 본부 칸 또는 `null` / `[{id, nameKey, shortNameKey, pos 또는 cells, startOwner}]` (`cells`: 여러 칸 거점) |
+| `firstMover`, `secondMoverBonus` | 선공 진영 id(`turnOrder` 대신), 후공 1라운드 행동 한도 추가 |
+| `objectiveControl` | `'sticky'`(기본) 또는 `'presence'` |
+| `symmetric`, `aiProfile` | `true`면 회전 대칭 검사, `'symmetric'`이면 AI 중립 모드 |
 | `deployments` | round 0 = 시작 배치(AI 추정 위치 겸용), round 1 이상 = 예약 투입(`pos` 또는 `count`+`cells`) |
 | `placementZones`, `zoneLabelKey` | 직접 배치 구역, 안내 문구 키 |
-| `victory` | 진영별 승리 조건 목록 |
+| `victory` | 진영별 승리 조건 목록 (`enterHQ`, `annihilation`, `holdObjectives`, `surviveRounds`, `roundLimitScore`) |
 | `river`, `aiConstants` | 강 줄기와 도하 AI 상수(없으면 도하 전술이 꺼짐) |
 | `terrainNames`, `overlays`, `arrivalRadius` | 지형 이름 바꾸기, 장식 표식, 예약 투입 탐색 거리 |
 | `activations` | 역할별 한 턴 행동 한도 `{ def, att }` (1 이상의 정수). 없거나 `null`이면 제한 없음. 병력보다 큰 값은 안내만 출력 |

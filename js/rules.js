@@ -6,7 +6,7 @@
    ===================================================================== */
 const RULES = {
   MAX_HP: 4,
-  RULES_VERSION: 7,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로)
+  RULES_VERSION: 9,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만)
   ENABLE_ACTIVATION_LIMIT: true,            // true: 시나리오 activations 의 진영별 행동 한도 적용 · false: 한도 무시 (v5 와 완전히 같은 동작)
   ATTACK_AFTER_MOVE: false,                 // (ENABLE_MOVE_ATTACK 가 false 일 때만 사용) false: 한 유닛은 한 턴에 이동 또는 공격 중 하나만 (포병은 항상 false)
   ENABLE_MOVE_ATTACK: true,                 // true: 남은 이동력 >= 공격 비용이면 이동 후 공격 가능 (포병·통신 제외)
@@ -81,6 +81,12 @@ const TERRAIN_TYPES = {
  *   fires          간접 화력 설정 (없으면 v6 규칙 그대로: 포병은 병종 사거리, 쿨다운 없음, 사거리 안 모든 칸 사격)
  *                  { blindFire: bool (false 면 간접 화력은 보이는 칸만), <간접 병종>: { range, cooldown, indirectPenalty? } }
  *                  range = 최대 사거리(최소는 병종 rangeMin), cooldown = 쏜 뒤 사격할 수 없는 자기 진영 턴 수, indirectPenalty = 명중률 추가 감점(%p)
+ *   (v8) objectives 의 cells: [[r,c], ...] 여러 칸 거점 (pos 대신). 표식은 첫 칸에 하나
+ *   objectiveControl 'sticky'(기본: 마지막으로 이동해 들어간 진영이 계속 소유) | 'presence'(지금 안에 유닛이 있고 상대가 없는 진영, 양쪽·무인이면 점유자 없음)
+ *   firstMover     선공 진영 id (turnOrder 대신). secondMoverBonus: 후공 진영 1라운드 턴의 행동 한도 추가 (기본 0)
+ *   victory 조건 roundLimitScore: 마지막 라운드가 끝나면 점유 거점 수 → 남은 총 체력(도착 대기 유닛은 최대 체력) → 무승부(winner 'draw'). 양쪽이 모두 가질 때만 동작
+ *   symmetric      true 면 validateScenario 가 180도 회전 대칭(지형·거점·배치·증원·행동 한도·승리 조건·본부)을 검사
+ *   aiProfile      'symmetric' 이면 AI 중립 모드 (역할과 무관하게 양쪽 같은 목표·점수, AI_CONFIG.SYMMETRIC)
  */
 const SCENARIOS = [];
 const DEFAULT_SCENARIO_ID = 'chuncheon';

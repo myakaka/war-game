@@ -21,6 +21,8 @@
       att: { line: '#B03030', fill: '#F6CFCB' },   // 공격 측: 마름모
     },
     neutral: '#7d7d7d',
+    // 여러 칸 거점의 묶음 윤곽: 기본 테마는 소유 진영 색 굵은 점선, 리치 테마는 가는 중립 노란색 실선
+    objGroup: { w: 3.2, dash: '7 4', none: '#3F3A33', richLine: '#F2C94C', richW: 1.6 },   // none: 점유자 없음 (안개 위에서도 보이게 어둡게)
     terrain: {
       plain:    { bg: '#EBE5C8', mark: '#B5B088' },
       forest:   { bg: '#C9D3A3', mark: '#5B7A3A', light: '#7E9C58' },
@@ -127,7 +129,7 @@
   const ui = {
     state: null, view: null, selectedId: null, busy: false, speed: 'normal', difficulty: 'normal',
     actingId: null, gameId: 0, moveSet: new Set(), atkSet: new Set(), hoverIdx: -1, inspectId: null,
-    moveAtkSet: new Set(), moveLeftAt: new Map(),
+    moveAtkSet: new Set(), moveLeftAt: new Map(), dualSet: new Set(), choice: null,
     note: null,            // { id, reason: {k,p} }: 이동 뒤 공격할 수 없어 행동이 끝난 유닛의 사유 (패널 표시용)
     mode: 'ai',            // 'ai' | 'hotseat'
     viewer: PLAYER,        // 화면 시점: 진영 / null(가림막·빈 화면) / 'all'(종료 후 전체 공개)
@@ -363,10 +365,25 @@
   }
   const flagShape = (col) => `<line x1="4.5" y1="2.5" x2="4.5" y2="11.5" stroke="${col}" stroke-width="1.3" stroke-linecap="round"/><polygon points="4.5,2.5 11.5,4.8 4.5,7.1" fill="${col}"/>`;
   /** 거점 마커: 안쪽 2px 점선 + 왼쪽 위 작은 깃발 (색 = 현재 소유 진영). noFlag: 점령 연출 중 */
-  function objSvg(owner, label, noFlag = false) {
+  function objSvg(owner, label, noFlag = false, group = false) {
     const col = sideColor(owner);
-    return `<svg class="mk" viewBox="0 0 40 40" role="img" aria-label="${esc(label)}"><rect x="2" y="2" width="36" height="36" fill="none" stroke="${col}" stroke-width="1.6" stroke-dasharray="3 3"/>`
+    // group: 여러 칸 거점의 기준 칸 (칸 윤곽 대신 묶음 윤곽을 하이라이트 층에 그림, 깃발만 한 번)
+    const box = group ? '' : `<rect x="2" y="2" width="36" height="36" fill="none" stroke="${col}" stroke-width="1.6" stroke-dasharray="3 3"/>`;
+    return `<svg class="mk" viewBox="0 0 40 40" role="img" aria-label="${esc(label)}">${box}`
       + `${noFlag ? '' : flagShape(col)}</svg>`;
+  }
+  /** 여러 칸 거점의 묶음 윤곽 (공개 정보: 지형처럼 늘 보임 → 안개 위 층에 그림) */
+  function objGroupSvg(st) {
+    const D = DESIGN.objGroup;
+    let g = '';
+    for (const o of GAME_CONFIG.OBJECTIVES) {
+      if (!o.cells) continue;
+      const cur = st && st.objectives.find((x) => x.id === o.id);
+      const set = new Set(o.cells.map((p) => idx(p.r, p.c)));
+      const owner = cur && GAME_CONFIG.SIDES[cur.owner] ? cur.owner : null;
+      g += rich.on ? regionSvg(set, { line: D.richLine, w: D.richW }) : regionSvg(set, { line: owner ? sideColor(owner) : D.none, w: D.w, dash: D.dash });
+    }
+    return g;
   }
 
   /* =====================================================================
@@ -733,9 +750,10 @@
       if (hq && hq.r === r && hq.c === c) html += hqSvg(side, t('aria.hq', { side: S(side) }));
     }
     const obj = objectiveAt(st, r, c);
-    if (obj) {
+    // 여러 칸 거점은 기준 칸(첫 칸)에만 표식 하나
+    if (obj && (!objInfo(obj.id).cells || (obj.r === r && obj.c === c))) {
       const owner = GAME_CONFIG.SIDES[obj.owner] ? S(obj.owner) : { t: 'aria.neutral' };
-      html += objSvg(obj.owner, t('aria.obj', { name: OB(obj.id), side: owner }), ui.anim.hideFlag === obj.id);
+      html += objSvg(obj.owner, t('aria.obj', { name: OB(obj.id), side: owner }), ui.anim.hideFlag === obj.id, !!objInfo(obj.id).cells);
     }
     return html;
   }
@@ -799,9 +817,15 @@
     const F = DESIGN.hl.artyFog;
     return regionSvg(fog, { fill: F.fill, line: F.line, w: F.w, dash: F.dash }) + regionSvg(seen, artyStyle());
   }
+  /** 이동도 사격도 되는 칸: 이동 채움 위에 사격 사거리 윤곽만 (채움 없음) */
+  function dualRegionSvg() {
+    if (!ui.dualSet || !ui.dualSet.size) return '';
+    const A = artyStyle();
+    return regionSvg(ui.dualSet, { line: A.line, w: A.w, dash: A.dash });
+  }
   /** 상태 하이라이트 층 (아래: 영역 채움·사선·윤곽 / 위: 링·배지) */
   function renderHighlights(st, me, sel, deployTargetsSet = null) {
-    let under = hatchDefs('hl-hatch'), over = '';
+    let under = hatchDefs('hl-hatch'), over = objGroupSvg(st);
     const zones = signalZoneSets(st, shownSignals(st, me, sel));
     for (const side of GAME_CONFIG.ROUND_ORDER) under += regionSvg(zones[side], signalStyle(side));
     if (deployTargetsSet) under += rich.on ? richCells(deployTargetsSet, DESIGN.rich.move) : regionSvg(deployTargetsSet, moveStyle());
@@ -809,7 +833,7 @@
       const ty = GAME_CONFIG.UNIT_TYPES[sel.type], M2 = DESIGN.rich.move, T2 = DESIGN.rich.target;
       under += richCells(ui.moveSet, M2);
       under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
-      if (ty.indirect) under += fireRegionSvg(st, me);
+      if (ty.indirect) under += fireRegionSvg(st, me) + dualRegionSvg();
       if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += `<rect x="${cellX(p) + 1.3}" y="${cellY(p) + 1.3}" width="${CS - 2.6}" height="${CS - 2.6}" fill="none" stroke="${T2.line}" stroke-width="${T2.w}" vector-effect="non-scaling-stroke"/>`; }
       if (ty.isSignal && sel.side === me) {
         const R = GAME_CONFIG.COMBAT.signalRange, B = DESIGN.hl.sigBadge;
@@ -822,7 +846,7 @@
       const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
       under += regionSvg(ui.moveSet, moveStyle());
       under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
-      if (ty.indirect) under += fireRegionSvg(st, me);
+      if (ty.indirect) under += fireRegionSvg(st, me) + dualRegionSvg();
       if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += targetRing(unitCx(p), unitCy(p)); }
       // 통신 선택: 보너스를 받는 아군 공격 유닛 위에 +20 배지 (아군 통신만)
       if (ty.isSignal && sel.side === me) {
@@ -845,7 +869,7 @@
       cells[i].el.className = 'cell';
       cells[i].dyn.innerHTML = markersHtml(st, r, c);
     }
-    hlUnder.innerHTML = ''; hlOver.innerHTML = '';
+    hlUnder.innerHTML = ''; hlOver.innerHTML = objGroupSvg(st);
     clearHover();
   }
 
@@ -859,6 +883,7 @@
     const sel = playerTurn && ui.selectedId ? getUnit(st, ui.selectedId) : null;
     ui.moveSet = new Set();
     ui.atkSet = new Set();
+    ui.dualSet = new Set();      // 이동도 사격도 되는 칸 (박격포)
     ui.moveAtkSet = new Set();   // 이동 후에도 공격 가능한 칸 (남은 이동력 >= 공격 비용, 강 진입 칸은 남은 이동력 0 이라 제외됨)
     ui.moveLeftAt = new Map();   // 칸 → 도착 시 남은 이동력 (자기 진영이 아는 정보만으로 계산됨)
     if (sel) {
@@ -871,6 +896,9 @@
         if (showMoveAtk && tile.remaining >= attackCost(sel.type)) ui.moveAtkSet.add(k);
       }
       for (const tile of getAttackableTiles(st, sel.id)) ui.atkSet.add(idx(tile.r, tile.c));
+      // 이동 후 사격 병종(박격포): 이동도 사격도 되는 칸(최소 사거리와 이동 거리가 겹침, 안개 속 칸 포함)은 따로 모아
+      // 이동 표시를 유지하고, 누르면 '이동 / 사격'을 고르게 함. 보이는 적이 있는 칸은 이동 칸이 아니므로 그대로 사격 대상
+      if (selT.indirect && selT.moveFire) for (const k of ui.moveSet) if (ui.atkSet.has(k)) { ui.atkSet.delete(k); ui.dualSet.add(k); }
     }
     const indirect = sel && GAME_CONFIG.UNIT_TYPES[sel.type].indirect;
 
@@ -893,7 +921,7 @@
     }
     renderHighlights(st, me, sel);
     clearHover();
-    if (ui.touchArm >= 0 && sel && ui.atkSet.has(ui.touchArm)) renderHover(ui.touchArm); else ui.touchArm = -1;
+    if (ui.touchArm >= 0 && sel && (ui.atkSet.has(ui.touchArm) || ui.dualSet.has(ui.touchArm))) renderHover(ui.touchArm); else ui.touchArm = -1;
     renderHeader();
     renderPanel();
   }
@@ -959,7 +987,16 @@
     }).join('');
     // 목표 칩: 거점 승리 조건(holdObjectives)이 있는 시나리오만
     const WS = holdSide();
-    if (WS) {
+    const symGoal = GAME_CONFIG.ROUND_ORDER.every((x) => victoryCond(x, 'roundLimitScore'));   // 양쪽 같은 라운드 제한 판정 (대칭 시나리오): 자기 점유 수
+    if (symGoal) {
+      // 화면을 보는 진영 자신의 점유 수만 (종료 후 전체 공개·AI 모드 관전 시에는 플레이어 진영)
+      const own = me === 'all' ? (hotseat() ? null : PLAYER) : me;
+      if (own) {
+        const gp = { have: st.objectives.filter((o) => o.owner === own).length, total: st.objectives.length };
+        const full = t('hud.goalSym', gp);
+        setChip('hud-goal', txSpan(W ? full : t('hud.goalSymShort', gp)), full, 'chip orange');
+      } else setChip('hud-goal', null);
+    } else if (WS) {
       const have = st.objectives.filter((o) => o.owner === WS).length, need = holdCount();
       const attackerView = hotseat() && me === WS;
       const gp = { att: S(WS), have, need };
@@ -1276,7 +1313,7 @@
       case 'move': return [ev.from, ev.to];
       case 'ambush': return [ev.at];
       case 'diceRoll': return [ev.target];
-      case 'damage': case 'splashDamage': case 'destroyed': case 'captured': case 'arrival': return [ev.pos];
+      case 'damage': case 'splashDamage': case 'destroyed': case 'captured': case 'objectiveLost': case 'arrival': return [ev.pos];
       default: return [];
     }
   }
@@ -1340,6 +1377,7 @@
         return M('log.damage', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos), n: ev.amount, splash: ev.type === 'splashDamage' ? { t: 'log.splash' } : '', hp: ev.hp }, '');
       case 'destroyed': return M('log.destroyedFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
       case 'captured': return M('log.capturedFull', { side: S(ev.side), obj: OB(ev.objectiveId), pos: P(ev.pos) }, 'sys');
+      case 'objectiveLost': return M(ev.contested ? 'log.objContested' : 'log.objLost', { obj: OB(ev.objectiveId) }, 'sys');
       case 'arrival': return M('log.arrivalFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, ev.side);
       case 'roundStart': return M('log.round', { n: ev.round }, 'sys');
       case 'turnStart': return M('log.turn', { side: S(ev.side) }, 'sys');
@@ -1389,6 +1427,10 @@
       case 'captured':
         if (hs && !mine && !seen(ev.pos)) return null;
         return M('log.captured', { side: S(ev.side), obj: OB(ev.objectiveId), pos: P(ev.pos) }, 'sys');
+      case 'objectiveLost':
+        // 점유자 변화는 거점 칩과 같은 공개 정보. 2인 모드는 점령 로그와 같게 시야 밖이면 숨김
+        if (hs && !seen(ev.pos)) return null;
+        return M(ev.contested ? 'log.objContested' : 'log.objLost', { obj: OB(ev.objectiveId) }, 'sys');
       case 'arrival':
         // 예약 투입: 자기 진영은 항상, 상대 진영은 등장 칸이 시야 안일 때만 (시야 밖 도착은 로그 없음)
         if (mine) return M('log.arrivalMine', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, ev.side);
@@ -1825,6 +1867,13 @@
       if (ATTACK_CONFIRM) showAttackConfirm(sel.id, p); else playerAttack(sel.id, p);
       return;
     }
+    if (sel && ui.dualSet.has(i)) {
+      // 이동도 사격도 되는 칸: 터치는 첫 탭 = 명중률 배지, 두 번째 탭 = 선택 창. 마우스는 바로 선택 창
+      if (touch && armed !== i) { ui.touchArm = i; clearHover(); renderHover(i); return; }
+      clearHover();
+      showMoveFireChoice(sel.id, p);
+      return;
+    }
     if (touch) clearHover();
     if (sel && ui.moveSet.has(i)) { playerMove(sel.id, p); return; }
     if (occShown && occShown.side === me) {
@@ -2061,7 +2110,7 @@
     const p = posOf(i);
     const me = ui.viewer;
     clearHover();
-    if (!playerCanAct() || !ui.selectedId || !ui.atkSet.has(i)) {
+    if (!playerCanAct() || !ui.selectedId || !(ui.atkSet.has(i) || ui.dualSet.has(i))) {
       if (st && !ui.busy && me) {
         let pre = '';
         // 이동 칸: 도착 시 남은 이동력과 이동 후 공격 가능 여부 (자기 진영이 아는 정보로만 계산된 값)
@@ -2230,7 +2279,7 @@
   }
   /** 시트가 공격자·대상 칸을 가리면 지도를 그만큼 위로 밈 (상태 변화 없음, 상단 상태 줄 아래까지만) */
   function keepUnitsAboveSheet() {
-    const wrap = $('#board-wrap');
+    const wrap = boardWrapEl;   // 가림막 중에도 null 이 아니게 보관한 참조
     const c = ui.confirm;
     const sel = c && getUnit(ui.state, c.id);
     if (!sel || ui.wide || !$('#overlay').classList.contains('sheet')) { wrap.style.transform = ''; return; }
@@ -2244,12 +2293,40 @@
     const shift = Math.min(Math.max(0, low - limit), Math.max(0, high - top));
     wrap.style.transform = shift > 0 ? `translateY(${-Math.ceil(shift)}px)` : '';
   }
+  /** 이동도 사격도 되는 칸(박격포): 이동 / 사격 / 취소. 사격을 고르면 기존 확인 창(좁은 화면은 시트)으로 */
+  function showMoveFireChoice(id, target) {
+    const sel = getUnit(ui.state, id);
+    if (!sel) return;
+    hideTip();
+    showOverlay(`<div class="atk-confirm move-fire-choice">
+      <h2>${esc(t('choice.title'))}</h2>
+      <div style="margin-bottom:8px">${esc(t('choice.line', { unit: U(sel.type), from: P(sel), pos: P(target) }))}</div>
+      <div class="btn-row" style="margin-top:14px"><button class="primary" id="btn-ch-move">${esc(t('choice.move'))}</button><button id="btn-ch-fire">${esc(t('choice.fire'))}</button><button id="btn-ch-no">${esc(t('confirm.no'))}</button></div>
+    </div>`, () => showMoveFireChoice(id, target));
+    ui.choice = { id, target };
+    $('#btn-ch-move').onclick = () => choiceDo('move');
+    $('#btn-ch-fire').onclick = () => choiceDo('fire');
+    $('#btn-ch-no').onclick = () => choiceDo(null);
+    $('#btn-ch-move').focus();
+  }
+  function choiceDo(what) {
+    const c = ui.choice;
+    if (!c) return;
+    ui.choice = null;
+    hideOverlay();
+    const k = idx(c.target.r, c.target.c);
+    const ok = playerCanAct() && getUnit(ui.state, c.id) && ui.dualSet.has(k);
+    if (ok && what === 'move') { playerMove(c.id, c.target); return; }
+    if (ok && what === 'fire') { if (ATTACK_CONFIRM) showAttackConfirm(c.id, c.target); else playerAttack(c.id, c.target); return; }
+    render();   // 취소: 선택은 유지
+  }
   function confirmAttack() {
     const c = ui.confirm;
     if (!c) return;
     ui.confirm = null;
     hideOverlay();
-    if (playerCanAct() && getUnit(ui.state, c.id) && ui.atkSet.has(idx(c.target.r, c.target.c))) playerAttack(c.id, c.target);
+    const k = idx(c.target.r, c.target.c);
+    if (playerCanAct() && getUnit(ui.state, c.id) && (ui.atkSet.has(k) || ui.dualSet.has(k))) playerAttack(c.id, c.target);
   }
   function cancelAttack() {
     if (!ui.confirm) return;
@@ -2701,7 +2778,7 @@
       under += regionSvg(targets, moveStyle());
       hlUnder.innerHTML = under;
     } else hlUnder.innerHTML = '';
-    hlOver.innerHTML = '';
+    hlOver.innerHTML = objGroupSvg(st);
     clearHover();
     renderHeader();
     renderTray();
@@ -2803,12 +2880,13 @@
   }
   function hideOverlay() {
     ui.confirm = null;
+    ui.choice = null;
     ui.overlay = null;
     const ov = $('#overlay');
     ov.classList.remove('show', ...OVERLAY_KINDS);
     $('#modal').innerHTML = '';
     ui.sheetOpen = false;
-    $('#board-wrap').style.transform = '';   // 공격 시트로 밀었던 지도 원위치
+    boardWrapEl.style.transform = '';   // 공격 시트로 밀었던 지도 원위치 (가림막 중에는 문서에서 떨어져 있으므로 보관한 참조로)
     const back = ui.overlayReturn;
     ui.overlayReturn = null;
     if (back && back.isConnected && back.offsetParent && !back.disabled) back.focus();
@@ -2885,7 +2963,7 @@
       const hs = sel.mode === 'hotseat';
       const prof = resolveProfile(sel.diff);
       const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
-      const sub = t(hs ? 'start.subHotseat' : 'start.sub', { place: { t: sc.subKey }, max: GAME_CONFIG.MAX_ROUNDS, ...SP() });
+      const sub = t((hs ? 'start.subHotseat' : 'start.sub') + (GAME_CONFIG.SYMMETRIC ? 'Sym' : ''), { place: { t: sc.subKey }, max: GAME_CONFIG.MAX_ROUNDS, ...SP() });
       showOverlay(`<div class="start-card">
         <div class="start-top"><div style="min-width:0"><h1 class="start-title">${esc(t('app.title'))}</h1><div class="start-sub">${esc(sub)}</div></div>${langButtonsHtml()}</div>
         <div><div class="sec-lbl">${esc(t('start.scenario'))}</div><div class="scen-list" role="radiogroup" aria-label="${esc(t('start.scenario'))}">${scenarioCardsHtml(GAME_CONFIG.SCENARIO_ID)}</div></div>
@@ -2896,7 +2974,7 @@
         ${hs ? '' : `<div><div class="sec-lbl">${esc(t('lbl.aiDifficulty'))}</div><div class="diff-grid" role="group" aria-label="${esc(t('lbl.aiDifficulty'))}">`
           + listTacticProfiles().map((p) => `<button data-diff="${esc(p.id)}" aria-pressed="${p.id === prof.id}" title="${esc(p.name)}"><span class="tx">${esc(p.name)}</span></button>`).join('')
           + `</div><div class="desc-box" id="intro-diff-desc">${esc(prof.description)}</div></div>`}
-        <div class="opt-list"><label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>
+        <div class="opt-list">${GAME_CONFIG.ROUND_ORDER.some((x) => GAME_CONFIG.DEPLOY_ZONES[x] && GAME_CONFIG.DEPLOYMENT[x].length) ? `<label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>` : ''}
           ${hs ? `<label class="opt"><input type="checkbox" id="opt-curtain"${ui.useCurtain ? ' checked' : ''}><span class="tx">${esc(t('start.optCurtain'))}</span></label>` : ''}</div>
         <button class="primary btn-go" id="btn-start">${esc(t('btn.startGo'))}</button>
         <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button></div>
@@ -2918,7 +2996,7 @@
         };
       });
       modal.querySelectorAll('[data-diff]').forEach((b) => { b.onclick = () => { sel.diff = b.dataset.diff; draw(`[data-diff="${sel.diff}"]`); }; });
-      $('#opt-deploy').onchange = (e) => { ui.manualDeploy = e.target.checked; savePref(OPT_DEPLOY_KEY, ui.manualDeploy); };
+      if ($('#opt-deploy')) $('#opt-deploy').onchange = (e) => { ui.manualDeploy = e.target.checked; savePref(OPT_DEPLOY_KEY, ui.manualDeploy); };   // 배치 구역이 없는 시나리오(고정 배치)는 항목 없음
       if ($('#opt-curtain')) $('#opt-curtain').onchange = (e) => { ui.useCurtain = e.target.checked; savePref(OPT_CURTAIN_KEY, ui.useCurtain); };
       $('#btn-rules').onclick = () => showRules(() => draw('#btn-rules'));
       $('#btn-start').onclick = () => {
@@ -2965,11 +3043,14 @@
       .map((s) => ({ t: s === PLAYER ? 'intro.deployItem' : 'intro.deployItemHs', p: { side: S(s), zone: zoneOf(s) } }));
     const hasHq = C.ROUND_ORDER.some((s) => C.HQ[s]);
     showOverlay(`<h2>${esc(t('rules.title'))}</h2>
-      <div class="hint">${t('intro.whoAI', SP())} ${t('intro.whoHotseat', SP())}</div>
+      <div class="hint">${t(C.SYMMETRIC ? 'intro.whoAISym' : 'intro.whoAI', SP())} ${t(C.SYMMETRIC ? 'intro.whoHotseatSym' : 'intro.whoHotseat', SP())}</div>
       <ul>
         ${zones.length ? `<li>${t('intro.deploy', { list: zones })}</li>` : ''}
-        <li>${t('intro.round', { order: C.ROUND_ORDER.map((s) => t('log.turn', { side: S(s) })).join(' → '), max: C.MAX_ROUNDS })}</li>
-        ${holdSide() ? `<li>${t('intro.objectives', { when, att: S(holdSide()), n: holdCount() })}</li>` : ''}
+        <li>${t(surviveSide() ? 'intro.round' : 'intro.roundSym', { order: C.ROUND_ORDER.map((s) => t('log.turn', { side: S(s) })).join(' → '), max: C.MAX_ROUNDS })}</li>
+        ${C.ROUND_ORDER.every((x) => victoryCond(x, 'roundLimitScore'))
+    ? `<li>${t('intro.objectivesSym', { total: C.OBJECTIVES.length, max: C.MAX_ROUNDS })}</li>`
+    : holdSide() ? `<li>${t('intro.objectives', { when, att: S(holdSide()), n: holdCount() })}</li>` : ''}
+        ${C.OBJECTIVE_CONTROL === 'presence' ? `<li>${t('intro.presence')}</li>` : ''}
         <li>${t(hasHq ? 'intro.hqLoss' : 'intro.annihilation')}</li>
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}
         ${introMoveRuleHtml()}
@@ -3013,7 +3094,7 @@
     console.log(t('rec.console', {
       mode: { t: rec.mode === 'ai' ? 'mode.ai' : 'mode.hotseat' }, diff: rec.difficulty ? resolveProfile(rec.difficulty).name : '-',
       scen: { t: SCENARIOS.find((x) => x.id === rec.scenarioId).nameKey },
-      winner: S(rec.winner), round: rec.round, reason: REASON(rec.reason), ...SP(),
+      winner: rec.winner === 'draw' ? { t: 'result.titleDraw' } : S(rec.winner), round: rec.round, reason: REASON(rec.reason), ...SP(),
       dl: rec[`${DEF()}Losses`], al: rec[`${ATT()}Losses`], obj: rec.objectivesCaptured,
     }));
     console.table(summarizeGameRecords(all));
@@ -3026,8 +3107,9 @@
   function showResult() {
     const st = ui.state;
     if (!st.winner) return;
+    const draw = st.winner === 'draw';
     if (ui.recordedGameId !== ui.gameId) {
-      const m = M('log.victory', { side: S(st.winner), reason: REASON(st.winReason) }, 'sys');
+      const m = draw ? M('log.draw', { reason: REASON(st.winReason) }, 'sys') : M('log.victory', { side: S(st.winner), reason: REASON(st.winReason) }, 'sys');
       addLog(m);
       if (!ui.history.some((h) => h.final)) ui.history.push({ ...m, final: true });
     }
@@ -3045,9 +3127,10 @@
     const C = GAME_CONFIG;
     const hs = hotseat();
     const win = st.winner === PLAYER;
-    const title = hs ? t('result.titleWin', { side: S(st.winner) }) : t(win ? 'result.titleWin' : 'result.titleLose', { side: S(PLAYER) });
-    const cls = hs ? ROLE(st.winner) : (win ? 'win' : 'lose');
-    const reason = t('result.r.' + st.winReason, { winner: S(st.winner), loser: S(enemyOf(st.winner)), n: reasonParams(st.winReason).n });
+    const title = draw ? t('result.titleDraw') : hs ? t('result.titleWin', { side: S(st.winner) }) : t(win ? 'result.titleWin' : 'result.titleLose', { side: S(PLAYER) });
+    const cls = draw ? 'draw' : hs ? ROLE(st.winner) : (win ? 'win' : 'lose');
+    const reason = draw && st.winReason === 'annihilation' ? t('result.r.drawAnnihilation')
+      : t('result.r.' + st.winReason, { winner: S(st.winner), loser: S(enemyOf(st.winner)), n: reasonParams(st.winReason).n });
     const rec = buildGameRecord(st, ui.difficulty, hs ? 'hotseat' : 'ai');   // 손실 수는 기록과 같은 계산
     // 전장에 나온 유닛 수 (시작 배치 + 이미 도착한 증원). 도착하지 않은 증원은 세지 않음
     const startN = (s) => sideTotalUnits(s) - (st.pending || []).filter((p) => p.side === s).length;
@@ -3577,6 +3660,12 @@
   }, true);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') { trapFocus(e); return; }
+    if (ui.choice) {   // 이동/사격 선택 창: M = 이동, F = 사격, Esc = 취소
+      if (e.key === 'Escape') { e.preventDefault(); choiceDo(null); }
+      else if (e.code === 'KeyM') { e.preventDefault(); choiceDo('move'); }
+      else if (e.code === 'KeyF') { e.preventDefault(); choiceDo('fire'); }
+      return;
+    }
     if (ui.confirm) {   // 공격 확인 창: Enter = 공격, Esc = 취소 (다른 키보다 우선)
       if (e.key === 'Escape') { e.preventDefault(); cancelAttack(); }
       else if (e.key === 'Enter') { e.preventDefault(); confirmAttack(); }

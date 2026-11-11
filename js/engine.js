@@ -29,7 +29,16 @@ function terrainAt(r, c) { return GAME_CONFIG.TERRAIN[GAME_CONFIG.MAP[r][c]]; }
 function unitType(u) { return GAME_CONFIG.UNIT_TYPES[u.type]; }
 function getUnit(state, id) { return state.units.find((u) => u.id === id) || null; }
 function getUnitAt(state, r, c) { return state.units.find((u) => u.r === r && u.c === c) || null; }
-function objectiveAt(state, r, c) { return state.objectives.find((o) => o.r === r && o.c === c) || null; }
+function objectiveAt(state, r, c) {
+  const M = GAME_CONFIG.OBJ_CELL_ID;   // 여러 칸 거점이 있는 시나리오만: 칸 → 거점 id
+  if (M) { const id = M.get(r * N + c); return id == null ? null : state.objectives.find((o) => o.id === id) || null; }
+  return state.objectives.find((o) => o.r === r && o.c === c) || null;
+}
+/** 거점의 칸 목록 [{r,c}] (한 칸 거점은 [{r,c}]) */
+function objectiveCells(o) {
+  const info = GAME_CONFIG.OBJECTIVES.find((x) => x.id === o.id);
+  return info && info.cells ? info.cells : [{ r: o.r, c: o.c }];
+}
 function cloneState(state) { return JSON.parse(JSON.stringify(state)); }
 
 /* ---------- 시나리오 불러오기 ---------- */
@@ -79,6 +88,14 @@ function normalizeDeployment(d) {
   return { round: d.round || 0, side: d.side, type: d.type, count: d.count || (d.cells ? d.cells.length : 1), cells };
 }
 
+/** 시나리오의 라운드 순서: firstMover 가 있으면 [선공, 나머지], 없으면 turnOrder */
+function scenarioTurnOrder(s) {
+  if (s.firstMover) return [s.firstMover, ...Object.keys(s.sides || {}).filter((x) => x !== s.firstMover)];
+  return (s.turnOrder || []).slice();
+}
+/** 데이터의 거점 칸 목록 [[r,c]] (pos 또는 cells) */
+function objectiveCellList(o) { return o.cells ? o.cells : o.pos ? [o.pos] : []; }
+
 /** 시나리오 덮어쓰기 (진단용). 함수면 시나리오 사본을 직접 고치고, 객체면 아래 키를 적용 */
 function applyScenarioOverrides(s, ov) {
   if (!ov) return s;
@@ -123,7 +140,11 @@ function validateScenario(s) {
   const passable = (p, type) => { const ter = terOf(p); return !!ter && !(ter.impassableFor && type && ter.impassableFor.includes(type)); };
   const sides = Object.keys(s.sides || {});
   if (sides.length !== 2) E('scenErr.sides');
-  if (!Array.isArray(s.turnOrder) || s.turnOrder.length !== 2 || s.turnOrder.some((x) => !sides.includes(x))) E('scenErr.turnOrder');
+  const order = s.firstMover != null ? (sides.includes(s.firstMover) ? scenarioTurnOrder(s) : null) : s.turnOrder;
+  if (!Array.isArray(order) || order.length !== 2 || order.some((x) => !sides.includes(x)) || new Set(order).size !== 2) E('scenErr.turnOrder');
+  if (s.secondMoverBonus != null && !(Number.isInteger(s.secondMoverBonus) && s.secondMoverBonus >= 0)) E('scenErr.secondMoverBonus', { n: s.secondMoverBonus });
+  if (s.objectiveControl != null && !['sticky', 'presence'].includes(s.objectiveControl)) E('scenErr.objectiveControl', { v: String(s.objectiveControl) });
+  if (s.aiProfile != null && s.aiProfile !== 'symmetric') E('scenErr.aiProfile', { v: String(s.aiProfile) });
   if (!sides.includes(s.playerSide)) E('scenErr.playerSide');
   if (new Set(sides.map((x) => x[0].toUpperCase())).size !== sides.length) E('scenErr.prefix2');
   const roles = sides.map((x) => s.sides[x].role).sort().join(',');
@@ -136,11 +157,15 @@ function validateScenario(s) {
   }
   const objCells = new Set();
   for (const o of s.objectives || []) {
-    if (!inB(o.pos)) { E('scenErr.cell', { what: { t: 'scenErr.what.obj' }, r: o.pos && o.pos[0], c: o.pos && o.pos[1] }); continue; }
-    if (!passable(o.pos)) E('scenErr.cell', { what: { t: 'scenErr.what.obj' }, r: o.pos[0], c: o.pos[1] });
-    const k = o.pos.join(',');
-    if (objCells.has(k)) E('scenErr.objDup', { r: o.pos[0], c: o.pos[1] });
-    objCells.add(k);
+    const list = objectiveCellList(o);
+    if (!list.length) E('scenErr.cell', { what: { t: 'scenErr.what.obj' }, r: '-', c: '-' });
+    for (const p of list) {
+      if (!inB(p)) { E('scenErr.cell', { what: { t: 'scenErr.what.obj' }, r: p && p[0], c: p && p[1] }); continue; }
+      if (!passable(p)) E('scenErr.cell', { what: { t: 'scenErr.what.obj' }, r: p[0], c: p[1] });
+      const k = p.join(',');
+      if (objCells.has(k)) E('scenErr.objDup', { r: p[0], c: p[1] });
+      objCells.add(k);
+    }
     if (o.startOwner != null && !sides.includes(o.startOwner)) E('scenErr.owner', { id: o.id });
   }
   const start = new Set();
@@ -172,7 +197,7 @@ function validateScenario(s) {
       if (r < z.rows[0] || r > z.rows[1] || (z.cols && (c < z.cols[0] || c > z.cols[1]))) E('scenErr.defaultOutside', { side, r, c });
     }
   }
-  const TYPES = ['enterHQ', 'annihilation', 'holdObjectives', 'surviveRounds'];
+  const TYPES = ['enterHQ', 'annihilation', 'holdObjectives', 'surviveRounds', 'roundLimitScore'];
   for (const side of sides) {
     const list = (s.victory && s.victory[side]) || [];
     if (!list.length) E('scenErr.noVictory', { side });
@@ -180,7 +205,7 @@ function validateScenario(s) {
       if (!TYPES.includes(v.type)) E('scenErr.victoryType', { type: v.type });
       if (v.type === 'holdObjectives' && !(Number.isInteger(v.count) && v.count >= 1 && v.count <= (s.objectives || []).length)) E('scenErr.holdCount', { n: v.count });
       if (v.type === 'surviveRounds' && !(Number.isInteger(v.rounds) && v.rounds >= 1 && v.rounds <= s.rounds)) E('scenErr.surviveRounds', { n: v.rounds });
-      if (v.type === 'enterHQ' && !(s.hq && s.hq[s.turnOrder.find((x) => x !== side)])) E('scenErr.enterHQ', { side });
+      if (v.type === 'enterHQ' && !(s.hq && s.hq[sides.find((x) => x !== side)])) E('scenErr.enterHQ', { side });
     }
   }
   if (s.river) for (const p of s.river.crossings || []) if (!inB(p)) E('scenErr.cell', { what: { t: 'scenErr.what.crossing' }, r: p[0], c: p[1] });
@@ -202,7 +227,48 @@ function validateScenario(s) {
       }
     }
   }
+  if (s.symmetric) for (const m of symmetryErrors(s)) E('scenErr.symmetry', { what: m });
   return errs;
+}
+
+/**
+ * 대칭 검사 (시나리오 symmetric: true). 180도 회전 (r,c) ↔ (n-1-r, n-1-c) 에서
+ * 지형, 거점 묶음(서로 대응), 진영별 배치·증원(같은 라운드·병종·수, 회전한 칸), 행동 한도, 승리 조건, 본부가 같아야 함.
+ * 병종 수치는 진영 공통(UNIT_TYPES)이라 진영별 보정 항목이 있으면 오류. 어긋난 항목 설명 목록을 돌려줌 (없으면 빈 배열)
+ */
+function symmetryErrors(s) {
+  const out = [];
+  const n = s.map.length;
+  const rot = (p) => [n - 1 - p[0], n - 1 - p[1]];
+  const key = (list) => list.map((p) => p.join(',')).sort().join(' ');
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const [r2, c2] = rot([r, c]);
+    if (s.map[r][c] !== (s.map[r2] && s.map[r2][c2])) { out.push(`terrain (${r},${c}) ${s.map[r][c]} != (${r2},${c2}) ${s.map[r2] && s.map[r2][c2]}`); r = n; break; }
+  }
+  const objs = (s.objectives || []).map((o) => key(objectiveCellList(o)));
+  for (const o of s.objectives || []) {
+    if (!objs.includes(key(objectiveCellList(o).map(rot)))) out.push(`objective ${o.id}`);
+    if (o.startOwner != null) out.push(`objective ${o.id} startOwner`);
+  }
+  const sides = Object.keys(s.sides || {});
+  if (sides.length === 2) {
+    const [a, b] = sides;
+    // 배치 묶음: 라운드|병종|수|칸 (칸은 회전해서 비교). 같은 묶음이 같은 개수만큼 있어야 함
+    const groups = (side, f) => (s.deployments || []).filter((d) => d.side === side)
+      .map((d) => `${d.round || 0}|${d.type}|${d.count || (d.cells ? d.cells.length : 1)}|${(d.cells || (d.pos ? [d.pos] : [])).map((p) => f(p).join(',')).join(' ')}`).sort();
+    const ga = groups(a, (p) => p), gb = groups(b, rot);
+    if (JSON.stringify(ga) !== JSON.stringify(gb)) out.push('deployments');
+    const ha = s.hq && s.hq[a], hb = s.hq && s.hq[b];
+    if ((ha == null) !== (hb == null) || (ha && rot(ha).join(',') !== hb.join(','))) out.push('hq');
+    const va = JSON.stringify((s.victory && s.victory[a]) || []), vb = JSON.stringify((s.victory && s.victory[b]) || []);
+    if (va !== vb) out.push('victory');
+    const za = JSON.stringify((s.placementZones && s.placementZones[a]) || null), zb = JSON.stringify((s.placementZones && s.placementZones[b]) || null);
+    if ((za === 'null') !== (zb === 'null')) out.push('placementZones');
+  }
+  if (s.activations && s.activations.def !== s.activations.att) out.push('activations');
+  if (s.fires) for (const k of Object.keys(s.fires)) if (sides.includes(k) || k === 'def' || k === 'att') out.push(`fires.${k}`);
+  if (s.unitTypes || s.unitOverrides || s.sideStats) out.push('unit stats');   // 진영별 병종 보정은 두지 않음
+  return out;
 }
 
 /** 시나리오의 정보성 안내 (오류 아님): 행동 한도가 그 진영 전체 병력(증원 포함)보다 큼 */
@@ -246,13 +312,27 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.MAP = s.map.slice();
   N = C.MAP.length;
   C.MAX_ROUNDS = s.rounds;
-  C.ROUND_ORDER = s.turnOrder.slice();
+  C.ROUND_ORDER = scenarioTurnOrder(s);
   C.PLAYER_SIDE = s.playerSide;
   C.SIDES = {};
   for (const side of C.ROUND_ORDER) C.SIDES[side] = { ...s.sides[side] };
   C.HQ = {};
   for (const side of C.ROUND_ORDER) C.HQ[side] = s.hq && s.hq[side] ? P2(s.hq[side]) : null;
-  C.OBJECTIVES = (s.objectives || []).map((o) => ({ id: o.id, r: o.pos[0], c: o.pos[1], owner: o.startOwner ?? null, nameKey: o.nameKey, shortNameKey: o.shortNameKey }));
+  C.OBJECTIVES = (s.objectives || []).map((o) => {
+    const cells = objectiveCellList(o);
+    const out = { id: o.id, r: cells[0][0], c: cells[0][1], owner: o.startOwner ?? null, nameKey: o.nameKey, shortNameKey: o.shortNameKey };
+    if (o.cells) out.cells = cells.map(P2);   // 여러 칸 거점 (cells 로 적은 거점만)
+    return out;
+  });
+  C.OBJ_CELL_ID = null;
+  if (C.OBJECTIVES.some((o) => o.cells)) {
+    C.OBJ_CELL_ID = new Map();
+    for (const o of C.OBJECTIVES) for (const p of o.cells || [{ r: o.r, c: o.c }]) C.OBJ_CELL_ID.set(p.r * C.MAP.length + p.c, o.id);
+  }
+  C.OBJECTIVE_CONTROL = s.objectiveControl === 'presence' ? 'presence' : 'sticky';   // sticky: 마지막으로 들어간 진영 (기존) · presence: 지금 안에 있는 진영
+  C.AI_MODE = s.aiProfile === 'symmetric' ? 'symmetric' : null;   // symmetric: 역할과 무관한 중립 AI
+  C.SECOND_MOVER_BONUS = Number.isInteger(s.secondMoverBonus) && s.secondMoverBonus > 0 ? s.secondMoverBonus : 0;
+  C.SYMMETRIC = !!s.symmetric;
   const norm = (s.deployments || []).map(normalizeDeployment);
   C.DEPLOYMENT = {};
   for (const side of C.ROUND_ORDER) C.DEPLOYMENT[side] = norm.filter((d) => d.side === side && d.round === 0).map((d) => ({ type: d.type, r: d.cells[0].r, c: d.cells[0].c }));
@@ -390,6 +470,7 @@ function createInitialState(deploy = null) {
     winner: null,
     winReason: null,
   };
+  if (C.OBJECTIVE_CONTROL === 'presence') updateObjectiveControl(state);
   updateMemory(state);
   return state;
 }
@@ -400,6 +481,7 @@ function startTurn(state) {
   startActivations(state);
   startFires(state);
   const arrivals = processArrivals(state);   // 예약 투입 (이 진영, 이 라운드까지 예정된 것)
+  if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence' && arrivals.length) arrivals.push(...updateObjectiveControl(state));
   updateMemory(state);
   return [{ type: 'turnStart', side: state.turn, round: state.round }, ...arrivals];
 }
@@ -417,7 +499,10 @@ function activationLimits(state) {
 }
 function startActivations(state) {
   const lim = activationLimits(state);
-  const n = lim ? lim[roleOf(state.turn)] : null;
+  let n = lim ? lim[roleOf(state.turn)] : null;
+  // 후공 보너스 (시나리오 secondMoverBonus): 후공 진영의 첫 턴에만 한도 추가
+  const bonus = GAME_CONFIG.SECOND_MOVER_BONUS;
+  if (bonus && Number.isInteger(n) && state.round === 1 && state.turn === GAME_CONFIG.ROUND_ORDER[1]) n += bonus;
   const ok = Number.isInteger(n) && n >= 1;
   if (ok) state.act = { side: state.turn, limit: n, used: 0, ids: [] };
   else if (state.act !== undefined) delete state.act;
@@ -548,6 +633,32 @@ function processArrivals(state) {
     events.push({ type: 'arrival', unitId: p.id, side: p.side, unitType: p.type, pos: { ...cell }, round: state.round, delayed: state.round > p.round });
   }
   state.pending = keep;
+  return events;
+}
+
+/**
+ * 점유 방식 presence (시나리오 objectiveControl): 거점의 칸 중 하나라도 유닛이 있고 상대 유닛이 하나도 없는 진영이 점유.
+ * 양쪽이 모두 있거나 아무도 없으면 점유자 없음. 상태를 고치고 바뀐 거점의 이벤트를 돌려줌
+ *   captured(새 점유자) / objectiveLost(점유자 없음, contested = 양쪽이 모두 있음). mover: 이번에 이동한 유닛 (이벤트 표시용)
+ */
+function updateObjectiveControl(state, mover = null) {
+  const events = [];
+  for (const o of state.objectives) {
+    const present = new Set();
+    for (const p of objectiveCells(o)) { const u = getUnitAt(state, p.r, p.c); if (u) present.add(u.side); }
+    const owner = present.size === 1 ? [...present][0] : null;
+    if (owner === o.owner) continue;
+    const prevOwner = o.owner;
+    o.owner = owner;
+    if (owner) {
+      const by = mover && mover.side === owner && objectiveCells(o).some((p) => samePos(p, mover)) ? mover : null;
+      const at = by || objectiveCells(o).map((p) => getUnitAt(state, p.r, p.c)).find((u) => u && u.side === owner);
+      // pos 는 거점 기준 칸 (묶음 안 어느 칸에 유닛이 있는지는 이벤트 위치로 드러내지 않음)
+      events.push({ type: 'captured', objectiveId: o.id, side: owner, prevOwner, pos: { r: o.r, c: o.c }, unitId: at.id, unitType: at.type });
+    } else {
+      events.push({ type: 'objectiveLost', objectiveId: o.id, prevOwner, contested: present.size > 1, pos: { r: o.r, c: o.c } });
+    }
+  }
   return events;
 }
 
@@ -851,7 +962,8 @@ function moveUnit(state, unitId, dest) {
   if (ambush) {
     events.push({ type: 'ambush', unitId: u.id, side: u.side, unitType: u.type, at: { ...final }, blockedPos: { ...ambush.at }, blockerId: ambush.blocker.id, blockerSide: ambush.blocker.side, blockerType: ambush.blocker.type });
   }
-  if (!samePos(final, from)) {
+  if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence') events.push(...updateObjectiveControl(state, u));
+  else if (!samePos(final, from)) {
     const obj = objectiveAt(state, final.r, final.c);
     if (obj && obj.owner !== u.side) {
       const prevOwner = obj.owner;
@@ -926,6 +1038,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
       if (h.unit.hp <= 0) events.push({ type: 'destroyed', unitId: h.unit.id, side: h.unit.side, unitType: h.unit.type, pos: { r: h.unit.r, c: h.unit.c } });
     }
     state.units = state.units.filter((u) => u.hp > 0);
+    if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence') events.push(...updateObjectiveControl(state));
   }
   a.moved = true;   // 공격 후 이동 불가
   a.acted = true;
@@ -960,7 +1073,8 @@ function checkVictory(state, opts = {}) {
     alive[s] = state.units.filter((u) => u.side === s).length + (state.pending || []).filter((p) => p.side === s).length;
   }
   const [a, b] = C.ROUND_ORDER;
-  if (alive[a] === 0 && alive[b] === 0) return { winner: C.ROUND_LIMIT_WINNER, reason: 'annihilation' };
+  const scored = victoryCond(a, 'roundLimitScore') && victoryCond(b, 'roundLimitScore');   // 양쪽 같은 라운드 제한 판정 (무승부 있음)
+  if (alive[a] === 0 && alive[b] === 0) return { winner: scored ? 'draw' : C.ROUND_LIMIT_WINNER, reason: 'annihilation' };
   if (alive[a] === 0 && victoryCond(b, 'annihilation')) return { winner: b, reason: 'annihilation' };
   if (alive[b] === 0 && victoryCond(a, 'annihilation')) return { winner: a, reason: 'annihilation' };
   const checkObj = opts.objectives ?? opts.roundEnd;
@@ -971,6 +1085,7 @@ function checkVictory(state, opts = {}) {
       if (v && state.objectives.filter((o) => o.owner === s).length >= v.count) return { winner: s, reason: 'objectives' };
     }
   }
+  if (checkLimit && scored && state.round >= C.MAX_ROUNDS) return roundLimitResult(state);
   if (checkLimit) {
     for (const s of C.ROUND_ORDER) {
       const v = victoryCond(s, 'surviveRounds');
@@ -979,6 +1094,19 @@ function checkVictory(state, opts = {}) {
     if (state.round >= C.MAX_ROUNDS) return { winner: C.ROUND_LIMIT_WINNER, reason: 'survived' };   // 버티기 조건이 없는 시나리오의 안전장치
   }
   return null;
+}
+
+/**
+ * 라운드 제한 판정 (roundLimitScore): 점유 거점 수가 많은 쪽 → 남은 총 체력(도착 대기 유닛은 최대 체력으로 셈)이 많은 쪽 → 무승부.
+ * winner 'draw' = 무승부. reason: limitObjectives / limitHp / limitDraw
+ */
+function roundLimitResult(state) {
+  const [a, b] = GAME_CONFIG.ROUND_ORDER;
+  const objs = (s) => state.objectives.filter((o) => o.owner === s).length;
+  const hp = (s) => state.units.filter((u) => u.side === s).reduce((k, u) => k + u.hp, 0) + (state.pending || []).filter((p) => p.side === s).length * GAME_CONFIG.MAX_HP;
+  if (objs(a) !== objs(b)) return { winner: objs(a) > objs(b) ? a : b, reason: 'limitObjectives' };
+  if (hp(a) !== hp(b)) return { winner: hp(a) > hp(b) ? a : b, reason: 'limitHp' };
+  return { winner: 'draw', reason: 'limitDraw' };
 }
 
 function pushVictoryIfAny(state, events) {
@@ -1080,8 +1208,10 @@ function buildAiContext(state, side, diff = null) {
   // 적이 다음 턴에 본부에 닿을 수 있는가 (아는 적 기준)
   const hq = GAME_CONFIG.HQ[side];
   const hqThreat = !!hq && known.some((e) => manhattan(e, hq) <= GAME_CONFIG.UNIT_TYPES[e.type].move + 2);
-  const isAttacker = side === attackerSide();
-  const featList = (diff && diff.features && isAttacker) ? diff.features : [];
+  // 중립 모드 (시나리오 aiProfile 'symmetric'): 역할과 무관하게 양쪽이 같은 목표·점수 기준, 전술 기능도 양쪽 같게
+  const neutral = GAME_CONFIG.AI_MODE === 'symmetric';
+  const isAttacker = !neutral && side === attackerSide();
+  const featList = (diff && diff.features && (isAttacker || neutral)) ? diff.features : [];
   const has = (f) => featList.includes(f);
   const T = (diff && diff.constants) || {};
   const stored = (state.aiPlan && state.aiPlan[side]) || null;
@@ -1096,7 +1226,7 @@ function buildAiContext(state, side, diff = null) {
     return vis2;
   };
   return {
-    side, vis, visibleEnemies, known, hqThreat, isAttacker, plan, spread, has, T, tactics: anyTactics, visOthers,
+    side, vis, visibleEnemies, known, hqThreat, isAttacker, neutral, plan, spread, has, T, tactics: anyTactics, visOthers,
     allies: state.units.filter((u) => u.side === side),
     enemyArty: has('artyHunt') || plan ? aiEnemyArtillery(state, side, vis, T) : [],
   };
@@ -1468,6 +1598,7 @@ function aiGoalTiles(state, ctx, u) {
   const C = GAME_CONFIG, AI = C.AI;
   const side = u.side;
   const goals = [];
+  if (ctx.neutral) return aiNeutralGoals(state, ctx, u);
   if (ctx.isAttacker) {
     // 어려움: 본대가 강변에 있는 동안 정찰은 축 뒤에서 포병의 눈 역할 (본부 진입이 가능하면 hqWin 점수가 우선)
     if (ctx.plan && AI.HQ_RUNNERS.includes(u.type) && ctx.plan.staged > 0) {
@@ -1506,6 +1637,21 @@ function aiGoalTiles(state, ctx, u) {
     }
     if (C.HQ[side]) for (const e of ctx.known) if (manhattan(e, C.HQ[side]) <= AI.HQ_ALERT_RADIUS) goals.push({ r: e.r, c: e.c });
   }
+  return goals;
+}
+
+/**
+ * 중립 모드 목표: 내가 점유하지 않은 거점(비었거나 상대 점유·다툼 중)의 모든 칸.
+ * 이미 내가 서 있는 아군 거점은 그 거점도 목표에 넣어 자리를 지키게 함. 목표가 없으면(전부 점유) 아는 적.
+ * 거점 소유는 공개 정보이고, 적은 자기 시야와 기억(ctx.known)만 씀
+ */
+function aiNeutralGoals(state, ctx, u) {
+  const goals = [];
+  for (const o of state.objectives) {
+    const cells = objectiveCells(o);
+    if (o.owner !== ctx.side || cells.some((p) => samePos(p, u))) for (const p of cells) goals.push(p);
+  }
+  if (!goals.length) for (const e of ctx.known) goals.push({ r: e.r, c: e.c });
   return goals;
 }
 
@@ -1548,15 +1694,18 @@ function aiScorePosition(state, ctx, u, pos, goals, diff) {
   let s = 0;
   s -= W.threat * diff.risk * aiEstimateThreat(state, ctx, u, pos);
   s += W.terrain * (-ter.hitMod / 10);
+  const SYM = ctx.neutral ? AI.SYMMETRIC : null;
   if (goals.length) {
     const f0 = goalDistance(u.type, goals, u), f1 = goalDistance(u.type, goals, pos);
-    if (isFinite(f0) && isFinite(f1)) s += W.approach * (f0 - f1);
+    // 중립 모드: 라운드가 지날수록 거점 접근 가중치를 키움 (교착 방지)
+    const grow = SYM ? 1 + SYM.APPROACH_GROWTH * Math.max(0, state.round - SYM.GROWTH_START) : 1;
+    if (isFinite(f0) && isFinite(f1)) s += W.approach * grow * (f0 - f1);
   }
   const obj = objectiveAt(state, pos.r, pos.c);
-  if (obj) s += obj.owner !== u.side ? W.capture : (ctx.isAttacker ? W.hold : W.holdDefender);
+  if (obj) s += obj.owner !== u.side ? W.capture : (SYM ? SYM.HOLD : ctx.isAttacker ? W.hold : W.holdDefender);
   const enemyHq = C.HQ[enemyOf(u.side)];
   if (enemyHq && samePos(pos, enemyHq)) s += W.hqWin;
-  if (!ctx.isAttacker) {
+  if (!ctx.isAttacker && !ctx.neutral) {
     let nd = Infinity;
     for (const o of state.objectives) nd = Math.min(nd, manhattan(o, pos));
     const guard = AI.HQ_GUARDS.includes(u.type) && !!C.HQ[u.side];
@@ -1815,7 +1964,7 @@ function aiTakeTurn(state, side, rng = Math.random, difficulty = 'normal', opts 
   const diceRng = opts.diceRng || rng;
   const diff = resolveProfile(difficulty);
   const record = opts.recordSnapshots !== false;
-  const attacker = side === attackerSide();
+  const attacker = side === attackerSide() || GAME_CONFIG.AI_MODE === 'symmetric';   // 중립 모드는 양쪽 모두 같은 전술 기능
   const feat = (f) => attacker && diff.features.includes(f);
   const T = diff.constants;
   if (!state.aiPlan) state.aiPlan = {};
@@ -1986,6 +2135,11 @@ function simulateGames(n = 100, opts = {}) {
     lossSum: perSide(0), capture: {}, mortarSeen: 0, mortarLost: 0,
   } : null;
   const bump = (o, k, v = 1) => { o[k] = (o[k] || 0) + v; };
+  // 대칭 시나리오 지표 (symmetric 시나리오만 → 다른 시나리오는 결과 형식이 그대로). 무승부는 양쪽이 roundLimitScore 를 가질 때만 생김
+  const drawable = SIDES.every((s) => victoryCond(s, 'roundLimitScore'));
+  if (drawable) res.draws = 0;
+  const sym = GAME_CONFIG.SYMMETRIC ? { clashSum: 0, clashGames: 0, flips: {}, stall: 0, stallBase: 0, byMover: { first: 0, second: 0 } } : null;
+  if (sym) for (const o of GAME_CONFIG.OBJECTIVES) sym.flips[o.id] = 0;
   // splitRng (기본 true): 주사위와 AI 노이즈를 서로 다른 시드 스트림으로. false 면 변경 전처럼 한 스트림
   const splitRng = opts.splitRng !== false;
 
@@ -2000,6 +2154,13 @@ function simulateGames(n = 100, opts = {}) {
       const firstOwn = {};   // detail: 진영별로 거점을 처음 (새로) 소유한 라운드
       if (detail) for (const ev of startTurn(st)) if (ev.type === 'arrival') detail.arrivals[ev.side]++;
       let crossStart = null, measureArty = false, acrossSeen = false;
+      let firstClash = null, clashLate = false;   // sym: 첫 교전 라운드, 5라운드 이후 교전 여부
+      const symEvents = (evs) => {
+        for (const e of evs) {
+          if (e.type === 'diceRoll' && e.targetType) { if (firstClash == null) firstClash = st.round; if (st.round > 4) clashLate = true; }
+          if (e.type === 'captured' || e.type === 'objectiveLost') sym.flips[e.objectiveId]++;
+        }
+      };
       while (!st.winner) {
         if (++guard > GAME_CONFIG.MAX_ROUNDS * SIDES.length + 5) throw new Error(t('err.noEnd'));
         const turnSide = st.turn;
@@ -2075,6 +2236,7 @@ function simulateGames(n = 100, opts = {}) {
           cross.artyDmgSum += dmg;
           cross.artyDmgGames++;
         }
+        if (sym) for (const a of actions) symEvents(a.events);
         if (detail) for (const a of actions) for (const e of a.events) if (e.type === 'captured' && firstOwn[e.side] == null) firstOwn[e.side] = st.round;
         if (!firstCapture) {
           for (const a of actions) {
@@ -2084,6 +2246,7 @@ function simulateGames(n = 100, opts = {}) {
         }
         if (st.winner) break;
         const tev = endTurn(st);
+        if (sym) symEvents(tev);
         if (detail) for (const e of tev) if (e.type === 'arrival') detail.arrivals[e.side]++;
         if (fs) for (const e of tev) if (e.type === 'arrival' && e.unitType === 'mortar') fs.mortarSeen++;
       }
@@ -2096,9 +2259,15 @@ function simulateGames(n = 100, opts = {}) {
           detail.lossSum[s] += sideTotalUnits(s) - (st.pending || []).filter((p) => p.side === s).length - st.units.filter((u) => u.side === s).length;
         }
       }
-      res.wins[st.winner]++;
+      if (st.winner === 'draw') res.draws++;
+      else res.wins[st.winner]++;
       if (!res.byReason[st.winReason]) res.byReason[st.winReason] = perSide(0);
-      res.byReason[st.winReason][st.winner]++;
+      bump(res.byReason[st.winReason], st.winner);
+      if (sym) {
+        if (firstClash != null) { sym.clashSum += firstClash; sym.clashGames++; }
+        if (st.round > 4) { sym.stallBase++; if (!clashLate) sym.stall++; }
+        if (st.winner === SIDES[0]) sym.byMover.first++; else if (st.winner === SIDES[1]) sym.byMover.second++;
+      }
       const key = `${st.winner}:${st.winReason}`;
       res.reasons[key] = (res.reasons[key] || 0) + 1;
       roundSum += st.round;
@@ -2151,6 +2320,16 @@ function simulateGames(n = 100, opts = {}) {
       avgLosses: Object.fromEntries(SIDES.map((s) => [s, avg(fs.lossSum[s], done)])),
       captureRound: Object.fromEntries(Object.entries(fs.capture).map(([k, v]) => [k, { games: v.games, avgRound: avg(v.sum, v.games) }])),
       mortarLostRate: pct(fs.mortarLost, fs.mortarSeen),
+    };
+  }
+  if (sym) {
+    const pct = (a, b) => (b ? +((a / b) * 100).toFixed(1) : null);
+    res.sym = {
+      firstMover: SIDES[0], secondMover: SIDES[1],
+      firstWinRate: pct(sym.byMover.first, done), secondWinRate: pct(sym.byMover.second, done), drawRate: pct(res.draws || 0, done),
+      avgFirstClashRound: avg(sym.clashSum, sym.clashGames), clashGames: sym.clashGames,
+      flipsPerGame: Object.fromEntries(Object.entries(sym.flips).map(([k, v]) => [k, avg(v, done)])),   // 거점 주인 변경 (점유자 없음으로 바뀐 것 포함) 판당
+      stallRate: pct(sym.stall, sym.stallBase), stallBase: sym.stallBase,   // 5라운드 이후까지 간 판 중 5라운드부터 교전이 한 번도 없던 판
     };
   }
   if (Object.keys(actUse).length) {
@@ -2432,6 +2611,51 @@ function diagnoseActivations(n = 100, opts = {}) {
   return out;
 }
 
+/** 대칭 시나리오 진단 조합: 행동 한도(양쪽 같음)와 후공 보너스 */
+const SYMMETRIC_COMBOS = [
+  { key: 'A', act: 5, bonus: 0 }, { key: 'B', act: 4, bonus: 0 }, { key: 'C', act: 6, bonus: 0 },
+  { key: 'D', act: 5, bonus: 1 }, { key: 'E', act: 5, bonus: 2 },
+];
+/**
+ * 대칭 시나리오 진단표: 조합마다 시드 고정 simulateGames(n) (양쪽 같은 AI 프로필, 기본 보통).
+ * 선공/후공 승률·무승부, 승리 유형, 종료 라운드, 손실, 첫 교전 라운드, 거점 주인 변경, 간접 사격·포병 오사, 교착 비율.
+ * AI끼리의 결과는 조합 사이 상대 비교용 (추천 값을 내지 않음)
+ */
+function diagnoseSymmetric(n = 100, opts = {}) {
+  const id = opts.scenario || 'symmetric';
+  const ai = opts.ai || 'normal';
+  const rows = [];
+  let first = null;
+  for (const k of opts.combos || SYMMETRIC_COMBOS) {
+    const r = simulateGames(n, { seed: opts.seed, quiet: true, scenario: id, overrides: { activations: { def: k.act, att: k.act }, secondMoverBonus: k.bonus }, def: ai, att: ai });
+    const [F, S2] = [r.sym.firstMover, r.sym.secondMover];
+    first = F;
+    const done = r.games - r.errors;
+    const pct = (v) => (done ? +((v / done) * 100).toFixed(1) : null);
+    const by = (keys) => pct(keys.reduce((a, key) => a + Object.values(r.byReason[key] || {}).reduce((x, y) => x + y, 0), 0));
+    rows.push({
+      [t('dev.sym.col.combo')]: t('dev.sym.combo', { key: k.key, def: k.act, att: k.act, bonus: k.bonus }),
+      [t('dev.sym.col.firstWin')]: r.sym.firstWinRate, [t('dev.sym.col.secondWin')]: r.sym.secondWinRate, [t('dev.sym.col.draw')]: r.sym.drawRate,
+      [t('dev.sym.col.byObj')]: by(['objectives']), [t('dev.sym.col.byAnn')]: by(['annihilation']), [t('dev.sym.col.byLimit')]: by(['limitObjectives', 'limitHp', 'limitDraw']),
+      [t('dev.sym.col.endRound')]: r.avgRounds,
+      [t('dev.sym.col.loss')]: `${r.fires.avgLosses[F]} / ${r.fires.avgLosses[S2]}`,
+      [t('dev.sym.col.firstClash')]: r.sym.avgFirstClashRound,
+      [t('dev.sym.col.flips')]: Object.entries(r.sym.flipsPerGame).map(([o, v]) => `${o} ${v}`).join(' · '),
+      [t('dev.sym.col.fires')]: `${r.fires.shotsPerGame.artillery ?? 0} / ${r.fires.shotsPerGame.mortar ?? 0}`,
+      [t('dev.sym.col.ff')]: +Object.entries(r.fires.ffShotsPerGame).filter(([key]) => key.endsWith(':artillery')).reduce((a, [, v]) => a + v, 0).toFixed(2),
+      [t('dev.sym.col.stall')]: r.sym.stallRate,
+      [t('dev.sym.col.errors')]: r.errors,
+      _raw: r,
+    });
+  }
+  if (!opts.quiet) {
+    console.log(t('dev.diag.note2'));
+    console.log(t('dev.sym.head', { id, n, ai: resolveProfile(ai).name, seed: opts.seed ?? 20250625, first: { t: sideNameKey(first) } }));
+    console.table(rows.map(({ _raw, ...rest }) => rest));
+  }
+  return rows;
+}
+
 /* =========================== 11. 게임 기록 =========================== */
 /** 끝난 게임의 요약 기록 (콘솔 출력/저장용). 손실 = 전장에 나온 유닛 중 잃은 수 (도착 대기 유닛 제외) */
 function buildGameRecord(state, difficulty, mode = 'ai') {
@@ -2490,6 +2714,7 @@ if (typeof module !== 'undefined' && module.exports) {
     buildGameRecord, summarizeGameRecords, aiUpdatePlan, resolveProfile, listTacticProfiles, compareTacticProfiles,
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,
     diagnoseActivations, activationStatus, activationLimits, hasActivated, activationBlocked, scenarioNotes, sideTotalUnits,
+    diagnoseSymmetric, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
     diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
   };
 }

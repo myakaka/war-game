@@ -50,7 +50,9 @@ for (const id of SCEN_IDS) {
     const side = C().ROUND_ORDER.find((s) => cond(s, 'holdObjectives'));
     if (!side) return t.skip('거점 승리 조건 없음');
     const n = cond(side, 'holdObjectives').count;
-    const give = (k) => st.objectives.forEach((o, i) => { o.owner = i < k ? side : other(side); });
+    // 상대도 거점 승리 조건이 있으면(대칭 시나리오) 나머지는 점유자 없음
+    const rest = cond(other(side), 'holdObjectives') ? null : other(side);
+    const give = (k) => st.objectives.forEach((o, i) => { o.owner = i < k ? side : rest; });
     give(n);
     assert.deepEqual({ ...E.checkVictory(st, { objectives: true }) }, { winner: side, reason: 'objectives' });
     assert.equal(E.checkVictory(st, { objectives: false }), null, '확인 시점이 아니면 판정하지 않음');
@@ -523,4 +525,143 @@ test('validateScenario: fires 형식 검사', () => {
     assert.ok(E.validateScenario({ ...base, fires: bad }).length > 0, JSON.stringify(bad));
   }
   assert.deepEqual([...E.validateScenario({ ...base, fires: { blindFire: false, mortar: { range: 3, cooldown: 2, indirectPenalty: 20 } } })], []);
+});
+
+/* ---------------- 대칭 시나리오 (symmetric: true) ---------------- */
+const SYM = () => JSON.parse(JSON.stringify(E.SCENARIOS.find((s) => s.id === 'symmetric')));
+const symErrs = (s) => [...E.symmetryErrors(s)];
+
+test('대칭 검사: 기본 데이터는 통과, 지형·거점·배치·증원·행동 한도·승리 조건·병종 보정을 하나씩 어긋나게 하면 실패', () => {
+  assert.deepEqual(symErrs(SYM()), []);
+  const broke = (f) => { const s = SYM(); f(s); return symErrs(s); };
+  const row = (s, r, c, ch) => { s.map[r] = s.map[r].slice(0, c) + ch + s.map[r].slice(c + 1); };
+  assert.ok(broke((s) => row(s, 0, 0, 'f')).some((m) => m.startsWith('terrain')), '지형 한 칸');
+  assert.ok(broke((s) => { s.objectives[0].cells = [[8, 3]]; }).some((m) => m.startsWith('objective')), '거점 칸');
+  assert.ok(broke((s) => { s.objectives[1].cells.pop(); }).some((m) => m.startsWith('objective')), '중앙 묶음 칸 수');
+  assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ua' && d.type === 'recon').pos = [12, 12]; }).includes('deployments'), '시작 배치 칸');
+  assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ua' && d.type === 'artillery').type = 'mortar'; }).includes('deployments'), '병종');
+  assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ru' && d.round === 4).round = 3; }).includes('deployments'), '증원 라운드');
+  assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ua' && d.round === 4).count = 1; }).includes('deployments'), '증원 수');
+  assert.ok(broke((s) => { s.activations = { def: 5, att: 6 }; }).includes('activations'), '행동 한도');
+  assert.ok(broke((s) => { s.victory.ua = s.victory.ua.slice(0, 1); }).includes('victory'), '승리 조건');
+  assert.ok(broke((s) => { s.unitOverrides = { ru: { armor: { move: 5 } } }; }).includes('unit stats'), '진영별 병종 보정');
+  // validateScenario 경로로도 오류가 나옴
+  const s = SYM(); row(s, 3, 9, '.');
+  assert.ok(E.validateScenario(s).length > 0);
+  // 춘천·호스토멜은 symmetric 이 없어 검사하지 않음
+  for (const id of ['chuncheon', 'hostomel']) assert.ok(!E.SCENARIOS.find((x) => x.id === id).symmetric);
+});
+
+test('대칭 시나리오: 선공 firstMover, 고정 배치(배치 구역 없음), 양쪽 병종 수 같음·회전 배치, 기존 시나리오 배치 구역은 그대로', () => {
+  E.loadScenario('symmetric');
+  assert.deepEqual([...C().ROUND_ORDER], ['ru', 'ua']);
+  assert.deepEqual({ ...C().DEPLOY_ZONES }, {});
+  const st = E.createInitialState();
+  for (const type of Object.keys(C().UNIT_TYPES)) {
+    const n = (side) => st.units.filter((u) => u.side === side && u.type === type).length + st.pending.filter((p) => p.side === side && p.type === type).length;
+    assert.equal(n('ru'), n('ua'), type);
+  }
+  for (const u of st.units) {
+    const m = st.units.find((x) => x.side !== u.side && x.r === 15 - u.r && x.c === 15 - u.c);
+    assert.ok(m && m.type === u.type, `${u.id} (${u.r},${u.c})`);
+  }
+  E.loadScenario('chuncheon');
+  assert.deepEqual(Object.keys(C().DEPLOY_ZONES).sort(), ['north', 'south']);
+  E.loadScenario('hostomel');
+  assert.deepEqual(Object.keys(C().DEPLOY_ZONES), ['def']);
+});
+
+test('묶음 거점(presence): 한 칸이라도 + 상대 없음이면 점유, 양쪽이 있으면 점유자 없음, 아무도 없으면 점유자 없음', () => {
+  const st = fresh('symmetric');
+  const sc = () => st.objectives.find((o) => o.id === 'SC');
+  assert.equal(sc().owner, null);
+  assert.equal(E.objectiveAt(st, 8, 8).id, 'SC');
+  assert.equal(E.objectiveAt(st, 7, 9), null);
+  const ua = st.units.find((u) => u.side === 'ua' && u.type === 'infantry');
+  const ru = st.units.find((u) => u.side === 'ru' && u.type === 'infantry');
+  ua.r = 8; ua.c = 8;
+  let ev = E.updateObjectiveControl(st);
+  assert.equal(sc().owner, 'ua');
+  assert.equal(ev[0].type, 'captured');
+  assert.deepEqual({ ...ev[0].pos }, { r: 7, c: 7 }, '이벤트 위치는 거점 기준 칸 (유닛 칸이 아님)');
+  ru.r = 7; ru.c = 7;
+  ev = E.updateObjectiveControl(st);
+  assert.equal(sc().owner, null);
+  assert.equal(ev[0].type, 'objectiveLost');
+  assert.equal(ev[0].contested, true);
+  st.units = st.units.filter((u) => u.id !== ua.id);
+  E.updateObjectiveControl(st);
+  assert.equal(sc().owner, 'ru');
+  ru.r = 6; ru.c = 7;
+  E.updateObjectiveControl(st);
+  assert.equal(sc().owner, null, '떠나면 점유자 없음');
+  ru.r = 8; ru.c = 2;
+  E.updateObjectiveControl(st);
+  assert.equal(st.objectives.find((o) => o.id === 'SL').owner, 'ru', '한 칸 거점도 같은 방식 (이 시나리오)');
+});
+
+test('묶음 거점: moveUnit 경로에서 점유가 갱신됨', () => {
+  const st = fresh('symmetric');
+  const u = st.units.find((x) => x.side === 'ru' && x.type === 'infantry');
+  u.r = 6; u.c = 8;
+  E.startTurn(st);
+  const ev = E.moveUnit(st, u.id, { r: 7, c: 8 });
+  assert.ok(ev.some((e) => e.type === 'captured' && e.objectiveId === 'SC'));
+  assert.equal(st.objectives.find((o) => o.id === 'SC').owner, 'ru');
+});
+
+test('대칭 승리: 거점 점유로는 중간에 끝나지 않고, 마지막 라운드 판정은 거점 수 → 체력 → 무승부', () => {
+  const st = fresh('symmetric');
+  const set = (a, b, c) => st.objectives.forEach((o, i) => { o.owner = [a, b, c][i]; });
+  set('ua', 'ua', 'ua');
+  assert.equal(E.checkVictory(st, { objectives: true }), null, '거점 3개를 모두 가져도 라운드 제한 전에는 승리 아님');
+  st.round = C().MAX_ROUNDS - 1;
+  assert.equal(E.checkVictory(st, { objectives: true, roundLimit: true }), null, '한 라운드 전은 판정 없음');
+  set('ru', null, null);
+  st.round = C().MAX_ROUNDS;
+  assert.deepEqual({ ...E.checkVictory(st, { objectives: true, roundLimit: true }) }, { winner: 'ru', reason: 'limitObjectives' });
+  set('ru', 'ua', 'ua');
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ua', reason: 'limitObjectives' });
+  set('ru', null, 'ua');
+  st.pending = [];
+  st.units.forEach((u) => { u.hp = 4; });
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'draw', reason: 'limitDraw' });
+  st.units.find((u) => u.side === 'ua').hp = 3;
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ru', reason: 'limitHp' });
+  st.units.find((u) => u.side === 'ua').hp = 4;
+  st.turn = 'ua';
+  E.endTurn(st);
+  assert.equal(st.winner, 'draw', 'endTurn 경로: 마지막 진영 턴 끝에 판정, 무승부도 게임 종료');
+  // 진행 중에는 라운드 끝에도 거점으로 끝나지 않음
+  const st2 = fresh('symmetric');
+  st2.objectives.forEach((o) => { o.owner = 'ru'; });
+  E.startTurn(st2); E.endTurn(st2); E.endTurn(st2);
+  assert.equal(st2.winner, null);
+  assert.equal(st2.round, 2);
+});
+
+test('후공 보너스: 후공 진영의 1라운드 턴에만 한도 추가 (기본 0)', () => {
+  E.loadScenario('symmetric', { secondMoverBonus: 2 });
+  const st = E.createInitialState();
+  E.startTurn(st);
+  assert.equal(st.act.limit, 5, '선공 1라운드');
+  E.endTurn(st);
+  assert.equal(st.turn, 'ua');
+  assert.equal(st.act.limit, 7, '후공 1라운드');
+  E.endTurn(st); E.endTurn(st);
+  assert.equal(st.round, 2);
+  assert.equal(st.act.limit, 5, '후공 2라운드');
+  E.loadScenario('symmetric');
+  const st2 = E.createInitialState();
+  E.startTurn(st2); E.endTurn(st2);
+  assert.equal(st2.act.limit, 5, '기본값 0');
+});
+
+test('대칭 시나리오: simulateGames 가 무승부를 따로 세고, 진단 지표(res.sym)는 이 시나리오에만 있음', () => {
+  const r = E.simulateGames(4, { scenario: 'symmetric', quiet: true });
+  assert.equal(r.errors, 0);
+  assert.equal(Object.values(r.wins).reduce((a, b) => a + b, 0) + r.draws, 4);
+  assert.ok(r.sym && r.sym.firstMover === 'ru');
+  const h = E.simulateGames(2, { scenario: 'hostomel', quiet: true });
+  assert.ok(!('draws' in h) && !('sym' in h));
 });

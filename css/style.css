@@ -399,6 +399,7 @@ kbd { font: 11px ui-monospace, monospace; padding: 1px 6px; border: 1px solid va
 .result-title.lose { color: var(--att-text); }
 .result-title.att { color: var(--att-text); }
 .result-title.def { color: var(--def-text); }
+.result-title.draw { color: var(--text, #e8e8e8); }
 .result-reason { color: #c6cede; line-height: 1.5; }
 .chips-c { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
 .num-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -599,3 +600,4 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
 .atk-sheet .sh-foot > button { height: var(--end-h); font-size: 16px; white-space: nowrap; word-break: keep-all; }
 .atk-sheet .sh-foot #btn-atk-no { flex: 0 0 34%; min-width: var(--touch); }
 .atk-sheet .sh-foot #btn-atk-yes { flex: 1 1 auto; min-width: 0; }
+.move-fire-choice .btn-row button { min-height: 44px; }   /* 이동/사격 선택 창: 터치 대상 최소 44px */

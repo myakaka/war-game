@@ -133,6 +133,12 @@ const AI_CONFIG = {
     mortarClose: 6.0,        // 박격포: 보이는 적과 2칸 이하인 칸 감점 (다른 칸이 없으면 그래도 감)
     mortarBehind: 1.0,       // 박격포: 목표 쪽으로 1~3칸 앞에 있는 아군 보병 1기당 (최대 2기)
   },
+  // 중립 모드 (시나리오 aiProfile 'symmetric' 전용): 양쪽이 같은 기준으로 거점을 다툼
+  SYMMETRIC: {
+    HOLD: 14,                // 아군이 점유한 거점 칸 위에 머묾 (점유 방식 presence: 떠나면 점유를 잃음)
+    APPROACH_GROWTH: 0.1,    // 이 라운드 뒤로 1라운드마다 거점 접근 가중치 +10% (교착 방지)
+    GROWTH_START: 4,
+  },
   DEFAULT_PROFILE: 'normal',
   TACTIC_PROFILES,
 };
