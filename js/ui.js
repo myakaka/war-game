@@ -100,7 +100,8 @@
     /* 확대 중 미니맵: 지도 짧은 변 대비 크기, 지형 색(윤곽용), 중립 거점, 보이는 영역 사각형 */
     minimap: { frac: 0.2, neutral: '#8a8f99', view: '#ffd34d',
       terrain: { plain: '#e3dcbd', city: '#a39886', mountain: '#8d826c', river: '#7fa6c4', forest: '#88a46a', paddy: '#b3c79e' } },
-    scenMap: 76,   // 시나리오 카드의 지도 미리보기 크기 (px)
+    scenMap: 76,
+    scenPrev: { w: 480, h: 270, period: 8 },   // 시나리오 카드 미리보기 canvas 크기, 지형 그림 한 장이 덮는 칸 수   // 시나리오 카드의 지도 미리보기 크기 (px)
     /* PC 리치 테마 (그림 세트가 있는 시나리오, 넓은 화면만). 길이 단위: 칸 */
     rich: {
       maxBgPx: 4096,   // 지도 바탕 canvas 한 변 상한 (확대 배율 × dpr 반영)
@@ -3152,7 +3153,7 @@
     modal.style.left = modal.style.top = '';   // 지도 가운데 배치(overlayCenter)에서 남은 위치
     modal.innerHTML = html;
     const h = modal.querySelector('h1, h2');
-    modal.setAttribute('aria-label', h ? h.textContent : t('app.docTitle'));
+    modal.setAttribute('aria-label', h ? h.textContent : t('gameTitle'));
     hideTip();
     hideBalloon();
     if (ui.state && ui.screen === 'game') renderControls();
@@ -3222,7 +3223,7 @@
   /** 시나리오 이름이 들어가는 고정 문구 (HUD 제목) */
   function applyScenarioStrings() {
     const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
-    $('#hud-title').textContent = sc ? t(sc.nameKey) : t('app.title');
+    $('#hud-title').textContent = sc ? t(sc.nameKey) : t('gameTitle');
   }
   /** 시나리오 카드 (이름, 한 줄 설명, 지도 미리보기, 칩 3개) */
   function scenarioCardsHtml(selId) {
@@ -3238,29 +3239,47 @@
   const savePref = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch (e) { /* 저장 불가 환경 */ } };
   const loadPref = (k, def) => { try { const v = localStorage.getItem(k); return v === '1' ? true : v === '0' ? false : def; } catch (e) { return def; } };
 
-  /** 첫 화면: 시나리오 · 튜토리얼 · 설정 세 갈래 (규칙은 아래 링크) */
-  function showMenu(focusSel = null) {
+  /** 메인 메뉴: 제목 → 큰 버튼(이어하기·새 게임·튜토리얼, 순서와 강조는 js/menu.js 의 menuModel) → 규칙/설정 → 언어·안내·버전 */
+  function showMenu(focusSel = null, fade = true) {
     if (ui.screen !== 'start') setScreen('start');
     ui.menuBack = null;
     render();
-    const item = (id, ic, title, desc) => `<button class="menu-item" id="${id}"><span class="ic" aria-hidden="true">${ic}</span><span class="mt"><span class="t tx">${esc(title)}</span><span class="d tx">${esc(desc)}</span></span><span class="go" aria-hidden="true">›</span></button>`;
-    showOverlay(`<div class="start-card menu-card">
-      <div class="start-top"><div style="min-width:0"><h1 class="start-title">${esc(t('app.title'))}</h1><div class="start-sub">${esc(t('menu.sub'))}</div></div>${langButtonsHtml()}</div>
-      <nav class="menu-list" aria-label="${esc(t('app.title'))}">
-        ${item('menu-scen', '▶', t('menu.scenario'), t('menu.scenarioDesc'))}
-        ${item('menu-tut', '?', t('menu.tutorial'), t('menu.tutorialDesc'))}
-        ${item('menu-set', '⚙', t('menu.settings'), t('menu.settingsDesc'))}
-      </nav>
-      <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button></div>
-    </div>`, () => showMenu(), 'start');
+    const store = readMenuStore(() => localStorage);   // 못 읽으면 "저장 없음, 처음 아님"
+    const tutScen = SCENARIOS.find((x) => x.tutorialSteps);
+    // 진행 중인 판을 저장하는 기능이 아직 없어 이어하기는 나오지 않음 (저장 기능이 생기면 store.save 를 넘김)
+    const model = menuModel({ save: null, firstRun: store.firstRun, tutorialSteps: tutScen ? tutScen.tutorialSteps.length : 0 });
+    const DEF_ITEM = {
+      new: { el: 'menu-new', ic: '▶', title: t('menu.new'), desc: t('menu.newDesc') },
+      tutorial: { el: 'menu-tut', ic: '✦', title: t('menu.tutorial'), desc: t('menu.tutorialDesc', { n: tutScen ? tutScen.tutorialSteps.length : 0 }) },
+    };
+    const item = (it) => {
+      const d = DEF_ITEM[it.id];
+      return d ? `<button class="menu-item${it.primary ? ' primary' : ''}" id="${d.el}"><span class="ic" aria-hidden="true">${d.ic}</span><span class="mt"><span class="t tx">${esc(d.title)}</span><span class="d tx">${esc(d.desc)}</span></span><span class="go" aria-hidden="true">›</span></button>` : '';
+    };
+    const langs = ['ko', 'en'].map((l) => `<button class="link" data-lang="${l}" lang="${l}" aria-pressed="${getLang() === l}">${l.toUpperCase()}</button>`).join('<span aria-hidden="true">·</span>');
+    showOverlay(`<div class="start-card menu-card${fade ? ' menu-fade' : ''}">
+      <div class="menu-head"><h1 class="start-title">${esc(t('gameTitle'))}</h1><div class="start-sub">${esc(t('gameSubtitle'))}</div></div>
+      <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${model.items.map(item).join('')}</nav>
+      <div class="menu-two"><button id="menu-rules">${esc(t('menu.rules'))}</button><button id="menu-set">${esc(t('menu.settings'))}</button></div>
+      <div class="menu-foot"><span class="lang-inline" role="group" aria-label="${esc(t('lang.label'))}">${langs}</span><span>${esc(t('menu.aiAssets'))}</span><span>v${GAME_CONFIG.RULES_VERSION}</span></div>
+    </div>`, () => showMenu(null, false), 'start');
     const modal = $('#modal');
     modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
-    $('#menu-scen').onclick = () => showIntro();
-    $('#menu-tut').onclick = () => startTutorial(0);
+    if ($('#menu-new')) $('#menu-new').onclick = () => showIntro();
+    if ($('#menu-tut')) $('#menu-tut').onclick = () => startTutorial(0);
     $('#menu-set').onclick = () => showMenuSettings();
-    $('#btn-rules').onclick = () => showRules(() => showMenu('#btn-rules'));
+    $('#menu-rules').onclick = () => showRules(() => showMenu('#menu-rules'));
+    // 방향키: 위/아래(좌/우)로 버튼 사이 이동
+    modal.querySelector('.menu-card').onkeydown = (e) => {
+      if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(e.key)) return;
+      const list = [...modal.querySelectorAll('.menu-list button, .menu-two button')];
+      const k = list.indexOf(document.activeElement);
+      if (k < 0) return;
+      e.preventDefault();
+      list[(k + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length].focus();
+    };
     const fx = focusSel && modal.querySelector(focusSel);
-    (fx || $('#menu-scen')).focus();
+    (fx || modal.querySelector('.menu-item.primary') || modal.querySelector('.menu-item')).focus();
   }
   /** 메뉴의 설정: 게임과 상관없는 보기 설정만 (속도·연출 줄이기·통신 범위·테마·언어). 판마다 정하는 값(행동 한도·화력·난이도)은 게임 안 설정에 */
   function showMenuSettings(focusSel = null) {
@@ -3303,21 +3322,73 @@
     (fx || $('#btn-menu-back')).focus();
   }
 
-  function showIntro(keep = null) {
+  /* 시나리오 카드 미리보기: 그 시나리오의 지형 그림(리치 테마 그림 재사용)을 칸대로 깔고 가운데를 잘라 보여 줌. 그림이 없는 시나리오는 어두운 바탕 + 흐린 약도 */
+  const scenPrev = { grid: new Map(), img: new Map() };
+  function scenTerrainGrid(id) {
+    if (!scenPrev.grid.has(id)) {
+      const prev = GAME_CONFIG.SCENARIO_ID;
+      if (prev !== id) loadScenario(id);
+      const g = [];
+      for (let r = 0; r < N; r++) { g.push([]); for (let c = 0; c < N; c++) g[r].push(terrainAt(r, c).key); }
+      if (prev !== id) loadScenario(prev);
+      scenPrev.grid.set(id, g);
+    }
+    return scenPrev.grid.get(id);
+  }
+  function scenImg(src) {
+    let im = scenPrev.img.get(src);
+    if (!im) {
+      im = new Image();
+      im.onload = () => { if (ui.screen === 'start') drawScenPreviews(); };
+      im.src = src;
+      scenPrev.img.set(src, im);
+    }
+    return im;
+  }
+  function drawScenPreviews() {
+    const P = DESIGN.scenPrev.period;
+    document.querySelectorAll('#modal canvas[data-prev]').forEach((cv) => {
+      const sc = SCENARIOS.find((x) => x.id === cv.dataset.prev);
+      if (!sc || !sc.art || !sc.art.terrain) return;
+      const keys = scenTerrainGrid(sc.id), n = keys.length, g = cv.getContext('2d');
+      const cell = cv.width / n, y0 = (n * cell - cv.height) / 2;
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        const y = r * cell - y0;
+        if (y + cell < 0 || y > cv.height) continue;
+        const key = keys[r][c], src = sc.art.terrain[key], im = src && scenImg(src);
+        if (im && im.complete && im.naturalWidth) {
+          const tw = im.naturalWidth / P, th = im.naturalHeight / P;
+          g.drawImage(im, (c % P) * tw, (r % P) * th, tw, th, c * cell, y, cell + 0.5, cell + 0.5);
+        } else { g.fillStyle = DESIGN.minimap.terrain[key] || '#555'; g.fillRect(c * cell, y, cell + 0.5, cell + 0.5); }
+      }
+    });
+  }
+  /** 시나리오 카드 (미리보기, 이름, 한 줄 설명, 태그 칩 최대 3개. 내용은 시나리오 데이터에서) */
+  function scenCardHtml(sc, checked) {
+    const m = scenarioCardModel(sc), name = t(m.nameKey), tags = m.tagKeys.map((k) => t(k)), V = DESIGN.scenPrev;
+    return `<button class="scen-card2" role="radio" data-scen="${esc(sc.id)}" aria-checked="${checked}" aria-label="${esc([name, ...tags].join(' · '))}">`
+      + `<span class="scen-prev" aria-hidden="true">${m.hasArt ? `<canvas data-prev="${esc(sc.id)}" width="${V.w}" height="${V.h}"></canvas>` : `<span class="scen-noart">${miniMapSvg(sc.id)}</span>`}</span>`
+      + `<span class="scen-body"><span class="t tx" title="${esc(name)}">${esc(name)}</span><span class="d">${esc(t(m.descKey))}</span>`
+      + `<span class="scen-chips">${tags.map((c) => `<span class="chip sm" title="${esc(c)}"><span class="tx">${esc(c)}</span></span>`).join('')}</span></span></button>`;
+  }
+
+  /** 새 게임: 시나리오 카드 → 카드를 누르면 시작 설정(모드·난이도·배치 옵션)과 시작 버튼. 고르는 값과 기본값은 예전 시작 화면과 같음 */
+  function showIntro() {
     if (ui.screen !== 'start') setScreen('start');
-    ui.menuBack = () => showMenu('#menu-scen');
     render();
-    const sel = keep || { mode: ui.mode, diff: resolveProfile(ui.difficulty).id };
-    const draw = (focusSel = null) => {
+    const sel = { mode: ui.mode, diff: resolveProfile(ui.difficulty).id, open: false };
+    const draw = (focusSel = null, fade = false) => {
       const hs = sel.mode === 'hotseat';
       sel.diff = fitDifficulty(sel.diff);   // 시나리오를 바꾸면 그 시나리오 목록 안으로
       const prof = resolveProfile(sel.diff);
       const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
+      const name = t(sc.nameKey);
       const sub = t((hs ? 'start.subHotseat' : 'start.sub') + (GAME_CONFIG.SYMMETRIC ? 'Sym' : ''), { place: { t: sc.subKey }, max: GAME_CONFIG.MAX_ROUNDS, ...SP() });
-      showOverlay(`<div class="start-card">
-        <div class="start-top"><button class="link back" id="btn-menu-back">${esc(t('btn.toMenu'))}</button>${langButtonsHtml()}</div>
-        <div style="min-width:0"><h2 class="start-title">${esc(t('menu.scenario'))}</h2><div class="start-sub">${esc(sub)}</div></div>
-        <div><div class="scen-list" role="radiogroup" aria-label="${esc(t('start.scenario'))}">${scenarioCardsHtml(GAME_CONFIG.SCENARIO_ID)}</div></div>
+      const info = [t('scen.chip.player', { side: { t: (sc.sides[sc.playerSide] || {}).nameKey } }), t('scen.chip.rounds', { n: sc.rounds }), t('scen.chip.scale', { m: sc.scaleMeters })];
+      ui.menuBack = () => { if (sel.open) { sel.open = false; draw(`[data-scen="${GAME_CONFIG.SCENARIO_ID}"]`); } else showMenu('#menu-new'); };
+      const sheet = !sel.open ? '' : `<section class="start-sheet" aria-label="${esc(t('start.setup'))}">
+        <div class="sheet-head"><div style="min-width:0"><div class="sheet-title tx">${esc(name)}</div><div class="start-sub">${esc(sub)}</div></div><button class="x-btn" id="sheet-close" aria-label="${esc(t('aria.closeSheet'))}">×</button></div>
+        <div class="scen-chips">${info.map((c) => `<span class="chip sm" title="${esc(c)}"><span class="tx">${esc(c)}</span></span>`).join('')}</div>
         <div><div class="sec-lbl">${esc(t('intro.mode'))}</div><div class="mode-grid" role="group" aria-label="${esc(t('intro.mode'))}">
           <button class="mode-card" data-mode="ai" aria-pressed="${!hs}"><span class="t tx">${esc(t('mode.ai'))}</span><span class="d tx">${esc(t('mode.aiDesc', SP()))}</span></button>
           <button class="mode-card" data-mode="hotseat" aria-pressed="${hs}"><span class="t tx">${esc(t('mode.hotseatShort'))}</span><span class="d tx">${esc(t('mode.hotseatDesc'))}</span></button>
@@ -3327,41 +3398,49 @@
           + `</div><div class="desc-box" id="intro-diff-desc">${esc(prof.description)}</div></div>`}
         <div class="opt-list">${GAME_CONFIG.ROUND_ORDER.some((x) => GAME_CONFIG.DEPLOY_ZONES[x] && GAME_CONFIG.DEPLOYMENT[x].length) ? `<label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>` : ''}
           ${hs ? `<label class="opt"><input type="checkbox" id="opt-curtain"${ui.useCurtain ? ' checked' : ''}><span class="tx">${esc(t('start.optCurtain'))}</span></label>` : ''}</div>
-        <button class="primary btn-go" id="btn-start">${esc(t('btn.startGo'))}</button>
-        <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button></div>
+        <button class="primary btn-go" id="btn-start"><span class="tx">${esc(t('btn.startScen', { name }))}</span></button>
+      </section>`;
+      showOverlay(`<div class="start-card scen-page${fade ? ' menu-fade' : ''}${sel.open ? ' sheet-open' : ''}">
+        <div class="start-top"><button class="link back" id="btn-menu-back">${esc(t('btn.backShort'))}</button>${langButtonsHtml()}</div>
+        <h2 class="start-title">${esc(t('scen.pick'))}</h2>
+        <div class="scen-grid" role="radiogroup" aria-label="${esc(t('scen.pick'))}">${SCENARIOS.filter((x) => !x.hidden).map((x) => scenCardHtml(x, sel.open && x.id === sc.id)).join('')}</div>
+        ${sheet}
       </div>`, () => draw(), 'start');
       const modal = $('#modal');
+      drawScenPreviews();
       modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
       modal.querySelectorAll('[data-mode]').forEach((b) => { b.onclick = () => { sel.mode = b.dataset.mode; draw(`[data-mode="${sel.mode}"]`); }; });
       modal.querySelectorAll('[data-scen]').forEach((b) => {
         b.onclick = () => {
           if (b.dataset.scen !== GAME_CONFIG.SCENARIO_ID) { applyScenario(b.dataset.scen); render(); }
+          sel.open = true;
           draw(`[data-scen="${b.dataset.scen}"]`);
+          const sh = modal.querySelector('.start-sheet');
+          if (sh && sh.scrollIntoView && !ui.reduceMotion) sh.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); else if (sh && sh.scrollIntoView) sh.scrollIntoView({ block: 'nearest' });
         };
-        b.onkeydown = (e) => {   // 라디오 그룹: 위/아래(좌/우) 화살표로 이동
+        b.onkeydown = (e) => {   // 라디오 그룹: 화살표로 카드 사이 이동 (선택은 Enter/Space)
           if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(e.key)) return;
           const list = [...modal.querySelectorAll('[data-scen]')];
-          const k = (list.indexOf(b) + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length;
           e.preventDefault();
-          list[k].click();
+          list[(list.indexOf(b) + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length].focus();
         };
       });
       modal.querySelectorAll('[data-diff]').forEach((b) => { b.onclick = () => { sel.diff = b.dataset.diff; draw(`[data-diff="${sel.diff}"]`); }; });
       if ($('#opt-deploy')) $('#opt-deploy').onchange = (e) => { ui.manualDeploy = e.target.checked; savePref(OPT_DEPLOY_KEY, ui.manualDeploy); };   // 배치 구역이 없는 시나리오(고정 배치)는 항목 없음
       if ($('#opt-curtain')) $('#opt-curtain').onchange = (e) => { ui.useCurtain = e.target.checked; savePref(OPT_CURTAIN_KEY, ui.useCurtain); };
-      $('#btn-rules').onclick = () => showRules(() => draw('#btn-rules'));
-      $('#btn-menu-back').onclick = ui.menuBack;
-      $('#btn-start').onclick = () => {
+      $('#btn-menu-back').onclick = () => showMenu('#menu-new');
+      if ($('#sheet-close')) $('#sheet-close').onclick = () => { sel.open = false; draw(`[data-scen="${GAME_CONFIG.SCENARIO_ID}"]`); };
+      if ($('#btn-start')) $('#btn-start').onclick = () => {
         ui.mode = sel.mode;
         ui.difficulty = sel.diff;
         $('#difficulty-select').value = ui.difficulty;
         $('#difficulty-select').title = resolveProfile(ui.difficulty).description;
         newGame();
       };
-      const f = focusSel && modal.querySelector(focusSel);
-      (f || modal.querySelector('[data-scen][aria-checked="true"]') || $('#btn-start')).focus();   // 처음엔 고른 시나리오 카드 (화면 위쪽이 보이게)
+      const fo = focusSel && modal.querySelector(focusSel);
+      (fo || modal.querySelector(`[data-scen="${GAME_CONFIG.SCENARIO_ID}"]`) || $('#btn-menu-back')).focus({ preventScroll: !!sel.open && !focusSel });
     };
-    draw();
+    draw(null, true);
   }
 
   /** 규칙 보기 (시작 화면의 보조 링크) */
@@ -3614,16 +3693,6 @@
     ui.tutMode = null;
     renderCoach();
     if (back && GAME_CONFIG.SCENARIO_ID !== back) applyScenario(back, false);
-  }
-  /** 처음 실행할 때 한 번: 튜토리얼을 해 볼까요? */
-  function showTutAsk() {
-    if (ui.screen !== 'start') setScreen('start');
-    render();
-    showOverlay(`<div class="start-card tut-ask"><h2>${esc(t('tut.ask.title'))}</h2><p>${esc(t('tut.ask.body'))}</p>
-      <div class="btn-row"><button class="primary" id="btn-tut-yes">${esc(t('btn.tutStart'))}</button><button id="btn-tut-later">${esc(t('btn.tutLater'))}</button></div></div>`, showTutAsk, 'start');
-    $('#btn-tut-yes').onclick = () => startTutorial(0);
-    $('#btn-tut-later').onclick = () => { tutMark({ seen: true }); showMenu(); };
-    $('#btn-tut-yes').focus();
   }
   /** 깜빡이는 표시 (눌러 볼 곳만. 좋고 나쁨의 표시가 아님) + 턴 종료 버튼 표시 + 연습 판의 '?' */
   function renderTutMarks() {
@@ -4026,11 +4095,17 @@
     $('#hud').setAttribute('aria-label', t('aria.hud'));
   }
   /** 게임 도중에도 전환 가능: 진행 상태와 진행 중인 연출은 그대로 두고 화면 문구만 다시 그림 */
+  /** 탭 제목과 설명 메타: 게임 제목 상수(STRINGS 의 gameTitle·gameSubtitle) */
+  function applyDocTitle() {
+    document.title = t('gameTitle');
+    const m = document.querySelector('meta[name="description"]');
+    if (m) m.setAttribute('content', t('gameSubtitle'));
+  }
   function setLanguage(lang) {
     setLang(lang);
     try { localStorage.setItem(LANG_KEY, getLang()); } catch (e) { /* 저장 불가 환경 */ }
     document.documentElement.lang = getLang();
-    document.title = t('app.docTitle');
+    applyDocTitle();
     applyStaticStrings();
     applyScenarioStrings();
     applyModeUi();
@@ -4381,5 +4456,6 @@
   setReduceMotion(initialReduceMotion(), false);
   applyTheme();    // 그림 세트가 있으면 불러오기 시작 (끝날 때까지 기본 테마)
   setLanguage(initialLang());   // 정적 문구·범례·난이도 목록·화면을 현재 언어로
-  if (tutLoad().seen) showMenu(); else showTutAsk();   // 처음 실행: 튜토리얼을 한 번 물어봄 (저장이 안 되면 매번 물어봄)
+  applyDocTitle();
+  showMenu();   // 처음 실행이면 메뉴가 튜토리얼을 맨 위·강조로 보여 줌 (js/menu.js)
 })();

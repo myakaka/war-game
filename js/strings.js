@@ -5,8 +5,8 @@
    ===================================================================== */
 const STRINGS = {
   ko: {
-    'app.title': '춘천 1950 — 격자 전략',
-    'app.docTitle': '춘천 1950 격자 전략',
+    // 게임 전체 제목·부제 (임시 값. 이름을 정하면 여기만 바꾸면 됨: 메인 메뉴, 탭 제목, 설명 메타가 같이 바뀜)
+    'gameTitle': '격자 전략', 'gameSubtitle': '턴제 격자 전략 게임',
     'lang.label': '언어',
 
     'side.north': '북한군', 'side.south': '국군',
@@ -271,9 +271,13 @@ const STRINGS = {
     'obj.RS.short': '남단',
     'terrain.marsh': '습지',
     'start.scenario': '시나리오',
-    'menu.sub': '턴제 격자 전략 게임', 'menu.scenario': '시나리오', 'menu.scenarioDesc': '전장·모드·난이도를 고르고 시작',
-    'menu.tutorial': '튜토리얼', 'menu.tutorialDesc': '8단계 실습과 연습 판', 'menu.settings': '설정', 'menu.settingsDesc': '연출 속도·화면 테마·언어',
+    'menu.continue': '이어하기', 'menu.continueSub': '{name} · 라운드 {n} / {max}',
+    'menu.new': '새 게임', 'menu.newDesc': '시나리오와 난이도를 고르고 시작',
+    'menu.tutorial': '튜토리얼', 'menu.tutorialDesc': '처음이라면 여기부터 · {n}단계 실습', 'menu.rules': '규칙', 'menu.settings': '설정',
+    'menu.aiAssets': 'AI 생성 에셋 포함',
     'btn.toMenu': '← 메뉴', 'menu.done': '완료',
+    'scen.pick': '시나리오 선택', 'btn.backShort': '‹ 뒤로', 'btn.startScen': '{name} 시작 ›', 'start.setup': '시작 설정', 'aria.closeSheet': '시작 설정 닫기',
+    'tag.asym': '비대칭', 'tag.sym': '대칭', 'tag.points': '점수제', 'tag.intro': '입문용', 'tag.fires': '간접 화력', 'tag.twoPlayer': '2인 가능',
     'scen.chip.player': '플레이어: {side}',
     'scen.chip.rounds': '{n}라운드',
     'scen.chip.scale': '1칸 ≈ {m}m',
@@ -452,8 +456,7 @@ const STRINGS = {
   },
 
   en: {
-    'app.title': 'Chuncheon 1950 — Grid Tactics',
-    'app.docTitle': 'Chuncheon 1950 Grid Tactics',
+    'gameTitle': 'Grid Strategy', 'gameSubtitle': 'Turn-based grid strategy',
     'lang.label': 'Language',
 
     'side.north': 'NK', 'side.south': 'ROK',
@@ -702,9 +705,13 @@ const STRINGS = {
     'obj.RS.short': 'S end',
     'terrain.marsh': 'Marsh',
     'start.scenario': 'Scenario',
-    'menu.sub': 'Turn-based grid strategy', 'menu.scenario': 'Scenarios', 'menu.scenarioDesc': 'Battlefield, mode, difficulty',
-    'menu.tutorial': 'Tutorial', 'menu.tutorialDesc': '8 hands-on steps + practice game', 'menu.settings': 'Settings', 'menu.settingsDesc': 'Animation speed, theme, language',
+    'menu.continue': 'Continue', 'menu.continueSub': '{name} · Round {n} / {max}',
+    'menu.new': 'New game', 'menu.newDesc': 'Pick a scenario and difficulty',
+    'menu.tutorial': 'Tutorial', 'menu.tutorialDesc': 'New here? Start with {n} hands-on steps', 'menu.rules': 'Rules', 'menu.settings': 'Settings',
+    'menu.aiAssets': 'Includes AI-generated assets',
     'btn.toMenu': '← Menu', 'menu.done': 'Done',
+    'scen.pick': 'Choose a scenario', 'btn.backShort': '‹ Back', 'btn.startScen': 'Start {name} ›', 'start.setup': 'Game setup', 'aria.closeSheet': 'Close game setup',
+    'tag.asym': 'Asymmetric', 'tag.sym': 'Symmetric', 'tag.points': 'Points', 'tag.intro': 'Good first game', 'tag.fires': 'Indirect fire', 'tag.twoPlayer': '2 players',
     'scen.chip.player': 'Player: {side}',
     'scen.chip.rounds': '{n} rounds',
     'scen.chip.scale': '1 tile ≈ {m} m',

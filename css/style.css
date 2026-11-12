@@ -781,3 +781,58 @@ body.reduce-motion .cool-smoke { display: none; }
 .menu-set .set-list { display: flex; flex-direction: column; gap: 6px; }
 .menu-set .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
 .menu-set .seg button { min-height: 40px; }
+
+/* ---------- 메인 메뉴 · 시나리오 선택 (메뉴 개편) ---------- */
+.menu-card { max-width: 520px; width: 100%; gap: 16px; }
+.menu-head { text-align: center; padding: 6px 0 2px; }
+.menu-head .start-title { font-size: 30px; }
+.menu-item { min-height: 68px; }
+.menu-item.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.menu-item.primary .d, .menu-item.primary .go { color: #dbe7fb; }
+.menu-item.primary .ic { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.28); color: #fff; }
+.menu-item:not(.primary) .ic { background: var(--panel-2); color: inherit; border-color: var(--line); }
+#menu-scen { border-color: var(--line); }
+.menu-item:active, .menu-two > button:active, .scen-card2:active { transform: translateY(1px); }
+.menu-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.menu-two > button { height: 52px; font-size: 15px; font-weight: 700; border-radius: 12px; }
+.menu-foot { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 14px; color: var(--muted); font-size: 12px; }
+.lang-inline { display: inline-flex; align-items: center; gap: 2px; }
+.lang-inline .link { min-width: 44px; height: 44px; text-decoration: none; font-weight: 700; font-size: 13px; color: var(--muted); }
+.lang-inline .link[aria-pressed="true"] { color: #8fb6f5; text-decoration: underline; }
+.menu-fade { animation: menu-fade 140ms ease-out; }
+@keyframes menu-fade { from { opacity: 0; } to { opacity: 1; } }
+body.reduce-motion .menu-fade { animation: none; }
+@media (prefers-reduced-motion: reduce) { .menu-fade { animation: none; } }
+/* 시나리오 선택: PC 3열 카드, 좁은 화면 한 열 */
+#overlay.start .modal:has(.scen-page) { max-width: 1040px; }
+.scen-page { max-width: none; width: 100%; }
+.scen-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.scen-card2 { height: auto; padding: 0; text-align: left; display: flex; flex-direction: column; align-items: stretch; border-radius: 14px; overflow: hidden; min-width: 0; }
+.scen-card2[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.scen-prev { display: block; aspect-ratio: 16 / 9; background: linear-gradient(160deg, #2a3342, #151a23); position: relative; overflow: hidden; }
+.scen-prev canvas { display: block; width: 100%; height: 100%; filter: brightness(0.85); }
+.scen-noart { position: absolute; inset: 0; opacity: 0.22; display: flex; align-items: center; }
+.scen-noart svg { width: 100%; aspect-ratio: 1; flex: 0 0 auto; }
+.scen-card2 .scen-body { padding: 10px 12px 12px; gap: 6px; }
+.scen-card2 .scen-body .t { font-size: 16px; }
+.scen-card2 .scen-body .d { font-size: 12.5px; -webkit-line-clamp: 3; }
+.start-sheet { display: flex; flex-direction: column; gap: 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.sheet-title { font-weight: 800; font-size: 17px; }
+.start-sheet .btn-go { min-height: 52px; }
+@media (min-width: 761px) {
+  .start-sheet { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  .start-sheet > .sheet-head, .start-sheet > .scen-chips, .start-sheet > .opt-list, .start-sheet > .btn-go { grid-column: 1 / -1; }
+}
+@media (max-width: 760px) {
+  .scen-grid { grid-template-columns: 1fr; }
+  .scen-card2 { flex-direction: row; }
+  .scen-card2 .scen-prev { flex: 0 0 38%; aspect-ratio: auto; min-height: 96px; }
+  .scen-card2 .scen-body { flex: 1 1 auto; }
+  /* 시작 설정: 하단 시트 (카드 목록은 뒤에서 스크롤) */
+  .start-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; max-height: 78vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 24px rgba(0,0,0,0.45); }
+  .scen-page.sheet-open { padding-bottom: 60vh; }
+}
+.menu-item .d { white-space: normal; font-weight: 400; line-height: 1.35; }
+.menu-item.primary { font-weight: inherit; }
+.lang-inline .link, .lang-inline .link[aria-pressed="true"] { background: none; border: 0; box-shadow: none; }

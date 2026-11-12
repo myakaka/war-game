@@ -6,6 +6,7 @@
 SCENARIOS.push({
   id: 'chuncheon',
   nameKey: 'scen.chuncheon.name', descKey: 'scen.chuncheon.desc', subKey: 'scen.chuncheon.sub',
+  tags: ['asym', 'intro', 'twoPlayer'],   // 시나리오 카드의 태그 칩 (화면 전용, 문구 키 'tag.<값>')
   scaleMeters: 100,
   map: [
     '^^...........^^^',

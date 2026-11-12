@@ -1234,3 +1234,57 @@ test('효과 난수: 연출 목록은 Math.random 을 쓰지 않고, 만든 뒤�
   const a = E.fxRng(5), b = E.fxRng(5);
   for (let i = 0; i < 5; i++) assert.equal(a(), b());
 });
+
+/* ---------------- 메뉴 (js/menu.js, 화면 구성 계산) ---------------- */
+const jsonEq = (x, y, msg) => assert.equal(JSON.stringify(x), JSON.stringify(y), msg);   // vm 경계를 넘는 객체 비교
+const memStore = (o) => () => ({ getItem: (k) => (k in o ? o[k] : null) });
+const menuIds = (m) => m.items.map((i) => i.id + (i.primary ? '*' : '')).join(',');
+
+test('메뉴: 저장 판이 있으면 이어하기가 맨 위·강조, 없으면 숨고 새 게임이 강조', () => {
+  const save = { scenarioId: 'hostomel', round: 3, maxRounds: 12, mode: 'ai' };
+  assert.equal(menuIds(E.menuModel({ save, firstRun: false, tutorialSteps: 8 })), 'continue*,new,tutorial');
+  assert.equal(menuIds(E.menuModel({ save: null, firstRun: false, tutorialSteps: 8 })), 'new*,tutorial');
+  jsonEq(E.menuModel({ save: null, firstRun: false, tutorialSteps: 8 }).secondary, ['rules', 'settings']);
+  assert.equal(menuIds(E.menuModel({ save: null, firstRun: false, tutorialSteps: 0 })), 'new*', '튜토리얼이 없으면 버튼도 없음');
+});
+
+test('메뉴: 처음 실행이면 튜토리얼이 맨 위·강조, 튜토리얼을 해 봤거나 판을 끝낸 기록이 있으면 일반 순서', () => {
+  const first = E.readMenuStore(memStore({}));
+  jsonEq(first, { ok: true, firstRun: true, save: null });
+  assert.equal(menuIds(E.menuModel({ ...first, tutorialSteps: 8 })), 'tutorial*,new');
+  const seen = E.readMenuStore(memStore({ [E.MENU_KEYS.tutorial]: JSON.stringify({ seen: true, done: ['s1'] }) }));
+  assert.equal(seen.firstRun, false);
+  assert.equal(menuIds(E.menuModel({ ...seen, tutorialSteps: 8 })), 'new*,tutorial');
+  const played = E.readMenuStore(memStore({ [E.MENU_KEYS.records]: JSON.stringify({ normal: [{ winner: 'south' }] }) }));
+  assert.equal(played.firstRun, false);
+});
+
+test('메뉴: 저장소를 못 읽으면 "저장 없음, 처음 아님"으로 열림. 저장 판 요약은 공개 정보만', () => {
+  const blocked = E.readMenuStore(() => { throw new Error('blocked'); });
+  jsonEq(blocked, { ok: false, firstRun: false, save: null });
+  assert.equal(menuIds(E.menuModel({ ...blocked, tutorialSteps: 8 })), 'new*,tutorial');
+  const broken = E.readMenuStore(memStore({ [E.MENU_KEYS.tutorial]: '{not json' }));
+  assert.equal(broken.ok, false);
+  const raw = { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', turn: 'ua', state: { units: [{ id: 'r1', r: 1, c: 1 }] }, logs: ['x'] };
+  const s = E.readMenuStore(memStore({ [E.MENU_KEYS.save]: JSON.stringify(raw) })).save;
+  jsonEq(s, { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', turn: 'ua' }, '유닛 위치·로그는 요약에 없음');
+  const ai = E.readMenuStore(memStore({ [E.MENU_KEYS.save]: JSON.stringify({ ...raw, mode: 'ai' }) })).save;
+  assert.equal(ai.turn, null, 'AI 대전은 차례 표시 없음');
+});
+
+test('메뉴: 시나리오 카드는 데이터에서 이름·설명·태그(최대 3개)를 읽고, 문구가 두 언어에 모두 있음', () => {
+  const shown = E.SCENARIOS.filter((s) => !s.hidden);
+  assert.ok(shown.length >= 3);
+  for (const sc of shown) {
+    const m = E.scenarioCardModel(sc);
+    assert.equal(m.nameKey, sc.nameKey);
+    assert.equal(m.descKey, sc.summaryKey || sc.descKey);
+    assert.ok(m.tagKeys.length >= 1 && m.tagKeys.length <= 3, sc.id);
+    jsonEq(m.tagKeys, sc.tags.slice(0, 3).map((k) => 'tag.' + k));
+    assert.equal(m.hasArt, !!(sc.art && sc.art.terrain));
+    for (const lang of ['ko', 'en']) for (const k of [m.nameKey, m.descKey, ...m.tagKeys]) assert.ok(run('STRINGS')[lang][k], `${lang} ${k}`);
+  }
+  assert.equal(E.scenarioCardModel({ id: 'x', nameKey: 'n', descKey: 'd', tags: ['a', 'b', 'c', 'd'] }).tagKeys.length, 3);
+  for (const lang of ['ko', 'en']) for (const k of ['gameTitle', 'gameSubtitle']) assert.ok(run('STRINGS')[lang][k], `${lang} ${k}`);
+  assert.ok(!/춘천|Chuncheon|1950/.test(run('STRINGS').ko.gameTitle + run('STRINGS').en.gameTitle), '게임 제목에 시나리오 이름 없음');
+});

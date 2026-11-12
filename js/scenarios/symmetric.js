@@ -8,6 +8,7 @@
 SCENARIOS.push({
   id: 'symmetric',
   nameKey: 'scen.symmetric.name', descKey: 'scen.symmetric.desc', subKey: 'scen.symmetric.sub',
+  tags: ['sym', 'points', 'twoPlayer'],
   scaleMeters: 250,
   map: [
     '................',

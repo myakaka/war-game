@@ -6,6 +6,7 @@
 SCENARIOS.push({
   id: 'hostomel',
   nameKey: 'scen.hostomel.name', descKey: 'scen.hostomel.desc', subKey: 'scen.hostomel.sub',
+  tags: ['asym', 'fires', 'twoPlayer'],
   scaleMeters: 275,
   map: [
     'ffffffff.ffffw~f',
