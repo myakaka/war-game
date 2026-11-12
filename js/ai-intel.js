@@ -269,17 +269,25 @@ const _threatCache = new Map();   // 위험 지도 캐시 (키 = 진영·병종�
 
 /**
  * 압박 0~1: 승리 조건(시나리오 데이터)에서 계산. 라운드가 갈수록, 점유 거점이 상대보다 적을수록 큼.
- * roundLimitScore 가 있으면 남은 라운드와 점유 차이, 상대에게 holdObjectives 가 있으면 상대가 필요 수에 가까울수록
+ * roundLimitScore 가 있으면 남은 라운드와 점유 차이, roundLimitPoints 면 남은 라운드와 예상 총점 차이(지금 점수 + 지금 점유 점수 × 남은 라운드),
+ * 상대에게 holdObjectives 가 있으면 상대가 필요 수에 가까울수록, scoreTarget 이 있으면 상대가 목표에 가까울수록
  */
 function symUrgency(state, side) {
   const C = GAME_CONFIG, enemy = enemyOf(side);
   const mine = state.objectives.filter((o) => o.owner === side).length;
   const theirs = state.objectives.filter((o) => o.owner === enemy).length;
   let u = 0;
-  if (C.ROUND_ORDER.every((x) => victoryCond(x, 'roundLimitScore'))) {
-    const timeP = C.MAX_ROUNDS > 1 ? Math.min(1, Math.max(0, (state.round - 1) / (C.MAX_ROUNDS - 1))) : 1;
+  const timeP = C.MAX_ROUNDS > 1 ? Math.min(1, Math.max(0, (state.round - 1) / (C.MAX_ROUNDS - 1))) : 1;
+  const limit = roundLimitType();
+  if (limit === 'roundLimitScore') {
     const behind = theirs > mine ? 1 : theirs === mine ? 0.5 : 0;
     u = timeP * (0.3 + 0.7 * behind);
+  } else if (limit === 'roundLimitPoints' && state.score) {
+    const left = C.MAX_ROUNDS - state.round + 1;
+    const proj = (s) => state.score[s] + heldPoints(state, s).pts * left;   // 총점·점유는 공개 정보
+    const behind = proj(enemy) > proj(side) ? 1 : proj(enemy) === proj(side) ? 0.5 : 0;
+    u = timeP * (0.3 + 0.7 * behind);
+    if (C.SCORE_TARGET && state.score[enemy] + 2 * heldPoints(state, enemy).pts >= C.SCORE_TARGET) u = Math.max(u, 0.7);
   }
   const hold = victoryCond(enemy, 'holdObjectives');
   if (hold && theirs >= hold.count - 1) u = Math.max(u, 0.7);

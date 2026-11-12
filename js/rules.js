@@ -6,7 +6,7 @@
    ===================================================================== */
 const RULES = {
   MAX_HP: 4,
-  RULES_VERSION: 9,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만)
+  RULES_VERSION: 10,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로)
   ENABLE_ACTIVATION_LIMIT: true,            // true: 시나리오 activations 의 진영별 행동 한도 적용 · false: 한도 무시 (v5 와 완전히 같은 동작)
   ATTACK_AFTER_MOVE: false,                 // (ENABLE_MOVE_ATTACK 가 false 일 때만 사용) false: 한 유닛은 한 턴에 이동 또는 공격 중 하나만 (포병은 항상 false)
   ENABLE_MOVE_ATTACK: true,                 // true: 남은 이동력 >= 공격 비용이면 이동 후 공격 가능 (포병·통신 제외)
@@ -85,6 +85,10 @@ const TERRAIN_TYPES = {
  *   objectiveControl 'sticky'(기본: 마지막으로 이동해 들어간 진영이 계속 소유) | 'presence'(지금 안에 유닛이 있고 상대가 없는 진영, 양쪽·무인이면 점유자 없음)
  *   firstMover     선공 진영 id (turnOrder 대신). secondMoverBonus: 후공 진영 1라운드 턴의 행동 한도 추가 (기본 0)
  *   victory 조건 roundLimitScore: 마지막 라운드가 끝나면 점유 거점 수 → 남은 총 체력(도착 대기 유닛은 최대 체력) → 무승부(winner 'draw'). 양쪽이 모두 가질 때만 동작
+ *   victory 조건 roundLimitPoints (v10): 마지막 라운드가 끝나면 총점 → 남은 총 체력 → 무승부. objectivePoints 필요
+ *   objectivePoints { 거점 id: 점수 }  점유한 동안 쌓이는 점수 (있을 때만 state.score·scoreLog). symmetric 이면 회전 짝 거점은 같은 값
+ *   scoreTiming    'ownTurnEnd'(기본, 자기 턴을 끝낼 때 자기 점유) | 'roundEnd'(라운드 끝에 양쪽 동시)
+ *   scoreTarget    null | 정수: 한쪽 총점이 이 값에 닿으면 즉시 승리 (둘 다 닿으면 총점 → 체력 → 무승부)
  *   symmetric      true 면 validateScenario 가 180도 회전 대칭(지형·거점·배치·증원·행동 한도·승리 조건·본부)을 검사
  *   aiProfile      'symmetric' 이면 AI 중립 모드 (역할과 무관하게 양쪽 같은 목표·점수, AI_CONFIG.SYMMETRIC)
  *   aiProfiles     시작 화면 난이도 목록 (TACTIC_PROFILES id 배열, 생략 = 전체). 화면 표시만, AI 판단에는 쓰지 않음

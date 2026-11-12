@@ -610,8 +610,12 @@ test('묶음 거점: moveUnit 경로에서 점유가 갱신됨', () => {
   assert.equal(st.objectives.find((o) => o.id === 'SC').owner, 'ru');
 });
 
-test('대칭 승리: 거점 점유로는 중간에 끝나지 않고, 마지막 라운드 판정은 거점 수 → 체력 → 무승부', () => {
-  const st = fresh('symmetric');
+/** 대칭 시나리오의 이전 승리 방식 (v9: 14라운드 끝 거점 수 판정) 덮어쓰기 */
+const OLD_VICTORY = () => ({ victory: { ru: [{ type: 'annihilation' }, { type: 'roundLimitScore' }], ua: [{ type: 'annihilation' }, { type: 'roundLimitScore' }] } });
+const freshOld = () => { E.loadScenario('symmetric', OLD_VICTORY()); return E.createInitialState(); };
+
+test('대칭 승리 (이전 방식 roundLimitScore 덮어쓰기): 거점 점유로는 중간에 끝나지 않고, 마지막 라운드 판정은 거점 수 → 체력 → 무승부', () => {
+  const st = freshOld();
   const set = (a, b, c) => st.objectives.forEach((o, i) => { o.owner = [a, b, c][i]; });
   set('ua', 'ua', 'ua');
   assert.equal(E.checkVictory(st, { objectives: true }), null, '거점 3개를 모두 가져도 라운드 제한 전에는 승리 아님');
@@ -633,11 +637,177 @@ test('대칭 승리: 거점 점유로는 중간에 끝나지 않고, 마지막 �
   E.endTurn(st);
   assert.equal(st.winner, 'draw', 'endTurn 경로: 마지막 진영 턴 끝에 판정, 무승부도 게임 종료');
   // 진행 중에는 라운드 끝에도 거점으로 끝나지 않음
-  const st2 = fresh('symmetric');
+  const st2 = freshOld();
   st2.objectives.forEach((o) => { o.owner = 'ru'; });
   E.startTurn(st2); E.endTurn(st2); E.endTurn(st2);
   assert.equal(st2.winner, null);
   assert.equal(st2.round, 2);
+  E.loadScenario('symmetric');
+});
+
+/* ---------------- 대칭 점수제 (v10: objectivePoints, scoreTiming, scoreTarget, roundLimitPoints) ---------------- */
+/** 거점 칸에 유닛을 세움 (다른 유닛은 거점 밖으로) */
+const clearObjectives = (st) => {
+  const cells = C().OBJECTIVES.flatMap((o) => (o.cells || [{ r: o.r, c: o.c }]));
+  let spare = 0;
+  for (const u of st.units) if (cells.some((p) => p.r === u.r && p.c === u.c)) { u.r = 0; u.c = spare++; }
+};
+const putOn = (st, side, r, c, type = 'infantry') => {
+  const u = st.units.find((x) => x.side === side && x.type === type && !x._placed);
+  u.r = r; u.c = c; u._placed = true;
+  return u;
+};
+
+test('점수: 한쪽 점유는 점수, 양쪽이 함께 있으면 아무도 못 받음, 점유자 없음은 0, 중앙 묶음은 4칸 중 한 칸이면 점유', () => {
+  const st = fresh('symmetric');
+  assert.deepEqual({ ...C().OBJECTIVE_POINTS }, { SL: 1, SC: 2, SR: 1 });
+  assert.equal(C().SCORE_TIMING, 'ownTurnEnd');
+  assert.equal(C().SCORE_TARGET, null);
+  assert.deepEqual({ ...st.score }, { ru: 0, ua: 0 });
+  clearObjectives(st);
+  run('updateObjectiveControl')(st);
+  assert.deepEqual({ ...E.heldPoints(st, 'ru') }.pts, 0, '점유자 없음');
+  putOn(st, 'ru', 8, 8);                // 중앙 묶음 4칸 중 한 칸
+  putOn(st, 'ru', 8, 2);                // 왼쪽
+  run('updateObjectiveControl')(st);
+  const h = E.heldPoints(st, 'ru');
+  assert.equal(h.pts, 3);
+  assert.deepEqual({ ...h.by }, { SC: 2, SL: 1 });
+  putOn(st, 'ua', 7, 7);                // 중앙에 상대도 → 다툼
+  run('updateObjectiveControl')(st);
+  assert.equal(st.objectives.find((o) => o.id === 'SC').owner, null);
+  assert.equal(E.heldPoints(st, 'ru').pts, 1);
+  assert.equal(E.heldPoints(st, 'ua').pts, 0, '다툼 거점은 양쪽 모두 0');
+});
+
+test('점수 시점: ownTurnEnd 는 자기 턴을 끝낼 때 자기 점유만, roundEnd 는 라운드 끝에 양쪽 동시', () => {
+  for (const timing of ['ownTurnEnd', 'roundEnd']) {
+    E.loadScenario('symmetric', { scoreTiming: timing });
+    const st = E.createInitialState();
+    E.startTurn(st);
+    clearObjectives(st);
+    putOn(st, 'ru', 8, 8); putOn(st, 'ua', 7, 13);
+    run('updateObjectiveControl')(st);
+    const ev1 = E.endTurn(st);   // 러시아군(선공) 턴 끝
+    if (timing === 'ownTurnEnd') {
+      assert.deepEqual({ ...st.score }, { ru: 2, ua: 0 });
+      assert.equal(JSON.stringify(ev1.filter((e) => e.type === 'scored').map((e) => [e.side, e.pts])), JSON.stringify([['ru', 2]]));
+    } else assert.deepEqual({ ...st.score }, { ru: 0, ua: 0 });
+    // 후공 턴 중 상대가 중앙을 비움 → 후공 턴 끝 점유 상태로 계산
+    st.units.find((u) => u.side === 'ru' && u.r === 8 && u.c === 8).r = 0;
+    run('updateObjectiveControl')(st);
+    E.endTurn(st);               // 우크라이나군 턴 끝 = 라운드 끝
+    if (timing === 'ownTurnEnd') assert.deepEqual({ ...st.score }, { ru: 2, ua: 1 });
+    else assert.deepEqual({ ...st.score }, { ru: 0, ua: 1 });
+    assert.equal(st.round, 2);
+    assert.ok(st.scoreLog.every((g) => g.round === 1));
+  }
+  E.loadScenario('symmetric');
+});
+
+test('점수: 증원 도착 라운드도 같은 시점 규칙 (도착 후 그 턴 끝의 점유로 계산)', () => {
+  const st = fresh('symmetric');
+  E.startTurn(st);
+  clearObjectives(st);
+  run('updateObjectiveControl')(st);
+  let guard = 0;
+  while (st.round < 4 && guard++ < 20) E.endTurn(st);   // 4라운드 러시아군 턴 시작 = 증원 도착
+  assert.equal(st.round, 4); assert.equal(st.turn, 'ru');
+  const before = st.score.ru;
+  const arrived = st.units.filter((u) => u.side === 'ru' && (u.r === 0));
+  assert.ok(arrived.length >= 2, '증원 도착');
+  const u = st.units.find((x) => x.side === 'ru' && x.type === 'infantry');
+  u.r = 8; u.c = 2;
+  run('updateObjectiveControl')(st);
+  E.endTurn(st);
+  assert.equal(st.score.ru - before, 1);
+  assert.equal(JSON.stringify(st.scoreLog.at(-1)), JSON.stringify({ round: 4, side: 'ru', pts: 1, by: { SL: 1 } }));
+});
+
+test('점수제 판정: 총점 → 남은 체력 → 무승부, 거점 점유로는 중간에 끝나지 않음, 전멸 승리는 즉시', () => {
+  const st = fresh('symmetric');
+  st.objectives.forEach((o) => { o.owner = 'ua'; });
+  st.score = { ru: 0, ua: 30 };
+  assert.equal(E.checkVictory(st, { objectives: true }), null, '거점·점수로 중간에 끝나지 않음 (scoreTarget 없음)');
+  st.round = C().MAX_ROUNDS;
+  st.score = { ru: 12, ua: 9 };
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ru', reason: 'limitPoints' });
+  st.score = { ru: 9, ua: 9 };
+  st.pending = [];
+  st.units.forEach((u) => { u.hp = 4; });
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'draw', reason: 'limitDraw' });
+  st.units.find((u) => u.side === 'ru').hp = 3;
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ua', reason: 'limitHp' });
+  // 마지막 라운드 후공 턴 끝: 점수를 받은 뒤 판정
+  const s2 = fresh('symmetric');
+  E.startTurn(s2);
+  clearObjectives(s2);
+  putOn(s2, 'ua', 7, 7);
+  run('updateObjectiveControl')(s2);
+  s2.round = C().MAX_ROUNDS; s2.turn = 'ua'; s2.score = { ru: 5, ua: 4 };
+  const ev = E.endTurn(s2);
+  assert.equal(s2.score.ua, 6);
+  assert.equal(s2.winner, 'ua');
+  assert.ok(ev.findIndex((e) => e.type === 'scored') < ev.findIndex((e) => e.type === 'victory'));
+  // 전멸: 상대 유닛·증원이 모두 없으면 즉시 (점수와 무관)
+  const s3 = fresh('symmetric');
+  s3.score = { ru: 0, ua: 20 };
+  s3.units = s3.units.filter((u) => u.side === 'ru'); s3.pending = s3.pending.filter((p) => p.side === 'ru');
+  assert.deepEqual({ ...E.checkVictory(s3) }, { winner: 'ru', reason: 'annihilation' });
+});
+
+test('조기 종료 scoreTarget: 한쪽이 닿으면 즉시 승리 (기본 null 이면 없음)', () => {
+  E.loadScenario('symmetric', { scoreTarget: 4 });
+  const st = E.createInitialState();
+  E.startTurn(st);
+  clearObjectives(st);
+  putOn(st, 'ru', 8, 8); putOn(st, 'ru', 8, 2, 'armor');
+  run('updateObjectiveControl')(st);
+  E.endTurn(st);                       // ru 3
+  assert.equal(st.winner, null);
+  E.endTurn(st);                       // ua 0
+  E.endTurn(st);                       // ru 6 ≥ 4
+  assert.equal(st.winner, 'ru');
+  assert.equal(st.winReason, 'scoreTarget');
+  E.loadScenario('symmetric');
+});
+
+test('대칭 검사: 측면 거점 점수가 다르거나 승리 조건 형식이 한쪽만 다르면 실패, 점수 데이터 형식 검사', () => {
+  const broke = (f) => { const s = SYM(); f(s); return symErrs(s); };
+  assert.deepEqual(symErrs(SYM()), []);
+  assert.ok(broke((s) => { s.objectivePoints.SR = 2; }).some((m) => m.startsWith('objectivePoints')), '측면 점수');
+  assert.deepEqual(broke((s) => { s.objectivePoints.SC = 3; }), [], '중앙은 자기 자신이 짝');
+  assert.ok(broke((s) => { s.victory.ru = [{ type: 'annihilation' }, { type: 'roundLimitScore' }]; }).includes('victory'), '한쪽만 다른 판정');
+  assert.ok(broke((s) => { s.victory.ua[1] = { type: 'roundLimitPoints', extra: 1 }; }).includes('victory'), '한쪽에만 있는 값');
+  const bad = (f) => { const s = SYM(); f(s); return E.validateScenario(s).length > 0; };
+  assert.ok(bad((s) => { s.objectivePoints = { SL: 1, SC: 2 }; }), '거점 하나 빠짐');
+  assert.ok(bad((s) => { s.objectivePoints.SC = -1; }), '음수');
+  assert.ok(bad((s) => { s.objectivePoints.XX = 1; }), '없는 거점 id');
+  assert.ok(bad((s) => { s.scoreTiming = 'later'; }), '점수 시점');
+  assert.ok(bad((s) => { s.scoreTarget = 0; }), '목표 점수');
+  assert.ok(bad((s) => { delete s.objectivePoints; delete s.scoreTiming; delete s.scoreTarget; }), 'roundLimitPoints 에 점수 필요');
+  assert.ok(bad((s) => { s.objectivePoints.SR = 3; }), 'validateScenario 경로로도 대칭 실패');
+  assert.deepEqual([...E.validateScenario(SYM())], []);
+});
+
+test('점수는 게임 상태에 저장: 직렬화·복원 뒤 같은 시드로 이어 가면 점수와 결과가 같음', () => {
+  E.loadScenario('symmetric');
+  const play = (st, rng, dice, turns) => { for (let k = 0; k < turns && !st.winner; k++) { E.aiTakeTurn(st, st.turn, rng, 'normal', { recordSnapshots: false, diceRng: dice }); if (!st.winner) E.endTurn(st); } };
+  const a = E.createInitialState(); E.startTurn(a);
+  const r1 = seeded(21);
+  play(a, r1.rng, r1.diceRng, 10);
+  assert.ok(a.scoreLog.length === 10 || a.winner);
+  const saved = JSON.stringify(a);
+  const b = JSON.parse(saved);
+  assert.equal(JSON.stringify(b.score), JSON.stringify(a.score));
+  assert.equal(JSON.stringify(b.scoreLog), JSON.stringify(a.scoreLog));
+  const ra = seeded(77), rb = seeded(77);
+  play(a, ra.rng, ra.diceRng, 30);
+  play(b, rb.rng, rb.diceRng, 30);
+  assert.equal(JSON.stringify(b), JSON.stringify(a));
+  // 다른 시나리오 상태에는 점수 필드가 없음
+  for (const id of ['chuncheon', 'hostomel']) { const st = fresh(id); assert.ok(!('score' in st) && !('scoreLog' in st), id); assert.equal(C().OBJECTIVE_POINTS, null); }
+  E.loadScenario('symmetric');
 });
 
 test('후공 보너스: 후공 진영의 1라운드 턴에만 한도 추가 (기본 0)', () => {

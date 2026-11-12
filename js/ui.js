@@ -987,8 +987,20 @@
     }).join('');
     // 목표 칩: 거점 승리 조건(holdObjectives)이 있는 시나리오만
     const WS = holdSide();
-    const symGoal = GAME_CONFIG.ROUND_ORDER.every((x) => victoryCond(x, 'roundLimitScore'));   // 양쪽 같은 라운드 제한 판정 (대칭 시나리오): 자기 점유 수
-    if (symGoal) {
+    const symGoal = roundLimitType() === 'roundLimitScore';   // 양쪽 같은 라운드 제한 판정 (대칭 시나리오): 자기 점유 수
+    if (st.score) {
+      // 점수제: 총점은 공개 정보 (양쪽 합계만). 화면을 보는 진영을 먼저 (종료 후 전체 공개·관전은 플레이어 진영)
+      const a = me === 'all' || !GAME_CONFIG.SIDES[me] ? PLAYER : me, b = enemyOf(a);
+      const left = st.winner ? null : GAME_CONFIG.MAX_ROUNDS - st.round + 1;
+      const sp = { a: S(a), b: S(b), sa: st.score[a], sb: st.score[b] };
+      const full = t('hud.score', sp) + (left ? ' · ' + t('hud.roundsLeft', { n: left }) : '');
+      const short = `${dotHtml(a)}<span class="sc">${st.score[a]}</span><span class="sc-sep">:</span>${dotHtml(b)}<span class="sc">${st.score[b]}</span>`
+        + (left ? txSpan(' · ' + t('hud.roundsLeftShort', { n: left })) : '');
+      const wide = txSpan(t('hud.scoreLbl')) + ` ${dotHtml(a)}${txSpan(t('hud.scoreSide', { side: S(a), n: st.score[a] }))}<span class="sc-sep">:</span>${dotHtml(b)}${txSpan(t('hud.scoreSide', { side: S(b), n: st.score[b] }))}`
+        + (left ? txSpan(' · ' + t('hud.roundsLeft', { n: left })) : '');
+      setChip('hud-goal', W ? wide : short, full, 'chip score-chip');
+      $('#hud-goal').setAttribute('aria-label', full);
+    } else if (symGoal) {
       // 화면을 보는 진영 자신의 점유 수만 (종료 후 전체 공개·AI 모드 관전 시에는 플레이어 진영)
       const own = me === 'all' ? (hotseat() ? null : PLAYER) : me;
       if (own) {
@@ -1376,6 +1388,7 @@
       case 'damage': case 'splashDamage':
         return M('log.damage', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos), n: ev.amount, splash: ev.type === 'splashDamage' ? { t: 'log.splash' } : '', hp: ev.hp }, '');
       case 'destroyed': return M('log.destroyedFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
+      case 'scored': return ev.pts ? M('log.scoredMine', { n: ev.round, side: S(ev.side), pts: ev.pts, list: SCORE_LIST(ev.by) }, ev.side) : null;
       case 'captured': return M('log.capturedFull', { side: S(ev.side), obj: OB(ev.objectiveId), pos: P(ev.pos) }, 'sys');
       case 'objectiveLost': return M(ev.contested ? 'log.objContested' : 'log.objLost', { obj: OB(ev.objectiveId) }, 'sys');
       case 'arrival': return M('log.arrivalFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, ev.side);
@@ -1440,10 +1453,17 @@
         return M('log.round', { n: ev.round }, 'sys');
       case 'turnStart':
         return M('log.turn', { side: S(ev.side) }, 'sys');
+      case 'scored':
+        // 점수판은 공개 정보: 상대는 합계만 (어느 거점에서 받았는지는 숨김)
+        if (!ev.pts) return null;
+        if (mine) return M('log.scoredMine', { n: ev.round, side: S(ev.side), pts: ev.pts, list: SCORE_LIST(ev.by) }, ev.side);
+        return M('log.scoredEnemy', { n: ev.round, side: S(ev.side), pts: ev.pts }, ev.side);
       default:
         return null;
     }
   }
+  /** 점수 내역 (거점 짧은 이름 + 점수) */
+  const SCORE_LIST = (by) => Object.entries(by).map(([id, p]) => ({ t: 'log.scoreItem', p: { obj: OBS(id), n: p } }));
 
   /** annotate 된 이벤트를 각 진영 로그에 (그 진영이 볼 수 있는 것만) */
   function logEvents(events) {
@@ -3063,7 +3083,9 @@
       <ul>
         ${zones.length ? `<li>${t('intro.deploy', { list: zones })}</li>` : ''}
         <li>${t(surviveSide() ? 'intro.round' : 'intro.roundSym', { order: C.ROUND_ORDER.map((s) => t('log.turn', { side: S(s) })).join(' → '), max: C.MAX_ROUNDS })}</li>
-        ${C.ROUND_ORDER.every((x) => victoryCond(x, 'roundLimitScore'))
+        ${roundLimitType() === 'roundLimitPoints'
+    ? `<li>${t('intro.points', { max: C.MAX_ROUNDS, list: C.OBJECTIVES.map((o) => ({ t: 'intro.pointItem', p: { obj: OBS(o.id), n: C.OBJECTIVE_POINTS[o.id] } })) })} ${t(C.SCORE_TIMING === 'roundEnd' ? 'intro.pointsRoundEnd' : 'intro.pointsOwnTurn')}${C.SCORE_TARGET ? ' ' + t('intro.pointsTarget', { n: C.SCORE_TARGET }) : ''}</li>`
+    : roundLimitType() === 'roundLimitScore'
     ? `<li>${t('intro.objectivesSym', { total: C.OBJECTIVES.length, max: C.MAX_ROUNDS })}</li>`
     : holdSide() ? `<li>${t('intro.objectives', { when, att: S(holdSide()), n: holdCount() })}</li>` : ''}
         ${C.OBJECTIVE_CONTROL === 'presence' ? `<li>${t('intro.presence')}</li>` : ''}
@@ -3146,19 +3168,21 @@
     const title = draw ? t('result.titleDraw') : hs ? t('result.titleWin', { side: S(st.winner) }) : t(win ? 'result.titleWin' : 'result.titleLose', { side: S(PLAYER) });
     const cls = draw ? 'draw' : hs ? ROLE(st.winner) : (win ? 'win' : 'lose');
     const reason = draw && st.winReason === 'annihilation' ? t('result.r.drawAnnihilation')
-      : t('result.r.' + st.winReason, { winner: S(st.winner), loser: S(enemyOf(st.winner)), n: reasonParams(st.winReason).n });
+      : t('result.r.' + st.winReason + (st.score && ['limitHp', 'limitDraw'].includes(st.winReason) ? 'Points' : ''), { winner: S(st.winner), loser: S(enemyOf(st.winner)), n: reasonParams(st.winReason).n, target: GAME_CONFIG.SCORE_TARGET })
+        + (st.score ? ' (' + t('result.finalScore', { a: S(PLAYER), b: S(AI_SIDE), sa: st.score[PLAYER], sb: st.score[AI_SIDE] }) + ')' : '');
     const rec = buildGameRecord(st, ui.difficulty, hs ? 'hotseat' : 'ai');   // 손실 수는 기록과 같은 계산
     // 전장에 나온 유닛 수 (시작 배치 + 이미 도착한 증원). 도착하지 않은 증원은 세지 않음
     const startN = (s) => sideTotalUnits(s) - (st.pending || []).filter((p) => p.side === s).length;
     const alive = Object.fromEntries(C.ROUND_ORDER.map((s) => [s, startN(s) - rec[`${s}Losses`]]));
     const held = st.objectives.filter((o) => o.owner === PLAYER).length;
+    const scoreBox = st.score ? () => box(`${st.score[PLAYER]} : ${st.score[AI_SIDE]}`, t('result.box.score')) : null;
     const box = (v, k) => `<div class="num-box"><div class="v">${esc(v)}</div><div class="k tx" title="${esc(k)}">${esc(k)}</div></div>`;
     const round = box(`${st.round}/${C.MAX_ROUNDS}`, t('result.box.round'));
     const boxes = hs
       ? round + box(`${alive[DEF()]}/${startN(DEF())}`, t('result.box.aliveSide', { side: S(DEF()) })) + box(`${alive[ATT()]}/${startN(ATT())}`, t('result.box.aliveSide', { side: S(ATT()) }))
-        + box(`${held}/${C.OBJECTIVES.length}`, t('result.box.objSide', { side: S(PLAYER) }))
+        + (scoreBox ? scoreBox() : box(`${held}/${C.OBJECTIVES.length}`, t('result.box.objSide', { side: S(PLAYER) })))
       : round + box(`${alive[PLAYER]}/${startN(PLAYER)}`, t('result.box.alive')) + box(t('result.kills', { n: rec[AI_SIDE + 'Losses'] }), t('result.box.kills'))
-        + box(`${held}/${C.OBJECTIVES.length}`, t('result.box.obj'));
+        + (scoreBox ? scoreBox() : box(`${held}/${C.OBJECTIVES.length}`, t('result.box.obj')));
     const chips = `<span class="chip">${esc(t(hs ? 'mode.hotseatShort' : 'mode.ai'))}</span>${hs ? '' : `<span class="chip">${esc(resolveProfile(ui.difficulty).name)}</span>`}`;
     showOverlay(`<span class="chip blue reveal-chip"><span class="tx">${esc(t('result.revealChip'))}</span></span>
       <div class="result-card"><h2 class="result-title ${cls}">${esc(title)}</h2>

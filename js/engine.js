@@ -60,6 +60,8 @@ function victoryCond(side, type) {
 const holdSide = () => GAME_CONFIG.ROUND_ORDER.find((s) => victoryCond(s, 'holdObjectives')) || null;
 /** 거점 승리에 필요한 거점 수 (조건이 없으면 null) */
 const holdCount = () => { const s = holdSide(); return s ? victoryCond(s, 'holdObjectives').count : null; };
+/** 양쪽이 같은 라운드 제한 판정을 가질 때 그 종류 ('roundLimitPoints' 총점 · 'roundLimitScore' 거점 수), 없으면 null. 무승부가 생기는 시나리오 */
+const roundLimitType = () => ['roundLimitPoints', 'roundLimitScore'].find((k) => GAME_CONFIG.ROUND_ORDER.every((s) => victoryCond(s, k))) || null;
 /** 라운드를 버티면 이기는 진영 (없으면 null) */
 const surviveSide = () => GAME_CONFIG.ROUND_ORDER.find((s) => victoryCond(s, 'surviveRounds')) || null;
 /** 지형 이름 문자열 키 (시나리오가 이름만 바꾼 경우 반영) */
@@ -198,7 +200,15 @@ function validateScenario(s) {
       if (r < z.rows[0] || r > z.rows[1] || (z.cols && (c < z.cols[0] || c > z.cols[1]))) E('scenErr.defaultOutside', { side, r, c });
     }
   }
-  const TYPES = ['enterHQ', 'annihilation', 'holdObjectives', 'surviveRounds', 'roundLimitScore'];
+  const TYPES = ['enterHQ', 'annihilation', 'holdObjectives', 'surviveRounds', 'roundLimitScore', 'roundLimitPoints'];
+  // 점수제 (objectivePoints): 거점 id → 0 이상의 정수, 모든 거점에 값. scoreTiming 'ownTurnEnd'|'roundEnd', scoreTarget null|1 이상의 정수
+  if (s.objectivePoints != null) {
+    const P = s.objectivePoints, ids = (s.objectives || []).map((o) => o.id);
+    if (typeof P !== 'object' || Object.keys(P).some((k) => !ids.includes(k)) || ids.some((k) => !(Number.isInteger(P[k]) && P[k] >= 0))) E('scenErr.objectivePoints');
+  }
+  if (s.scoreTiming != null && !['ownTurnEnd', 'roundEnd'].includes(s.scoreTiming)) E('scenErr.scoreTiming', { v: String(s.scoreTiming) });
+  if (s.scoreTarget != null && !(Number.isInteger(s.scoreTarget) && s.scoreTarget >= 1)) E('scenErr.scoreTarget', { v: String(s.scoreTarget) });
+  if ((s.scoreTiming != null || s.scoreTarget != null) && s.objectivePoints == null) E('scenErr.objectivePoints');
   for (const side of sides) {
     const list = (s.victory && s.victory[side]) || [];
     if (!list.length) E('scenErr.noVictory', { side });
@@ -207,6 +217,7 @@ function validateScenario(s) {
       if (v.type === 'holdObjectives' && !(Number.isInteger(v.count) && v.count >= 1 && v.count <= (s.objectives || []).length)) E('scenErr.holdCount', { n: v.count });
       if (v.type === 'surviveRounds' && !(Number.isInteger(v.rounds) && v.rounds >= 1 && v.rounds <= s.rounds)) E('scenErr.surviveRounds', { n: v.rounds });
       if (v.type === 'enterHQ' && !(s.hq && s.hq[sides.find((x) => x !== side)])) E('scenErr.enterHQ', { side });
+      if (v.type === 'roundLimitPoints' && s.objectivePoints == null) E('scenErr.objectivePoints');
     }
   }
   if (s.river) for (const p of s.river.crossings || []) if (!inB(p)) E('scenErr.cell', { what: { t: 'scenErr.what.crossing' }, r: p[0], c: p[1] });
@@ -250,6 +261,10 @@ function symmetryErrors(s) {
   for (const o of s.objectives || []) {
     if (!objs.includes(key(objectiveCellList(o).map(rot)))) out.push(`objective ${o.id}`);
     if (o.startOwner != null) out.push(`objective ${o.id} startOwner`);
+    // 점수: 회전한 짝 거점과 같은 값 (왼쪽·오른쪽 측면)
+    const P = s.objectivePoints;
+    const twin = (s.objectives || []).find((q) => key(objectiveCellList(q)) === key(objectiveCellList(o).map(rot)));
+    if (P && twin && P[o.id] !== P[twin.id]) out.push(`objectivePoints ${o.id}/${twin.id}`);
   }
   const sides = Object.keys(s.sides || {});
   if (sides.length === 2) {
@@ -335,6 +350,10 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.AI_MODE = s.aiProfile === 'symmetric' ? 'symmetric' : null;   // symmetric: 역할과 무관한 중립 AI
   C.SECOND_MOVER_BONUS = Number.isInteger(s.secondMoverBonus) && s.secondMoverBonus > 0 ? s.secondMoverBonus : 0;
   C.SYMMETRIC = !!s.symmetric;
+  // 점수제 (시나리오 objectivePoints 가 있을 때만): 점유한 거점의 점수가 쌓임. 다른 시나리오는 null → 상태·결과 변화 없음
+  C.OBJECTIVE_POINTS = s.objectivePoints ? { ...s.objectivePoints } : null;
+  C.SCORE_TIMING = s.scoreTiming === 'roundEnd' ? 'roundEnd' : 'ownTurnEnd';
+  C.SCORE_TARGET = Number.isInteger(s.scoreTarget) ? s.scoreTarget : null;
   const norm = (s.deployments || []).map(normalizeDeployment);
   C.DEPLOYMENT = {};
   for (const side of C.ROUND_ORDER) C.DEPLOYMENT[side] = norm.filter((d) => d.side === side && d.round === 0).map((d) => ({ type: d.type, r: d.cells[0].r, c: d.cells[0].c }));
@@ -472,6 +491,10 @@ function createInitialState(deploy = null) {
     winner: null,
     winReason: null,
   };
+  if (C.OBJECTIVE_POINTS) {   // 점수제 시나리오만: 진영별 총점과 받은 기록 (저장·불러오기는 상태 그대로)
+    state.score = Object.fromEntries(C.ROUND_ORDER.map((s) => [s, 0]));
+    state.scoreLog = [];      // { round, side, pts, by: { 거점 id: 점수 } }
+  }
   if (C.OBJECTIVE_CONTROL === 'presence') updateObjectiveControl(state);
   if (C.AI_MODE === 'symmetric') intelInit(state);   // ai-intel.js: 대칭 시나리오만 state.aiIntel
   updateMemory(state);
@@ -689,6 +712,11 @@ function endTurn(state) {
   const roundEnd = pos === order.length - 1;
   const checkSide = GAME_CONFIG.OBJECTIVE_CHECK_AFTER || order[order.length - 1];
   if (roundEnd) recordObjectiveTimeline(state);
+  if (GAME_CONFIG.OBJECTIVE_POINTS) {   // 점수제: 자기 턴 끝(ownTurnEnd) 또는 라운드 끝(roundEnd, 양쪽 동시)에 지금 점유한 거점의 점수
+    events.push(...awardPoints(state, GAME_CONFIG.SCORE_TIMING === 'roundEnd' ? (roundEnd ? order : []) : [state.turn]));
+    const tv = scoreTargetResult(state);
+    if (tv) { setWinner(state, tv); events.push({ type: 'victory', winner: tv.winner, reason: tv.reason, round: state.round }); return events; }
+  }
   const v = checkVictory(state, { objectives: state.turn === checkSide, roundLimit: roundEnd });
   if (v) { setWinner(state, v); events.push({ type: 'victory', winner: v.winner, reason: v.reason, round: state.round }); return events; }
   if (!roundEnd) {
@@ -703,6 +731,35 @@ function endTurn(state) {
 }
 
 function setWinner(state, v) { state.winner = v.winner; state.winReason = v.reason; }
+
+/** 점수제: 진영이 지금 점유한 거점의 점수 { pts, by: { 거점 id: 점수 } } (점유는 objectiveControl 규칙 그대로) */
+function heldPoints(state, side) {
+  const P = GAME_CONFIG.OBJECTIVE_POINTS || {}, by = {};
+  let pts = 0;
+  for (const o of state.objectives) if (o.owner === side && P[o.id]) { by[o.id] = P[o.id]; pts += P[o.id]; }
+  return { pts, by };
+}
+/** 점수 지급. 이벤트 scored 에는 거점별 내역이 있지만 화면은 상대 것은 합계만 보여 준다 */
+function awardPoints(state, sides) {
+  const events = [];
+  for (const side of sides) {
+    const { pts, by } = heldPoints(state, side);
+    state.score[side] += pts;
+    state.scoreLog.push({ round: state.round, side, pts, by });
+    events.push({ type: 'scored', side, round: state.round, pts, by, total: state.score[side] });
+  }
+  return events;
+}
+/** 조기 종료 (scoreTarget): 한쪽이라도 목표에 닿으면 끝. 둘 다 닿으면 총점 → 체력 → 무승부 */
+function scoreTargetResult(state) {
+  const T = GAME_CONFIG.SCORE_TARGET;
+  if (!T) return null;
+  const [a, b] = GAME_CONFIG.ROUND_ORDER, sa = state.score[a] >= T, sb = state.score[b] >= T;
+  if (!sa && !sb) return null;
+  if (sa !== sb) return { winner: sa ? a : b, reason: 'scoreTarget' };
+  const r = pointsLimitResult(state);
+  return { winner: r.winner, reason: r.winner === 'draw' ? 'limitDraw' : 'scoreTarget' };
+}
 
 /* =========================== 4. 전투 수치 =========================== */
 function effectiveStats(u) {
@@ -1078,7 +1135,7 @@ function checkVictory(state, opts = {}) {
     alive[s] = state.units.filter((u) => u.side === s).length + (state.pending || []).filter((p) => p.side === s).length;
   }
   const [a, b] = C.ROUND_ORDER;
-  const scored = victoryCond(a, 'roundLimitScore') && victoryCond(b, 'roundLimitScore');   // 양쪽 같은 라운드 제한 판정 (무승부 있음)
+  const scored = !!roundLimitType();   // 양쪽 같은 라운드 제한 판정 (무승부 있음)
   if (alive[a] === 0 && alive[b] === 0) return { winner: scored ? 'draw' : C.ROUND_LIMIT_WINNER, reason: 'annihilation' };
   if (alive[a] === 0 && victoryCond(b, 'annihilation')) return { winner: b, reason: 'annihilation' };
   if (alive[b] === 0 && victoryCond(a, 'annihilation')) return { winner: a, reason: 'annihilation' };
@@ -1090,7 +1147,7 @@ function checkVictory(state, opts = {}) {
       if (v && state.objectives.filter((o) => o.owner === s).length >= v.count) return { winner: s, reason: 'objectives' };
     }
   }
-  if (checkLimit && scored && state.round >= C.MAX_ROUNDS) return roundLimitResult(state);
+  if (checkLimit && scored && state.round >= C.MAX_ROUNDS) return roundLimitType() === 'roundLimitPoints' ? pointsLimitResult(state) : roundLimitResult(state);
   if (checkLimit) {
     for (const s of C.ROUND_ORDER) {
       const v = victoryCond(s, 'surviveRounds');
@@ -1106,12 +1163,25 @@ function checkVictory(state, opts = {}) {
  * winner 'draw' = 무승부. reason: limitObjectives / limitHp / limitDraw
  */
 function roundLimitResult(state) {
-  const [a, b] = GAME_CONFIG.ROUND_ORDER;
   const objs = (s) => state.objectives.filter((o) => o.owner === s).length;
+  return limitCompare(state, objs, 'limitObjectives');
+}
+/** 라운드 제한 판정 (roundLimitPoints): 총점이 많은 쪽 → 남은 총 체력 → 무승부. reason: limitPoints / limitHp / limitDraw */
+function pointsLimitResult(state) {
+  return limitCompare(state, (s) => state.score[s], 'limitPoints');
+}
+/** 판정 공통: key 가 큰 쪽 → 남은 총 체력(도착 대기 유닛은 최대 체력으로 셈) → 무승부 */
+function limitCompare(state, key, reason) {
+  const [a, b] = GAME_CONFIG.ROUND_ORDER;
   const hp = (s) => state.units.filter((u) => u.side === s).reduce((k, u) => k + u.hp, 0) + (state.pending || []).filter((p) => p.side === s).length * GAME_CONFIG.MAX_HP;
-  if (objs(a) !== objs(b)) return { winner: objs(a) > objs(b) ? a : b, reason: 'limitObjectives' };
+  if (key(a) !== key(b)) return { winner: key(a) > key(b) ? a : b, reason };
   if (hp(a) !== hp(b)) return { winner: hp(a) > hp(b) ? a : b, reason: 'limitHp' };
   return { winner: 'draw', reason: 'limitDraw' };
+}
+/** 지금 끝난다면의 라운드 제한 판정 (진단: 막판 역전 비율) */
+function limitResultNow(state) {
+  const k = roundLimitType();
+  return k === 'roundLimitPoints' ? pointsLimitResult(state) : k === 'roundLimitScore' ? roundLimitResult(state) : null;
 }
 
 function pushVictoryIfAny(state, events) {
@@ -1667,6 +1737,14 @@ function aiNeutralGoals(state, ctx, u) {
   return goals;
 }
 
+/** 점수제 거점 가치 배수: 점수 / 평균 점수 (점수제가 아니면 1) */
+function objPointWeight(id) {
+  const P = GAME_CONFIG.OBJECTIVE_POINTS;
+  if (!P) return 1;
+  const vals = Object.values(P), mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+  return mean > 0 ? (P[id] || 0) / mean : 1;
+}
+
 /** 이 칸에서 다음 적 턴에 받을 것으로 예상되는 피해 (아는 적 기준 단순 추정) */
 function aiEstimateThreat(state, ctx, u, pos) {
   const me = { ...u, r: pos.r, c: pos.c };
@@ -1714,7 +1792,8 @@ function aiScorePosition(state, ctx, u, pos, goals, diff) {
     if (isFinite(f0) && isFinite(f1)) s += W.approach * grow * (f0 - f1);
   }
   const obj = objectiveAt(state, pos.r, pos.c);
-  if (obj) s += obj.owner !== u.side ? W.capture : (SYM ? SYM.HOLD : ctx.isAttacker ? W.hold : W.holdDefender);
+  // 중립 모드 + 점수제: 거점 가치 × (그 거점 점수 / 평균 점수). 그 밖의 경우 배수 1 (기존과 같은 계산)
+  if (obj) s += (SYM ? objPointWeight(obj.id) : 1) * (obj.owner !== u.side ? W.capture : (SYM ? SYM.HOLD : ctx.isAttacker ? W.hold : W.holdDefender));
   const enemyHq = C.HQ[enemyOf(u.side)];
   if (enemyHq && samePos(pos, enemyHq)) s += W.hqWin;
   if (!ctx.isAttacker && !ctx.neutral) {
@@ -2162,10 +2241,19 @@ function simulateGames(n = 100, opts = {}) {
   } : null;
   const bump = (o, k, v = 1) => { o[k] = (o[k] || 0) + v; };
   // 대칭 시나리오 지표 (symmetric 시나리오만 → 다른 시나리오는 결과 형식이 그대로). 무승부는 양쪽이 roundLimitScore 를 가질 때만 생김
-  const drawable = SIDES.every((s) => victoryCond(s, 'roundLimitScore'));
+  const drawable = !!roundLimitType();
   if (drawable) res.draws = 0;
   const sym = GAME_CONFIG.SYMMETRIC ? { clashSum: 0, clashGames: 0, flips: {}, stall: 0, stallBase: 0, byMover: { first: 0, second: 0 } } : null;
   if (sym) for (const o of GAME_CONFIG.OBJECTIVES) sym.flips[o.id] = 0;
+  // 점수제·막판 지표 (대칭 시나리오만): 라운드별 공격 수, 라운드 끝 누적 점수(선공/후공), 11라운드 끝 우세와 최종 결과가 다른 판, 거점별 점유 라운드
+  const RMAX = GAME_CONFIG.MAX_ROUNDS;
+  if (sym) {
+    sym.atk = new Array(RMAX + 1).fill(0);
+    sym.curve = [new Array(RMAX + 1).fill(0), new Array(RMAX + 1).fill(0)];
+    sym.final = [0, 0, 0];   // 선공 총점, 후공 총점, |차|
+    sym.late = { base: 0, flip: 0 };
+    sym.held = Object.fromEntries(GAME_CONFIG.OBJECTIVES.map((o) => [o.id, [0, 0]]));
+  }
   // 진영별 지표 (대칭 AI 진단): 상대 간접 화력에 잃은 유닛, 간접 사격·안개 속 사격·오사, 거점 3칸 안 격파와 걸린 라운드, 맞고만 있던 라운드
   if (sym) sym.side = Object.fromEntries(SIDES.map((x) => [x, { indLoss: 0, indLossEarly: 0, shots: { artillery: 0, mortar: 0 }, fogShots: 0, fogHits: 0, ff: 0, nearKills: 0, killRoundSum: 0, killCnt: 0, passive: 0, time: [] }]));
   const symObjCells = sym ? GAME_CONFIG.OBJECTIVES.flatMap((o) => (o.cells || [{ r: o.r, c: o.c }])) : [];
@@ -2185,6 +2273,7 @@ function simulateGames(n = 100, opts = {}) {
       if (detail) for (const ev of startTurn(st)) if (ev.type === 'arrival') detail.arrivals[ev.side]++;
       let crossStart = null, measureArty = false, acrossSeen = false;
       let firstClash = null, clashLate = false;   // sym: 첫 교전 라운드, 5라운드 이후 교전 여부
+      let lead11 = null;                             // sym: 막판 3라운드(12~14) 전, 11라운드 끝에 끝났다면의 판정
       const entered = {}, passivePending = {};      // sym: 유닛이 거점 3칸 안에 처음 들어온 라운드, 직전 상대 턴에 맞은 진영
       const symSide = (actions, turnSide, ownedBefore) => {
         const S = sym.side;
@@ -2216,6 +2305,7 @@ function simulateGames(n = 100, opts = {}) {
       const symEvents = (evs) => {
         for (const e of evs) {
           if (e.type === 'diceRoll' && e.targetType) { if (firstClash == null) firstClash = st.round; if (st.round > 4) clashLate = true; }
+          if (e.type === 'diceRoll') sym.atk[st.round]++;
           if (e.type === 'captured' || e.type === 'objectiveLost') sym.flips[e.objectiveId]++;
         }
       };
@@ -2308,9 +2398,11 @@ function simulateGames(n = 100, opts = {}) {
           }
         }
         if (st.winner) break;
+        if (sym && st.turn === SIDES[1]) for (const o of st.objectives) { const k = SIDES.indexOf(o.owner); if (k >= 0) sym.held[o.id][k]++; }   // 라운드 끝 점유
         const tev = endTurn(st);
         if (sym) {
           symEvents(tev);
+          if (!st.winner && RMAX > 3 && tev.some((e) => e.type === 'roundStart' && e.round === RMAX - 2)) { const lr = limitResultNow(st); lead11 = lr ? lr.winner : null; }
           for (const u of st.units) if (entered[u.id] == null && nearObj(u)) entered[u.id] = st.round;
         }
         if (detail) for (const e of tev) if (e.type === 'arrival') detail.arrivals[e.side]++;
@@ -2333,6 +2425,14 @@ function simulateGames(n = 100, opts = {}) {
         if (firstClash != null) { sym.clashSum += firstClash; sym.clashGames++; }
         if (st.round > 4) { sym.stallBase++; if (!clashLate) sym.stall++; }
         if (st.winner === SIDES[0]) sym.byMover.first++; else if (st.winner === SIDES[1]) sym.byMover.second++;
+        if (lead11 != null) { sym.late.base++; if (lead11 !== st.winner) sym.late.flip++; }
+        if (st.score) {   // 라운드 끝 누적 점수 (일찍 끝난 판은 마지막 값 유지)
+          SIDES.forEach((x, k) => {
+            let acc = 0;
+            for (let r = 1; r <= RMAX; r++) { for (const g of st.scoreLog) if (g.side === x && g.round === r) acc += g.pts; sym.curve[k][r] += acc; }
+          });
+          sym.final[0] += st.score[SIDES[0]]; sym.final[1] += st.score[SIDES[1]]; sym.final[2] += Math.abs(st.score[SIDES[0]] - st.score[SIDES[1]]);
+        }
       }
       const key = `${st.winner}:${st.winReason}`;
       res.reasons[key] = (res.reasons[key] || 0) + 1;
@@ -2396,6 +2496,13 @@ function simulateGames(n = 100, opts = {}) {
       avgFirstClashRound: avg(sym.clashSum, sym.clashGames), clashGames: sym.clashGames,
       flipsPerGame: Object.fromEntries(Object.entries(sym.flips).map(([k, v]) => [k, avg(v, done)])),   // 거점 주인 변경 (점유자 없음으로 바뀐 것 포함) 판당
       stallRate: pct(sym.stall, sym.stallBase), stallBase: sym.stallBase,   // 5라운드 이후까지 간 판 중 5라운드부터 교전이 한 번도 없던 판
+      attacksByRound: sym.atk.slice(1).map((v) => avg(v, done)),           // 라운드 1~ : 판당 공격(직접·간접 주사위) 수
+      lateFlipRate: pct(sym.late.flip, sym.late.base), lateBase: sym.late.base,   // 12라운드까지 간 판 중 11라운드 끝 판정과 최종 결과가 다른 판
+      heldRounds: Object.fromEntries(Object.entries(sym.held).map(([k, v]) => [k, [avg(v[0], done), avg(v[1], done)]])),   // 거점별 라운드 끝 점유 라운드 수 [선공, 후공]
+      ...(GAME_CONFIG.OBJECTIVE_POINTS ? {
+        finalScore: [avg(sym.final[0], done), avg(sym.final[1], done)], avgScoreGap: avg(sym.final[2], done),
+        scoreCurve: sym.curve.map((c) => c.slice(1).map((v) => avg(v, done))),   // [선공, 후공] 라운드 1~ 끝 누적 점수
+      } : {}),
       bySide: Object.fromEntries(SIDES.map((x) => {
         const v = sym.side[x];
         const o = {
@@ -2661,6 +2768,40 @@ function diagnoseFires(n = 100, opts = {}) {
   return out;
 }
 
+/**
+ * 점수제 진단 조합 (대칭 시나리오). pts = 거점 순서(시나리오 objectives)대로의 점수, old = 이전 방식(14라운드 끝 거점 수 판정)
+ */
+const SCORING_COMBOS = [
+  { key: 'A', timing: 'ownTurnEnd', pts: [1, 2, 1], target: null },
+  { key: 'B', timing: 'roundEnd', pts: [1, 2, 1], target: null },
+  { key: 'C', timing: 'ownTurnEnd', pts: [1, 1, 1], target: null },
+  { key: 'D', timing: 'ownTurnEnd', pts: [1, 3, 1], target: null },
+  { key: 'E', timing: 'ownTurnEnd', pts: [1, 2, 1], target: 20 },
+  { key: 'F', timing: 'ownTurnEnd', pts: [1, 2, 1], target: 28 },
+  { key: 'OLD', old: true },
+];
+/** 조합 → simulateGames overrides (시나리오 데이터 값만 덮어씀) */
+function scoringOverrides(k, scenarioId = 'symmetric') {
+  const s = findScenario(scenarioId);
+  if (k.old) {   // 이전 방식: 승리 조건만 거점 수 판정으로 (점수는 기록용으로 계속 쌓임)
+    const victory = Object.fromEntries(Object.entries(s.victory).map(([side, list]) => [side, list.map((v) => (v.type === 'roundLimitPoints' ? { type: 'roundLimitScore' } : { ...v }))]));
+    return { victory };
+  }
+  return { objectivePoints: Object.fromEntries(s.objectives.map((o, i) => [o.id, k.pts[i]])), scoreTiming: k.timing, scoreTarget: k.target };
+}
+/**
+ * 점수제 진단: 조합마다 같은 시드로 simulateGames(n) (양쪽 같은 AI, 기본 보통). 숫자만 돌려줌 (추천 값 없음)
+ */
+function diagnoseScoring(n = 100, opts = {}) {
+  const id = opts.scenario || 'symmetric', ai = opts.ai || 'normal';
+  const out = {};
+  for (const k of opts.combos || SCORING_COMBOS) {
+    const r = simulateGames(n, { seed: opts.seed, quiet: true, scenario: id, overrides: scoringOverrides(k, id), def: ai, att: ai });
+    out[k.key] = r;
+  }
+  return out;
+}
+
 const ACTIVATION_COMBOS = {
   hostomel: [null, { def: 4, att: 4 }, { def: 3, att: 4 }, { def: 4, att: 3 }, { def: 5, att: 5 }],
   chuncheon: [null, { def: 5, att: 6 }, { def: 4, att: 6 }, { def: 5, att: 5 }, { def: 4, att: 4 }],
@@ -2824,6 +2965,7 @@ if (typeof module !== 'undefined' && module.exports) {
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,
     diagnoseActivations, activationStatus, activationLimits, hasActivated, activationBlocked, scenarioNotes, sideTotalUnits,
     diagnoseSymmetric, diagnoseSymmetricAI, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
+    roundLimitType, heldPoints, awardPoints, pointsLimitResult, limitResultNow, scoreTargetResult, diagnoseScoring, SCORING_COMBOS,
     diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
   };
 }

@@ -1,6 +1,6 @@
 {
  "games": 100,
- "rulesVersion": 9,
+ "rulesVersion": 10,
  "results": {
   "chuncheon easy/normal": {
    "games": 100,
@@ -3181,12 +3181,12 @@
    "games": 100,
    "errors": 0,
    "wins": {
-    "ru": 46,
-    "ua": 52
+    "ru": 60,
+    "ua": 40
    },
    "winRate": {
-    "ru": 46,
-    "ua": 52
+    "ru": 60,
+    "ua": 40
    },
    "byReason": {
     "hq": {
@@ -3205,384 +3205,20 @@
      "ru": 0,
      "ua": 0
     },
-    "limitHp": {
-     "ru": 13,
-     "ua": 17
-    },
-    "limitObjectives": {
-     "ru": 33,
+    "limitPoints": {
+     "ru": 59,
      "ua": 35
     },
-    "limitDraw": {
-     "ru": 0,
-     "ua": 0,
-     "draw": 2
-    }
-   },
-   "reasons": {
-    "ru:limitHp": 13,
-    "ru:limitObjectives": 33,
-    "ua:limitObjectives": 35,
-    "ua:limitHp": 17,
-    "draw:limitDraw": 2
-   },
-   "avgRounds": 14,
-   "firstCapture": {
-    "games": 100,
-    "avgRound": 2,
-    "bySide": {
-     "ru": 100,
-     "ua": 0
-    }
-   },
-   "avgSurvivors": {
-    "ru": 9.97,
-    "ua": 11.14
-   },
-   "draws": 2,
-   "crossing": {
-    "games": 0,
-    "avgStartRound": null,
-    "avgGap": null,
-    "avgArtyDamageAfter": null,
-    "avgDefenderDamageOnArrival": 0
-   },
-   "combat": {
-    "pairs": {
-     "armor>recon": {
-      "n": 193,
-      "avgChance": 75.13,
-      "movedShare": 45.08
-     },
-     "armor>armor": {
-      "n": 873,
-      "avgChance": 53.33,
-      "movedShare": 29.32
-     },
-     "mortar>infantry": {
-      "n": 384,
-      "avgChance": 39.01,
-      "movedShare": 41.15
-     },
-     "infantry>infantry": {
-      "n": 208,
-      "avgChance": 45.63,
-      "movedShare": 25
-     },
-     "artillery>armor": {
-      "n": 126,
-      "avgChance": 39.37,
-      "movedShare": 0
-     },
-     "armor>infantry": {
-      "n": 580,
-      "avgChance": 69.41,
-      "movedShare": 18.62
-     },
-     "infantry>armor": {
-      "n": 130,
-      "avgChance": 12.23,
-      "movedShare": 58.46
-     },
-     "mortar>armor": {
-      "n": 328,
-      "avgChance": 12.68,
-      "movedShare": 25.91
-     },
-     "artillery>recon": {
-      "n": 50,
-      "avgChance": 82.6,
-      "movedShare": 0
-     },
-     "mortar>recon": {
-      "n": 38,
-      "avgChance": 51.32,
-      "movedShare": 42.11
-     },
-     "armor>antitank": {
-      "n": 162,
-      "avgChance": 66.48,
-      "movedShare": 46.3
-     },
-     "mortar>antitank": {
-      "n": 59,
-      "avgChance": 45.93,
-      "movedShare": 37.29
-     },
-     "infantry>recon": {
-      "n": 25,
-      "avgChance": 52.4,
-      "movedShare": 48
-     },
-     "antitank>infantry": {
-      "n": 9,
-      "avgChance": 31.11,
-      "movedShare": 11.11
-     },
-     "artillery>infantry": {
-      "n": 71,
-      "avgChance": 72.82,
-      "movedShare": 0
-     },
-     "artillery>antitank": {
-      "n": 47,
-      "avgChance": 76.6,
-      "movedShare": 0
-     },
-     "antitank>armor": {
-      "n": 73,
-      "avgChance": 52.47,
-      "movedShare": 30.14
-     },
-     "mortar>mortar": {
-      "n": 22,
-      "avgChance": 35.45,
-      "movedShare": 59.09
-     },
-     "infantry>mortar": {
-      "n": 35,
-      "avgChance": 34.57,
-      "movedShare": 22.86
-     },
-     "artillery>mortar": {
-      "n": 4,
-      "avgChance": 77.5,
-      "movedShare": 0
-     },
-     "infantry>antitank": {
-      "n": 30,
-      "avgChance": 44,
-      "movedShare": 43.33
-     },
-     "armor>mortar": {
-      "n": 57,
-      "avgChance": 64.91,
-      "movedShare": 56.14
-     },
-     "recon>armor": {
-      "n": 9,
-      "avgChance": 10,
-      "movedShare": 77.78
-     },
-     "recon>recon": {
-      "n": 29,
-      "avgChance": 24.14,
-      "movedShare": 58.62
-     },
-     "mortar>signal": {
-      "n": 12,
-      "avgChance": 68.33,
-      "movedShare": 25
-     },
-     "armor>signal": {
-      "n": 8,
-      "avgChance": 77.5,
-      "movedShare": 62.5
-     },
-     "antitank>antitank": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 0
-     },
-     "recon>antitank": {
-      "n": 1,
-      "avgChance": 20,
-      "movedShare": 0
-     },
-     "antitank>recon": {
-      "n": 1,
-      "avgChance": 30,
-      "movedShare": 0
-     },
-     "armor>artillery": {
-      "n": 3,
-      "avgChance": 86.67,
-      "movedShare": 100
-     },
-     "recon>infantry": {
-      "n": 2,
-      "avgChance": 25,
-      "movedShare": 0
-     },
-     "artillery>signal": {
-      "n": 1,
-      "avgChance": 70,
-      "movedShare": 0
-     }
-    },
-    "terrain": {
-     "city": {
-      "n": 2996,
-      "avgRaw": 47.59,
-      "avgChance": 48.07
-     },
-     "plain": {
-      "n": 497,
-      "avgRaw": 63.23,
-      "avgChance": 62.76
-     },
-     "paddy": {
-      "n": 58,
-      "avgRaw": 75.6,
-      "avgChance": 74.31
-     },
-     "forest": {
-      "n": 20,
-      "avgRaw": 37,
-      "avgChance": 37.5
-     }
-    },
-    "attacksByType": {
-     "armor": 1876,
-     "mortar": 982,
-     "infantry": 428,
-     "artillery": 341,
-     "antitank": 84,
-     "recon": 41
-    },
-    "moveAttacksByType": {
-     "armor": 566,
-     "mortar": 404,
-     "infantry": 161,
-     "recon": 24,
-     "antitank": 23
-    },
-    "armorMoveAttackShare": 30.17,
-    "antitankVsArmorPerGame": 0.73,
-    "antitankVsArmorMovedShare": 30.14
-   },
-   "illegalMoves": 0,
-   "fires": {
-    "shotsPerGame": {
-     "mortar": 9.82,
-     "artillery": 3.41
-    },
-    "ffShotsPerGame": {
-     "def:artillery": 0.45,
-     "att:artillery": 0.2
-    },
-    "ffAvgDamage": {
-     "def:artillery": 1.04,
-     "att:artillery": 1
-    },
-    "fogShare": 11.9,
-    "fogHitRate": 10.8,
-    "visHitRate": 38.7,
-    "avgLosses": {
-     "ru": 5.03,
-     "ua": 3.86
-    },
-    "captureRound": {
-     "SC": {
-      "games": 100,
-      "avgRound": 2.02
-     },
-     "SL": {
-      "games": 59,
-      "avgRound": 5.97
-     },
-     "SR": {
-      "games": 74,
-      "avgRound": 5.54
-     }
-    },
-    "mortarLostRate": null
-   },
-   "sym": {
-    "firstMover": "ru",
-    "secondMover": "ua",
-    "firstWinRate": 46,
-    "secondWinRate": 52,
-    "drawRate": 2,
-    "avgFirstClashRound": 2.84,
-    "clashGames": 100,
-    "flipsPerGame": {
-     "SL": 1.64,
-     "SC": 6.4,
-     "SR": 1.58
-    },
-    "stallRate": 0,
-    "stallBase": 100,
-    "bySide": {
-     "ru": {
-      "indLossPerGame": 0.86,
-      "indLossEarlyPerGame": 0.28,
-      "artyShotsPerGame": 1.59,
-      "mortarShotsPerGame": 4.56,
-      "fogShotsPerGame": 0.74,
-      "fogHitRate": 10.8,
-      "ffPerGame": 0.2,
-      "nearKillsPerGame": 3.86,
-      "avgRoundsToKill": 4.17,
-      "passivePerGame": 0.79
-     },
-     "ua": {
-      "indLossPerGame": 0.45,
-      "indLossEarlyPerGame": 0.07,
-      "artyShotsPerGame": 1.82,
-      "mortarShotsPerGame": 5.26,
-      "fogShotsPerGame": 0.83,
-      "fogHitRate": 10.8,
-      "ffPerGame": 0.45,
-      "nearKillsPerGame": 5.02,
-      "avgRoundsToKill": 4.25,
-      "passivePerGame": 0.4
-     }
-    }
-   },
-   "activation": {
-    "att": {
-     "avgUsed": 5,
-     "useRate": 100
-    },
-    "def": {
-     "avgUsed": 4.99,
-     "useRate": 99.83
-    }
-   }
-  },
-  "symmetric normal/normal": {
-   "games": 100,
-   "errors": 0,
-   "wins": {
-    "ru": 54,
-    "ua": 46
-   },
-   "winRate": {
-    "ru": 54,
-    "ua": 46
-   },
-   "byReason": {
-    "hq": {
-     "ru": 0,
-     "ua": 0
-    },
-    "objectives": {
-     "ru": 0,
-     "ua": 0
-    },
-    "annihilation": {
-     "ru": 0,
-     "ua": 0
-    },
-    "survived": {
-     "ru": 0,
-     "ua": 0
-    },
-    "limitObjectives": {
-     "ru": 35,
-     "ua": 30
-    },
     "limitHp": {
-     "ru": 19,
-     "ua": 16
+     "ru": 1,
+     "ua": 5
     }
    },
    "reasons": {
-    "ru:limitObjectives": 35,
-    "ru:limitHp": 19,
-    "ua:limitObjectives": 30,
-    "ua:limitHp": 16
+    "ru:limitPoints": 59,
+    "ua:limitPoints": 35,
+    "ua:limitHp": 5,
+    "ru:limitHp": 1
    },
    "avgRounds": 14,
    "firstCapture": {
@@ -3594,8 +3230,8 @@
     }
    },
    "avgSurvivors": {
-    "ru": 10.53,
-    "ua": 11.04
+    "ru": 10,
+    "ua": 11.15
    },
    "draws": 0,
    "crossing": {
@@ -3608,245 +3244,250 @@
    "combat": {
     "pairs": {
      "armor>recon": {
-      "n": 240,
-      "avgChance": 74.58,
-      "movedShare": 35
+      "n": 190,
+      "avgChance": 75.58,
+      "movedShare": 44.21
      },
      "armor>armor": {
-      "n": 931,
-      "avgChance": 53.87,
-      "movedShare": 27.71
-     },
-     "mortar>armor": {
-      "n": 313,
-      "avgChance": 13.96,
-      "movedShare": 21.09
-     },
-     "infantry>mortar": {
-      "n": 58,
-      "avgChance": 34.14,
-      "movedShare": 32.76
-     },
-     "artillery>infantry": {
-      "n": 82,
-      "avgChance": 71.34,
-      "movedShare": 0
-     },
-     "infantry>infantry": {
-      "n": 257,
-      "avgChance": 48.52,
-      "movedShare": 18.29
+      "n": 853,
+      "avgChance": 53.88,
+      "movedShare": 27.32
      },
      "mortar>infantry": {
-      "n": 438,
-      "avgChance": 40.21,
-      "movedShare": 34.7
+      "n": 397,
+      "avgChance": 37.46,
+      "movedShare": 37.53
+     },
+     "infantry>infantry": {
+      "n": 219,
+      "avgChance": 45.71,
+      "movedShare": 23.74
      },
      "armor>infantry": {
-      "n": 467,
-      "avgChance": 67.86,
-      "movedShare": 20.56
-     },
-     "armor>antitank": {
-      "n": 110,
-      "avgChance": 66.09,
-      "movedShare": 40.91
+      "n": 506,
+      "avgChance": 69.35,
+      "movedShare": 17.79
      },
      "armor>mortar": {
-      "n": 51,
-      "avgChance": 62.16,
-      "movedShare": 70.59
+      "n": 47,
+      "avgChance": 64.04,
+      "movedShare": 55.32
      },
-     "artillery>recon": {
-      "n": 26,
-      "avgChance": 80.77,
-      "movedShare": 0
+     "mortar>armor": {
+      "n": 340,
+      "avgChance": 13.24,
+      "movedShare": 24.12
+     },
+     "infantry>armor": {
+      "n": 114,
+      "avgChance": 13.95,
+      "movedShare": 52.63
      },
      "artillery>armor": {
-      "n": 116,
-      "avgChance": 40.43,
+      "n": 121,
+      "avgChance": 40.99,
       "movedShare": 0
      },
      "antitank>armor": {
-      "n": 63,
-      "avgChance": 54.92,
-      "movedShare": 28.57
-     },
-     "infantry>armor": {
-      "n": 131,
-      "avgChance": 15.42,
-      "movedShare": 41.22
-     },
-     "artillery>antitank": {
-      "n": 38,
-      "avgChance": 74.47,
-      "movedShare": 0
-     },
-     "mortar>antitank": {
-      "n": 61,
-      "avgChance": 41.31,
-      "movedShare": 49.18
+      "n": 107,
+      "avgChance": 52.62,
+      "movedShare": 33.64
      },
      "infantry>antitank": {
-      "n": 42,
-      "avgChance": 44.76,
-      "movedShare": 26.19
+      "n": 44,
+      "avgChance": 48.41,
+      "movedShare": 38.64
      },
-     "mortar>recon": {
-      "n": 7,
-      "avgChance": 48.57,
-      "movedShare": 28.57
+     "mortar>antitank": {
+      "n": 76,
+      "avgChance": 45.66,
+      "movedShare": 32.89
+     },
+     "artillery>antitank": {
+      "n": 47,
+      "avgChance": 77.23,
+      "movedShare": 0
+     },
+     "artillery>infantry": {
+      "n": 83,
+      "avgChance": 72.65,
+      "movedShare": 0
+     },
+     "mortar>mortar": {
+      "n": 20,
+      "avgChance": 43,
+      "movedShare": 50
+     },
+     "artillery>recon": {
+      "n": 58,
+      "avgChance": 81.9,
+      "movedShare": 0
+     },
+     "armor>antitank": {
+      "n": 173,
+      "avgChance": 66.24,
+      "movedShare": 28.32
+     },
+     "infantry>mortar": {
+      "n": 26,
+      "avgChance": 36.15,
+      "movedShare": 50
+     },
+     "artillery>mortar": {
+      "n": 2,
+      "avgChance": 90,
+      "movedShare": 0
+     },
+     "recon>armor": {
+      "n": 9,
+      "avgChance": 10,
+      "movedShare": 66.67
      },
      "infantry>recon": {
       "n": 18,
-      "avgChance": 51.11,
+      "avgChance": 50,
       "movedShare": 38.89
      },
      "recon>recon": {
-      "n": 21,
-      "avgChance": 22.38,
-      "movedShare": 76.19
-     },
-     "mortar>mortar": {
-      "n": 17,
-      "avgChance": 37.06,
-      "movedShare": 70.59
+      "n": 29,
+      "avgChance": 24.14,
+      "movedShare": 58.62
      },
      "antitank>infantry": {
-      "n": 6,
-      "avgChance": 25,
-      "movedShare": 16.67
-     },
-     "recon>armor": {
-      "n": 10,
-      "avgChance": 10,
-      "movedShare": 20
-     },
-     "recon>infantry": {
-      "n": 4,
-      "avgChance": 17.5,
-      "movedShare": 25
-     },
-     "mortar>signal": {
-      "n": 4,
-      "avgChance": 55,
-      "movedShare": 25
-     },
-     "antitank>recon": {
-      "n": 1,
-      "avgChance": 20,
-      "movedShare": 100
-     },
-     "artillery>mortar": {
-      "n": 6,
-      "avgChance": 61.67,
-      "movedShare": 0
-     },
-     "armor>artillery": {
-      "n": 6,
-      "avgChance": 86.67,
-      "movedShare": 83.33
+      "n": 5,
+      "avgChance": 24,
+      "movedShare": 60
      },
      "armor>signal": {
-      "n": 3,
-      "avgChance": 80,
-      "movedShare": 66.67
+      "n": 4,
+      "avgChance": 85,
+      "movedShare": 100
+     },
+     "recon>infantry": {
+      "n": 8,
+      "avgChance": 30,
+      "movedShare": 0
+     },
+     "mortar>signal": {
+      "n": 11,
+      "avgChance": 70,
+      "movedShare": 18.18
+     },
+     "mortar>recon": {
+      "n": 35,
+      "avgChance": 52.57,
+      "movedShare": 31.43
      },
      "antitank>antitank": {
       "n": 2,
+      "avgChance": 40,
+      "movedShare": 0
+     },
+     "mortar>artillery": {
+      "n": 4,
+      "avgChance": 52.5,
+      "movedShare": 75
+     },
+     "armor>artillery": {
+      "n": 2,
+      "avgChance": 80,
+      "movedShare": 100
+     },
+     "antitank>mortar": {
+      "n": 2,
       "avgChance": 25,
       "movedShare": 50
      },
-     "antitank>mortar": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 100
+     "recon>antitank": {
+      "n": 4,
+      "avgChance": 30,
+      "movedShare": 0
      },
-     "infantry>signal": {
+     "antitank>recon": {
       "n": 2,
-      "avgChance": 50,
+      "avgChance": 25,
       "movedShare": 50
      },
-     "artillery>signal": {
-      "n": 4,
-      "avgChance": 75,
+     "infantry>signal": {
+      "n": 7,
+      "avgChance": 62.86,
       "movedShare": 0
      }
     },
     "terrain": {
      "city": {
-      "n": 2851,
+      "n": 2984,
       "avgRaw": 47.58,
-      "avgChance": 47.98
+      "avgChance": 48.04
      },
      "plain": {
-      "n": 581,
-      "avgRaw": 58.5,
-      "avgChance": 58.21
+      "n": 512,
+      "avgRaw": 63.54,
+      "avgChance": 62.97
      },
      "forest": {
-      "n": 46,
-      "avgRaw": 38.26,
-      "avgChance": 38.48
+      "n": 27,
+      "avgRaw": 44.44,
+      "avgChance": 44.44
      },
      "paddy": {
-      "n": 58,
-      "avgRaw": 72.67,
-      "avgChance": 71.03
+      "n": 42,
+      "avgRaw": 65.95,
+      "avgChance": 65.24
      }
     },
     "attacksByType": {
-     "armor": 1808,
-     "mortar": 957,
-     "infantry": 508,
-     "artillery": 330,
-     "antitank": 73,
-     "recon": 35
+     "armor": 1775,
+     "mortar": 1011,
+     "infantry": 428,
+     "artillery": 352,
+     "antitank": 118,
+     "recon": 50
     },
     "moveAttacksByType": {
-     "armor": 526,
-     "mortar": 352,
-     "infantry": 139,
-     "antitank": 22,
-     "recon": 19
+     "armor": 488,
+     "mortar": 381,
+     "infantry": 149,
+     "antitank": 41,
+     "recon": 23
     },
-    "armorMoveAttackShare": 29.09,
-    "antitankVsArmorPerGame": 0.63,
-    "antitankVsArmorMovedShare": 28.57
+    "armorMoveAttackShare": 27.49,
+    "antitankVsArmorPerGame": 1.07,
+    "antitankVsArmorMovedShare": 33.64
    },
    "illegalMoves": 0,
    "fires": {
     "shotsPerGame": {
-     "mortar": 9.57,
-     "artillery": 3.3
+     "mortar": 10.11,
+     "artillery": 3.52
     },
     "ffShotsPerGame": {
-     "att:artillery": 0.33,
-     "def:artillery": 0.24
+     "att:artillery": 0.34,
+     "def:artillery": 0.53
     },
     "ffAvgDamage": {
-     "att:artillery": 1.03,
-     "def:artillery": 1.04
+     "att:artillery": 1.21,
+     "def:artillery": 1.06
     },
-    "fogShare": 12,
-    "fogHitRate": 9.7,
+    "fogShare": 11.2,
+    "fogHitRate": 5.3,
     "visHitRate": 37.2,
     "avgLosses": {
-     "ru": 4.47,
-     "ua": 3.96
+     "ru": 5,
+     "ua": 3.85
     },
     "captureRound": {
      "SC": {
       "games": 100,
-      "avgRound": 2
+      "avgRound": 2.05
      },
      "SL": {
-      "games": 52,
-      "avgRound": 6.31
+      "games": 60,
+      "avgRound": 5.78
      },
      "SR": {
-      "games": 76,
-      "avgRound": 6.21
+      "games": 66,
+      "avgRound": 5.52
      }
     },
     "mortarLostRate": null
@@ -3854,1119 +3495,113 @@
    "sym": {
     "firstMover": "ru",
     "secondMover": "ua",
-    "firstWinRate": 54,
-    "secondWinRate": 46,
+    "firstWinRate": 60,
+    "secondWinRate": 40,
     "drawRate": 0,
     "avgFirstClashRound": 2.87,
     "clashGames": 100,
     "flipsPerGame": {
-     "SL": 1.35,
-     "SC": 6.65,
-     "SR": 1.49
+     "SL": 1.51,
+     "SC": 6.54,
+     "SR": 1.55
     },
     "stallRate": 0,
     "stallBase": 100,
+    "attacksByRound": [
+     0,
+     0.21,
+     1.51,
+     2.14,
+     2.36,
+     2.33,
+     2.46,
+     2.37,
+     2.57,
+     3.53,
+     4.26,
+     4.54,
+     4.51,
+     4.55
+    ],
+    "lateFlipRate": 10,
+    "lateBase": 100,
+    "heldRounds": {
+     "SL": [
+      5.14,
+      4.71
+     ],
+     "SC": [
+      1.47,
+      3.69
+     ],
+     "SR": [
+      5.83,
+      3.55
+     ]
+    },
+    "finalScore": [
+     17.97,
+     15.64
+    ],
+    "avgScoreGap": 7.39,
+    "scoreCurve": [
+     [
+      0,
+      2,
+      2.66,
+      3.67,
+      4.79,
+      6.09,
+      7.52,
+      9.06,
+      10.68,
+      12.16,
+      13.62,
+      15.16,
+      16.57,
+      17.97
+     ],
+     [
+      0,
+      0.14,
+      0.68,
+      1.62,
+      2.74,
+      4.15,
+      5.67,
+      7.21,
+      8.78,
+      10.12,
+      11.44,
+      12.84,
+      14.26,
+      15.64
+     ]
+    ],
     "bySide": {
      "ru": {
-      "indLossPerGame": 0.58,
-      "indLossEarlyPerGame": 0.05,
-      "artyShotsPerGame": 1.65,
-      "mortarShotsPerGame": 4.34,
-      "fogShotsPerGame": 0.6,
-      "fogHitRate": 11.7,
-      "ffPerGame": 0.33,
-      "nearKillsPerGame": 3.96,
-      "avgRoundsToKill": 3.81,
+      "indLossPerGame": 0.83,
+      "indLossEarlyPerGame": 0.27,
+      "artyShotsPerGame": 1.69,
+      "mortarShotsPerGame": 4.56,
+      "fogShotsPerGame": 0.72,
+      "fogHitRate": 5.6,
+      "ffPerGame": 0.34,
+      "nearKillsPerGame": 3.82,
+      "avgRoundsToKill": 4.15,
       "passivePerGame": 0.84
      },
      "ua": {
-      "indLossPerGame": 0.55,
-      "indLossEarlyPerGame": 0.1,
-      "artyShotsPerGame": 1.65,
-      "mortarShotsPerGame": 5.23,
-      "fogShotsPerGame": 0.94,
-      "fogHitRate": 8.5,
-      "ffPerGame": 0.24,
-      "nearKillsPerGame": 4.43,
-      "avgRoundsToKill": 4.67,
-      "passivePerGame": 0.44
-     }
-    }
-   },
-   "activation": {
-    "att": {
-     "avgUsed": 5,
-     "useRate": 99.99
-    },
-    "def": {
-     "avgUsed": 4.97,
-     "useRate": 99.37
-    }
-   }
-  },
-  "symmetric hard/normal": {
-   "games": 100,
-   "errors": 0,
-   "wins": {
-    "ru": 32,
-    "ua": 65
-   },
-   "winRate": {
-    "ru": 32,
-    "ua": 65
-   },
-   "byReason": {
-    "hq": {
-     "ru": 0,
-     "ua": 0
-    },
-    "objectives": {
-     "ru": 0,
-     "ua": 0
-    },
-    "annihilation": {
-     "ru": 0,
-     "ua": 0
-    },
-    "survived": {
-     "ru": 0,
-     "ua": 0
-    },
-    "limitObjectives": {
-     "ru": 20,
-     "ua": 49
-    },
-    "limitHp": {
-     "ru": 12,
-     "ua": 16
-    },
-    "limitDraw": {
-     "ru": 0,
-     "ua": 0,
-     "draw": 3
-    }
-   },
-   "reasons": {
-    "ua:limitObjectives": 49,
-    "ua:limitHp": 16,
-    "ru:limitObjectives": 20,
-    "ru:limitHp": 12,
-    "draw:limitDraw": 3
-   },
-   "avgRounds": 14,
-   "firstCapture": {
-    "games": 100,
-    "avgRound": 2,
-    "bySide": {
-     "ru": 100,
-     "ua": 0
-    }
-   },
-   "avgSurvivors": {
-    "ru": 11.09,
-    "ua": 11.14
-   },
-   "draws": 3,
-   "crossing": {
-    "games": 0,
-    "avgStartRound": null,
-    "avgGap": null,
-    "avgArtyDamageAfter": null,
-    "avgDefenderDamageOnArrival": 0
-   },
-   "combat": {
-    "pairs": {
-     "armor>recon": {
-      "n": 215,
-      "avgChance": 75.02,
-      "movedShare": 40.47
-     },
-     "armor>armor": {
-      "n": 1013,
-      "avgChance": 52.73,
-      "movedShare": 29.71
-     },
-     "mortar>armor": {
-      "n": 268,
-      "avgChance": 13.66,
-      "movedShare": 17.54
-     },
-     "mortar>infantry": {
-      "n": 448,
-      "avgChance": 40.96,
-      "movedShare": 36.38
-     },
-     "infantry>infantry": {
-      "n": 341,
-      "avgChance": 47.6,
-      "movedShare": 14.37
-     },
-     "infantry>armor": {
-      "n": 109,
-      "avgChance": 13.94,
-      "movedShare": 31.19
-     },
-     "armor>infantry": {
-      "n": 429,
-      "avgChance": 68.04,
-      "movedShare": 21.68
-     },
-     "recon>recon": {
-      "n": 30,
-      "avgChance": 22.67,
-      "movedShare": 76.67
-     },
-     "antitank>armor": {
-      "n": 55,
-      "avgChance": 51.27,
-      "movedShare": 47.27
-     },
-     "mortar>antitank": {
-      "n": 46,
-      "avgChance": 42.17,
-      "movedShare": 43.48
-     },
-     "armor>antitank": {
-      "n": 65,
-      "avgChance": 64.77,
-      "movedShare": 41.54
-     },
-     "artillery>armor": {
-      "n": 127,
-      "avgChance": 39.29,
-      "movedShare": 0
-     },
-     "artillery>mortar": {
-      "n": 6,
-      "avgChance": 70,
-      "movedShare": 0
-     },
-     "mortar>mortar": {
-      "n": 10,
-      "avgChance": 39,
-      "movedShare": 70
-     },
-     "infantry>mortar": {
-      "n": 73,
-      "avgChance": 35.21,
-      "movedShare": 19.18
-     },
-     "mortar>recon": {
-      "n": 11,
-      "avgChance": 55.45,
-      "movedShare": 18.18
-     },
-     "armor>mortar": {
-      "n": 39,
-      "avgChance": 66.41,
-      "movedShare": 64.1
-     },
-     "artillery>recon": {
-      "n": 18,
-      "avgChance": 76.11,
-      "movedShare": 0
-     },
-     "recon>armor": {
-      "n": 12,
-      "avgChance": 10,
-      "movedShare": 33.33
-     },
-     "artillery>infantry": {
-      "n": 50,
-      "avgChance": 68.2,
-      "movedShare": 0
-     },
-     "artillery>antitank": {
-      "n": 40,
-      "avgChance": 72.25,
-      "movedShare": 0
-     },
-     "infantry>antitank": {
-      "n": 23,
-      "avgChance": 43.91,
-      "movedShare": 26.09
-     },
-     "antitank>infantry": {
-      "n": 5,
-      "avgChance": 22,
-      "movedShare": 40
-     },
-     "armor>artillery": {
-      "n": 3,
-      "avgChance": 86.67,
-      "movedShare": 66.67
-     },
-     "infantry>recon": {
-      "n": 24,
-      "avgChance": 49.17,
-      "movedShare": 16.67
-     },
-     "recon>infantry": {
-      "n": 25,
-      "avgChance": 36.8,
-      "movedShare": 0
-     },
-     "antitank>recon": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 0
-     },
-     "artillery>signal": {
-      "n": 1,
-      "avgChance": 70,
-      "movedShare": 0
-     },
-     "infantry>signal": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 100
-     },
-     "antitank>mortar": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 0
-     },
-     "antitank>antitank": {
-      "n": 2,
-      "avgChance": 40,
-      "movedShare": 0
-     }
-    },
-    "terrain": {
-     "city": {
-      "n": 2831,
-      "avgRaw": 47,
-      "avgChance": 47.4
-     },
-     "plain": {
-      "n": 560,
-      "avgRaw": 55.5,
-      "avgChance": 55.34
-     },
-     "paddy": {
-      "n": 71,
-      "avgRaw": 69.08,
-      "avgChance": 68.45
-     },
-     "forest": {
-      "n": 29,
-      "avgRaw": 41.9,
-      "avgChance": 42.07
-     }
-    },
-    "attacksByType": {
-     "armor": 1764,
-     "mortar": 900,
-     "infantry": 571,
-     "artillery": 293,
-     "recon": 67,
-     "antitank": 64
-    },
-    "moveAttacksByType": {
-     "armor": 535,
-     "mortar": 321,
-     "infantry": 108,
-     "recon": 27,
-     "antitank": 28
-    },
-    "armorMoveAttackShare": 30.33,
-    "antitankVsArmorPerGame": 0.55,
-    "antitankVsArmorMovedShare": 47.27
-   },
-   "illegalMoves": 0,
-   "fires": {
-    "shotsPerGame": {
-     "mortar": 9,
-     "artillery": 2.93
-    },
-    "ffShotsPerGame": {
-     "att:artillery": 0.2,
-     "def:artillery": 0.23
-    },
-    "ffAvgDamage": {
-     "att:artillery": 1,
-     "def:artillery": 1.09
-    },
-    "fogShare": 12.2,
-    "fogHitRate": 8.9,
-    "visHitRate": 36.9,
-    "avgLosses": {
-     "ru": 3.91,
-     "ua": 3.86
-    },
-    "captureRound": {
-     "SC": {
-      "games": 100,
-      "avgRound": 2
-     },
-     "SL": {
-      "games": 45,
-      "avgRound": 7
-     },
-     "SR": {
-      "games": 76,
-      "avgRound": 5.97
-     }
-    },
-    "mortarLostRate": null
-   },
-   "sym": {
-    "firstMover": "ru",
-    "secondMover": "ua",
-    "firstWinRate": 32,
-    "secondWinRate": 65,
-    "drawRate": 3,
-    "avgFirstClashRound": 2.8,
-    "clashGames": 100,
-    "flipsPerGame": {
-     "SL": 1.47,
-     "SC": 6.77,
-     "SR": 2.06
-    },
-    "stallRate": 0,
-    "stallBase": 100,
-    "bySide": {
-     "ru": {
-      "indLossPerGame": 0.44,
-      "indLossEarlyPerGame": 0.06,
-      "artyShotsPerGame": 1.48,
-      "mortarShotsPerGame": 4.26,
-      "fogShotsPerGame": 0.59,
-      "fogHitRate": 6.8,
-      "ffPerGame": 0.2,
-      "nearKillsPerGame": 3.85,
-      "avgRoundsToKill": 3.81,
-      "passivePerGame": 0.64
-     },
-     "ua": {
-      "indLossPerGame": 0.42,
-      "indLossEarlyPerGame": 0.05,
-      "artyShotsPerGame": 1.45,
-      "mortarShotsPerGame": 4.74,
-      "fogShotsPerGame": 0.87,
-      "fogHitRate": 10.3,
-      "ffPerGame": 0.23,
-      "nearKillsPerGame": 3.91,
-      "avgRoundsToKill": 4.62,
-      "passivePerGame": 0.65
-     }
-    }
-   },
-   "activation": {
-    "att": {
-     "avgUsed": 4.96,
-     "useRate": 99.23
-    },
-    "def": {
-     "avgUsed": 4.98,
-     "useRate": 99.67
-    }
-   }
-  },
-  "symmetric hardSpread/normal": {
-   "games": 100,
-   "errors": 0,
-   "wins": {
-    "ru": 32,
-    "ua": 65
-   },
-   "winRate": {
-    "ru": 32,
-    "ua": 65
-   },
-   "byReason": {
-    "hq": {
-     "ru": 0,
-     "ua": 0
-    },
-    "objectives": {
-     "ru": 0,
-     "ua": 0
-    },
-    "annihilation": {
-     "ru": 0,
-     "ua": 0
-    },
-    "survived": {
-     "ru": 0,
-     "ua": 0
-    },
-    "limitObjectives": {
-     "ru": 20,
-     "ua": 49
-    },
-    "limitHp": {
-     "ru": 12,
-     "ua": 16
-    },
-    "limitDraw": {
-     "ru": 0,
-     "ua": 0,
-     "draw": 3
-    }
-   },
-   "reasons": {
-    "ua:limitObjectives": 49,
-    "ua:limitHp": 16,
-    "ru:limitObjectives": 20,
-    "ru:limitHp": 12,
-    "draw:limitDraw": 3
-   },
-   "avgRounds": 14,
-   "firstCapture": {
-    "games": 100,
-    "avgRound": 2,
-    "bySide": {
-     "ru": 100,
-     "ua": 0
-    }
-   },
-   "avgSurvivors": {
-    "ru": 11.09,
-    "ua": 11.14
-   },
-   "draws": 3,
-   "crossing": {
-    "games": 0,
-    "avgStartRound": null,
-    "avgGap": null,
-    "avgArtyDamageAfter": null,
-    "avgDefenderDamageOnArrival": 0
-   },
-   "combat": {
-    "pairs": {
-     "armor>recon": {
-      "n": 215,
-      "avgChance": 75.02,
-      "movedShare": 40.47
-     },
-     "armor>armor": {
-      "n": 1013,
-      "avgChance": 52.73,
-      "movedShare": 29.71
-     },
-     "mortar>armor": {
-      "n": 268,
-      "avgChance": 13.66,
-      "movedShare": 17.54
-     },
-     "mortar>infantry": {
-      "n": 448,
-      "avgChance": 40.96,
-      "movedShare": 36.38
-     },
-     "infantry>infantry": {
-      "n": 341,
-      "avgChance": 47.6,
-      "movedShare": 14.37
-     },
-     "infantry>armor": {
-      "n": 109,
-      "avgChance": 13.94,
-      "movedShare": 31.19
-     },
-     "armor>infantry": {
-      "n": 429,
-      "avgChance": 68.04,
-      "movedShare": 21.68
-     },
-     "recon>recon": {
-      "n": 30,
-      "avgChance": 22.67,
-      "movedShare": 76.67
-     },
-     "antitank>armor": {
-      "n": 55,
-      "avgChance": 51.27,
-      "movedShare": 47.27
-     },
-     "mortar>antitank": {
-      "n": 46,
-      "avgChance": 42.17,
-      "movedShare": 43.48
-     },
-     "armor>antitank": {
-      "n": 65,
-      "avgChance": 64.77,
-      "movedShare": 41.54
-     },
-     "artillery>armor": {
-      "n": 127,
-      "avgChance": 39.29,
-      "movedShare": 0
-     },
-     "artillery>mortar": {
-      "n": 6,
-      "avgChance": 70,
-      "movedShare": 0
-     },
-     "mortar>mortar": {
-      "n": 10,
-      "avgChance": 39,
-      "movedShare": 70
-     },
-     "infantry>mortar": {
-      "n": 73,
-      "avgChance": 35.21,
-      "movedShare": 19.18
-     },
-     "mortar>recon": {
-      "n": 11,
-      "avgChance": 55.45,
-      "movedShare": 18.18
-     },
-     "armor>mortar": {
-      "n": 39,
-      "avgChance": 66.41,
-      "movedShare": 64.1
-     },
-     "artillery>recon": {
-      "n": 18,
-      "avgChance": 76.11,
-      "movedShare": 0
-     },
-     "recon>armor": {
-      "n": 12,
-      "avgChance": 10,
-      "movedShare": 33.33
-     },
-     "artillery>infantry": {
-      "n": 50,
-      "avgChance": 68.2,
-      "movedShare": 0
-     },
-     "artillery>antitank": {
-      "n": 40,
-      "avgChance": 72.25,
-      "movedShare": 0
-     },
-     "infantry>antitank": {
-      "n": 23,
-      "avgChance": 43.91,
-      "movedShare": 26.09
-     },
-     "antitank>infantry": {
-      "n": 5,
-      "avgChance": 22,
-      "movedShare": 40
-     },
-     "armor>artillery": {
-      "n": 3,
-      "avgChance": 86.67,
-      "movedShare": 66.67
-     },
-     "infantry>recon": {
-      "n": 24,
-      "avgChance": 49.17,
-      "movedShare": 16.67
-     },
-     "recon>infantry": {
-      "n": 25,
-      "avgChance": 36.8,
-      "movedShare": 0
-     },
-     "antitank>recon": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 0
-     },
-     "artillery>signal": {
-      "n": 1,
-      "avgChance": 70,
-      "movedShare": 0
-     },
-     "infantry>signal": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 100
-     },
-     "antitank>mortar": {
-      "n": 1,
-      "avgChance": 40,
-      "movedShare": 0
-     },
-     "antitank>antitank": {
-      "n": 2,
-      "avgChance": 40,
-      "movedShare": 0
-     }
-    },
-    "terrain": {
-     "city": {
-      "n": 2831,
-      "avgRaw": 47,
-      "avgChance": 47.4
-     },
-     "plain": {
-      "n": 560,
-      "avgRaw": 55.5,
-      "avgChance": 55.34
-     },
-     "paddy": {
-      "n": 71,
-      "avgRaw": 69.08,
-      "avgChance": 68.45
-     },
-     "forest": {
-      "n": 29,
-      "avgRaw": 41.9,
-      "avgChance": 42.07
-     }
-    },
-    "attacksByType": {
-     "armor": 1764,
-     "mortar": 900,
-     "infantry": 571,
-     "artillery": 293,
-     "recon": 67,
-     "antitank": 64
-    },
-    "moveAttacksByType": {
-     "armor": 535,
-     "mortar": 321,
-     "infantry": 108,
-     "recon": 27,
-     "antitank": 28
-    },
-    "armorMoveAttackShare": 30.33,
-    "antitankVsArmorPerGame": 0.55,
-    "antitankVsArmorMovedShare": 47.27
-   },
-   "illegalMoves": 0,
-   "fires": {
-    "shotsPerGame": {
-     "mortar": 9,
-     "artillery": 2.93
-    },
-    "ffShotsPerGame": {
-     "att:artillery": 0.2,
-     "def:artillery": 0.23
-    },
-    "ffAvgDamage": {
-     "att:artillery": 1,
-     "def:artillery": 1.09
-    },
-    "fogShare": 12.2,
-    "fogHitRate": 8.9,
-    "visHitRate": 36.9,
-    "avgLosses": {
-     "ru": 3.91,
-     "ua": 3.86
-    },
-    "captureRound": {
-     "SC": {
-      "games": 100,
-      "avgRound": 2
-     },
-     "SL": {
-      "games": 45,
-      "avgRound": 7
-     },
-     "SR": {
-      "games": 76,
-      "avgRound": 5.97
-     }
-    },
-    "mortarLostRate": null
-   },
-   "sym": {
-    "firstMover": "ru",
-    "secondMover": "ua",
-    "firstWinRate": 32,
-    "secondWinRate": 65,
-    "drawRate": 3,
-    "avgFirstClashRound": 2.8,
-    "clashGames": 100,
-    "flipsPerGame": {
-     "SL": 1.47,
-     "SC": 6.77,
-     "SR": 2.06
-    },
-    "stallRate": 0,
-    "stallBase": 100,
-    "bySide": {
-     "ru": {
-      "indLossPerGame": 0.44,
-      "indLossEarlyPerGame": 0.06,
-      "artyShotsPerGame": 1.48,
-      "mortarShotsPerGame": 4.26,
-      "fogShotsPerGame": 0.59,
-      "fogHitRate": 6.8,
-      "ffPerGame": 0.2,
-      "nearKillsPerGame": 3.85,
-      "avgRoundsToKill": 3.81,
-      "passivePerGame": 0.64
-     },
-     "ua": {
-      "indLossPerGame": 0.42,
-      "indLossEarlyPerGame": 0.05,
-      "artyShotsPerGame": 1.45,
-      "mortarShotsPerGame": 4.74,
-      "fogShotsPerGame": 0.87,
-      "fogHitRate": 10.3,
-      "ffPerGame": 0.23,
-      "nearKillsPerGame": 3.91,
-      "avgRoundsToKill": 4.62,
-      "passivePerGame": 0.65
-     }
-    }
-   },
-   "activation": {
-    "att": {
-     "avgUsed": 4.96,
-     "useRate": 99.23
-    },
-    "def": {
-     "avgUsed": 4.98,
-     "useRate": 99.67
-    }
-   }
-  },
-  "symmetric normal/easy": {
-   "games": 100,
-   "errors": 0,
-   "wins": {
-    "ru": 65,
-    "ua": 33
-   },
-   "winRate": {
-    "ru": 65,
-    "ua": 33
-   },
-   "byReason": {
-    "hq": {
-     "ru": 0,
-     "ua": 0
-    },
-    "objectives": {
-     "ru": 0,
-     "ua": 0
-    },
-    "annihilation": {
-     "ru": 0,
-     "ua": 0
-    },
-    "survived": {
-     "ru": 0,
-     "ua": 0
-    },
-    "limitObjectives": {
-     "ru": 42,
-     "ua": 23
-    },
-    "limitHp": {
-     "ru": 23,
-     "ua": 10
-    },
-    "limitDraw": {
-     "ru": 0,
-     "ua": 0,
-     "draw": 2
-    }
-   },
-   "reasons": {
-    "ru:limitObjectives": 42,
-    "ru:limitHp": 23,
-    "ua:limitObjectives": 23,
-    "ua:limitHp": 10,
-    "draw:limitDraw": 2
-   },
-   "avgRounds": 14,
-   "firstCapture": {
-    "games": 100,
-    "avgRound": 2,
-    "bySide": {
-     "ru": 100,
-     "ua": 0
-    }
-   },
-   "avgSurvivors": {
-    "ru": 11.11,
-    "ua": 9.88
-   },
-   "draws": 2,
-   "crossing": {
-    "games": 0,
-    "avgStartRound": null,
-    "avgGap": null,
-    "avgArtyDamageAfter": null,
-    "avgDefenderDamageOnArrival": 0
-   },
-   "combat": {
-    "pairs": {
-     "armor>recon": {
-      "n": 242,
-      "avgChance": 74.71,
-      "movedShare": 48.76
-     },
-     "artillery>recon": {
-      "n": 26,
-      "avgChance": 75.77,
-      "movedShare": 0
-     },
-     "armor>armor": {
-      "n": 866,
-      "avgChance": 54.09,
-      "movedShare": 28.64
-     },
-     "antitank>armor": {
-      "n": 94,
-      "avgChance": 56.06,
-      "movedShare": 28.72
-     },
-     "armor>antitank": {
-      "n": 177,
-      "avgChance": 67.06,
-      "movedShare": 41.24
-     },
-     "artillery>armor": {
-      "n": 136,
-      "avgChance": 38.75,
-      "movedShare": 0
-     },
-     "armor>infantry": {
-      "n": 539,
-      "avgChance": 68.91,
-      "movedShare": 18.18
-     },
-     "antitank>infantry": {
-      "n": 10,
-      "avgChance": 25,
-      "movedShare": 10
-     },
-     "infantry>armor": {
-      "n": 126,
-      "avgChance": 12.38,
-      "movedShare": 55.56
-     },
-     "artillery>antitank": {
-      "n": 41,
-      "avgChance": 77.07,
-      "movedShare": 0
-     },
-     "infantry>infantry": {
-      "n": 223,
-      "avgChance": 45.07,
-      "movedShare": 20.18
-     },
-     "artillery>infantry": {
-      "n": 67,
-      "avgChance": 73.13,
-      "movedShare": 0
-     },
-     "mortar>infantry": {
-      "n": 394,
-      "avgChance": 39.49,
-      "movedShare": 35.03
-     },
-     "mortar>armor": {
-      "n": 315,
-      "avgChance": 12.13,
-      "movedShare": 30.79
-     },
-     "recon>armor": {
-      "n": 10,
-      "avgChance": 10,
-      "movedShare": 60
-     },
-     "infantry>mortar": {
-      "n": 42,
-      "avgChance": 34.76,
-      "movedShare": 33.33
-     },
-     "mortar>recon": {
-      "n": 28,
-      "avgChance": 50.71,
-      "movedShare": 39.29
-     },
-     "armor>mortar": {
-      "n": 55,
-      "avgChance": 62.91,
-      "movedShare": 58.18
-     },
-     "mortar>antitank": {
-      "n": 63,
-      "avgChance": 41.27,
-      "movedShare": 52.38
-     },
-     "recon>recon": {
-      "n": 28,
-      "avgChance": 23.93,
-      "movedShare": 67.86
-     },
-     "infantry>antitank": {
-      "n": 33,
-      "avgChance": 47.58,
-      "movedShare": 21.21
-     },
-     "armor>signal": {
-      "n": 7,
-      "avgChance": 78.57,
-      "movedShare": 71.43
-     },
-     "infantry>signal": {
-      "n": 2,
-      "avgChance": 40,
-      "movedShare": 50
-     },
-     "mortar>mortar": {
-      "n": 21,
-      "avgChance": 39.52,
-      "movedShare": 42.86
-     },
-     "recon>antitank": {
-      "n": 3,
-      "avgChance": 13.33,
-      "movedShare": 0
-     },
-     "mortar>signal": {
-      "n": 1,
-      "avgChance": 80,
-      "movedShare": 0
-     },
-     "antitank>recon": {
-      "n": 2,
-      "avgChance": 40,
-      "movedShare": 0
-     },
-     "infantry>recon": {
-      "n": 9,
-      "avgChance": 54.44,
-      "movedShare": 33.33
-     },
-     "recon>infantry": {
-      "n": 1,
-      "avgChance": 30,
-      "movedShare": 0
-     },
-     "artillery>mortar": {
-      "n": 2,
-      "avgChance": 60,
-      "movedShare": 0
-     },
-     "armor>artillery": {
-      "n": 1,
-      "avgChance": 90,
-      "movedShare": 100
-     }
-    },
-    "terrain": {
-     "city": {
-      "n": 3002,
-      "avgRaw": 48.04,
-      "avgChance": 48.52
-     },
-     "plain": {
-      "n": 489,
-      "avgRaw": 60.95,
-      "avgChance": 60.53
-     },
-     "forest": {
-      "n": 29,
-      "avgRaw": 35.86,
-      "avgChance": 36.21
-     },
-     "paddy": {
-      "n": 44,
-      "avgRaw": 71.25,
-      "avgChance": 70.45
-     }
-    },
-    "attacksByType": {
-     "armor": 1887,
-     "artillery": 297,
-     "antitank": 106,
-     "infantry": 435,
-     "mortar": 929,
-     "recon": 42
-    },
-    "moveAttacksByType": {
-     "armor": 575,
-     "antitank": 28,
-     "infantry": 140,
-     "mortar": 368,
-     "recon": 25
-    },
-    "armorMoveAttackShare": 30.47,
-    "antitankVsArmorPerGame": 0.94,
-    "antitankVsArmorMovedShare": 28.72
-   },
-   "illegalMoves": 0,
-   "fires": {
-    "shotsPerGame": {
-     "artillery": 2.97,
-     "mortar": 9.29
-    },
-    "ffShotsPerGame": {
-     "att:artillery": 0.3,
-     "def:artillery": 0.17
-    },
-    "ffAvgDamage": {
-     "att:artillery": 1.1,
-     "def:artillery": 1
-    },
-    "fogShare": 9.1,
-    "fogHitRate": 9,
-    "visHitRate": 37,
-    "avgLosses": {
-     "ru": 3.89,
-     "ua": 5.12
-    },
-    "captureRound": {
-     "SC": {
-      "games": 100,
-      "avgRound": 2
-     },
-     "SL": {
-      "games": 65,
-      "avgRound": 6.43
-     },
-     "SR": {
-      "games": 75,
-      "avgRound": 5.63
-     }
-    },
-    "mortarLostRate": null
-   },
-   "sym": {
-    "firstMover": "ru",
-    "secondMover": "ua",
-    "firstWinRate": 65,
-    "secondWinRate": 33,
-    "drawRate": 2,
-    "avgFirstClashRound": 2.9,
-    "clashGames": 100,
-    "flipsPerGame": {
-     "SL": 1.42,
-     "SC": 7.27,
-     "SR": 1.6
-    },
-    "stallRate": 0,
-    "stallBase": 100,
-    "bySide": {
-     "ru": {
-      "indLossPerGame": 0.37,
-      "indLossEarlyPerGame": 0.03,
-      "artyShotsPerGame": 1.63,
-      "mortarShotsPerGame": 4.45,
-      "fogShotsPerGame": 0.54,
-      "fogHitRate": 5.6,
-      "ffPerGame": 0.3,
-      "nearKillsPerGame": 5.12,
-      "avgRoundsToKill": 3.72,
-      "passivePerGame": 0.65
-     },
-     "ua": {
-      "indLossPerGame": 0.65,
-      "indLossEarlyPerGame": 0.12,
-      "artyShotsPerGame": 1.34,
-      "mortarShotsPerGame": 4.84,
-      "fogShotsPerGame": 0.57,
-      "fogHitRate": 12.3,
-      "ffPerGame": 0.17,
-      "nearKillsPerGame": 3.88,
-      "avgRoundsToKill": 4.56,
-      "passivePerGame": 0.64
+      "indLossPerGame": 0.52,
+      "indLossEarlyPerGame": 0.07,
+      "artyShotsPerGame": 1.83,
+      "mortarShotsPerGame": 5.55,
+      "fogShotsPerGame": 0.8,
+      "fogHitRate": 5,
+      "ffPerGame": 0.53,
+      "nearKillsPerGame": 4.98,
+      "avgRoundsToKill": 4.18,
+      "passivePerGame": 0.33
      }
     }
    },
@@ -4976,21 +3611,21 @@
      "useRate": 99.96
     },
     "def": {
-     "avgUsed": 5,
-     "useRate": 99.97
+     "avgUsed": 4.99,
+     "useRate": 99.83
     }
    }
   },
-  "symmetric normal/hard": {
+  "symmetric normal/normal": {
    "games": 100,
    "errors": 0,
    "wins": {
-    "ru": 64,
-    "ua": 35
+    "ru": 62,
+    "ua": 38
    },
    "winRate": {
-    "ru": 64,
-    "ua": 35
+    "ru": 62,
+    "ua": 38
    },
    "byReason": {
     "hq": {
@@ -5009,13 +3644,442 @@
      "ru": 0,
      "ua": 0
     },
-    "limitObjectives": {
-     "ru": 56,
-     "ua": 14
+    "limitPoints": {
+     "ru": 61,
+     "ua": 35
     },
     "limitHp": {
-     "ru": 8,
-     "ua": 21
+     "ru": 1,
+     "ua": 3
+    }
+   },
+   "reasons": {
+    "ru:limitPoints": 61,
+    "ua:limitPoints": 35,
+    "ua:limitHp": 3,
+    "ru:limitHp": 1
+   },
+   "avgRounds": 14,
+   "firstCapture": {
+    "games": 100,
+    "avgRound": 2,
+    "bySide": {
+     "ru": 100,
+     "ua": 0
+    }
+   },
+   "avgSurvivors": {
+    "ru": 10.63,
+    "ua": 10.83
+   },
+   "draws": 0,
+   "crossing": {
+    "games": 0,
+    "avgStartRound": null,
+    "avgGap": null,
+    "avgArtyDamageAfter": null,
+    "avgDefenderDamageOnArrival": 0
+   },
+   "combat": {
+    "pairs": {
+     "armor>recon": {
+      "n": 237,
+      "avgChance": 75.32,
+      "movedShare": 31.22
+     },
+     "armor>armor": {
+      "n": 881,
+      "avgChance": 53.77,
+      "movedShare": 25.09
+     },
+     "mortar>armor": {
+      "n": 334,
+      "avgChance": 12.37,
+      "movedShare": 20.96
+     },
+     "infantry>mortar": {
+      "n": 50,
+      "avgChance": 35.2,
+      "movedShare": 18
+     },
+     "armor>infantry": {
+      "n": 473,
+      "avgChance": 67.95,
+      "movedShare": 19.66
+     },
+     "mortar>infantry": {
+      "n": 454,
+      "avgChance": 41.39,
+      "movedShare": 29.74
+     },
+     "infantry>infantry": {
+      "n": 321,
+      "avgChance": 48.41,
+      "movedShare": 19.94
+     },
+     "artillery>armor": {
+      "n": 126,
+      "avgChance": 39.68,
+      "movedShare": 0
+     },
+     "infantry>armor": {
+      "n": 109,
+      "avgChance": 13.94,
+      "movedShare": 50.46
+     },
+     "artillery>recon": {
+      "n": 32,
+      "avgChance": 79.38,
+      "movedShare": 0
+     },
+     "artillery>infantry": {
+      "n": 85,
+      "avgChance": 71.06,
+      "movedShare": 0
+     },
+     "artillery>antitank": {
+      "n": 39,
+      "avgChance": 76.67,
+      "movedShare": 0
+     },
+     "antitank>antitank": {
+      "n": 3,
+      "avgChance": 36.67,
+      "movedShare": 0
+     },
+     "armor>antitank": {
+      "n": 102,
+      "avgChance": 65.59,
+      "movedShare": 30.39
+     },
+     "antitank>armor": {
+      "n": 76,
+      "avgChance": 56.18,
+      "movedShare": 34.21
+     },
+     "infantry>antitank": {
+      "n": 44,
+      "avgChance": 45.23,
+      "movedShare": 40.91
+     },
+     "mortar>recon": {
+      "n": 17,
+      "avgChance": 49.41,
+      "movedShare": 29.41
+     },
+     "infantry>recon": {
+      "n": 11,
+      "avgChance": 50,
+      "movedShare": 36.36
+     },
+     "mortar>antitank": {
+      "n": 60,
+      "avgChance": 43.67,
+      "movedShare": 46.67
+     },
+     "recon>recon": {
+      "n": 20,
+      "avgChance": 22,
+      "movedShare": 80
+     },
+     "mortar>mortar": {
+      "n": 21,
+      "avgChance": 36.67,
+      "movedShare": 57.14
+     },
+     "armor>mortar": {
+      "n": 50,
+      "avgChance": 62.6,
+      "movedShare": 52
+     },
+     "recon>armor": {
+      "n": 12,
+      "avgChance": 11.67,
+      "movedShare": 16.67
+     },
+     "artillery>mortar": {
+      "n": 9,
+      "avgChance": 66.67,
+      "movedShare": 0
+     },
+     "recon>mortar": {
+      "n": 1,
+      "avgChance": 40,
+      "movedShare": 0
+     },
+     "antitank>infantry": {
+      "n": 4,
+      "avgChance": 15,
+      "movedShare": 75
+     },
+     "mortar>artillery": {
+      "n": 6,
+      "avgChance": 68.33,
+      "movedShare": 16.67
+     },
+     "recon>antitank": {
+      "n": 1,
+      "avgChance": 10,
+      "movedShare": 0
+     },
+     "recon>infantry": {
+      "n": 2,
+      "avgChance": 40,
+      "movedShare": 0
+     },
+     "infantry>signal": {
+      "n": 4,
+      "avgChance": 50,
+      "movedShare": 25
+     },
+     "mortar>signal": {
+      "n": 3,
+      "avgChance": 56.67,
+      "movedShare": 33.33
+     },
+     "armor>signal": {
+      "n": 2,
+      "avgChance": 70,
+      "movedShare": 50
+     }
+    },
+    "terrain": {
+     "city": {
+      "n": 2959,
+      "avgRaw": 47.33,
+      "avgChance": 47.79
+     },
+     "forest": {
+      "n": 28,
+      "avgRaw": 44.29,
+      "avgChance": 44.29
+     },
+     "plain": {
+      "n": 562,
+      "avgRaw": 60.1,
+      "avgChance": 59.79
+     },
+     "paddy": {
+      "n": 40,
+      "avgRaw": 67.88,
+      "avgChance": 67.25
+     }
+    },
+    "attacksByType": {
+     "armor": 1745,
+     "mortar": 1014,
+     "infantry": 539,
+     "artillery": 344,
+     "antitank": 83,
+     "recon": 36
+    },
+    "moveAttacksByType": {
+     "armor": 446,
+     "mortar": 347,
+     "infantry": 151,
+     "antitank": 29,
+     "recon": 18
+    },
+    "armorMoveAttackShare": 25.56,
+    "antitankVsArmorPerGame": 0.76,
+    "antitankVsArmorMovedShare": 34.21
+   },
+   "illegalMoves": 0,
+   "fires": {
+    "shotsPerGame": {
+     "mortar": 10.14,
+     "artillery": 3.44
+    },
+    "ffShotsPerGame": {
+     "att:artillery": 0.5,
+     "def:artillery": 0.33
+    },
+    "ffAvgDamage": {
+     "att:artillery": 1.04,
+     "def:artillery": 1.09
+    },
+    "fogShare": 11.1,
+    "fogHitRate": 14.6,
+    "visHitRate": 38.6,
+    "avgLosses": {
+     "ru": 4.37,
+     "ua": 4.17
+    },
+    "captureRound": {
+     "SC": {
+      "games": 100,
+      "avgRound": 2
+     },
+     "SL": {
+      "games": 57,
+      "avgRound": 6.7
+     },
+     "SR": {
+      "games": 76,
+      "avgRound": 6.64
+     }
+    },
+    "mortarLostRate": null
+   },
+   "sym": {
+    "firstMover": "ru",
+    "secondMover": "ua",
+    "firstWinRate": 62,
+    "secondWinRate": 38,
+    "drawRate": 0,
+    "avgFirstClashRound": 2.93,
+    "clashGames": 100,
+    "flipsPerGame": {
+     "SL": 1.51,
+     "SC": 6.1,
+     "SR": 1.77
+    },
+    "stallRate": 0,
+    "stallBase": 100,
+    "attacksByRound": [
+     0,
+     0.17,
+     1.22,
+     2.31,
+     2.46,
+     2.51,
+     2.56,
+     2.27,
+     2.6,
+     3,
+     4.68,
+     4.91,
+     4.46,
+     4.46
+    ],
+    "lateFlipRate": 13,
+    "lateBase": 100,
+    "heldRounds": {
+     "SL": [
+      4.58,
+      5.43
+     ],
+     "SC": [
+      1.93,
+      3.01
+     ],
+     "SR": [
+      5.87,
+      3.19
+     ]
+    },
+    "finalScore": [
+     18.7,
+     14.64
+    ],
+    "avgScoreGap": 8.82,
+    "scoreCurve": [
+     [
+      0,
+      2,
+      2.65,
+      3.78,
+      4.7,
+      5.95,
+      7.49,
+      9.13,
+      10.8,
+      12.47,
+      14.04,
+      15.56,
+      17.09,
+      18.7
+     ],
+     [
+      0,
+      0.03,
+      0.31,
+      0.92,
+      1.74,
+      3.13,
+      4.74,
+      6.58,
+      8.34,
+      9.71,
+      10.94,
+      12.13,
+      13.35,
+      14.64
+     ]
+    ],
+    "bySide": {
+     "ru": {
+      "indLossPerGame": 0.58,
+      "indLossEarlyPerGame": 0.06,
+      "artyShotsPerGame": 1.81,
+      "mortarShotsPerGame": 4.15,
+      "fogShotsPerGame": 0.62,
+      "fogHitRate": 19.4,
+      "ffPerGame": 0.5,
+      "nearKillsPerGame": 4.17,
+      "avgRoundsToKill": 3.96,
+      "passivePerGame": 0.78
+     },
+     "ua": {
+      "indLossPerGame": 0.64,
+      "indLossEarlyPerGame": 0.14,
+      "artyShotsPerGame": 1.63,
+      "mortarShotsPerGame": 5.99,
+      "fogShotsPerGame": 0.89,
+      "fogHitRate": 11.2,
+      "ffPerGame": 0.33,
+      "nearKillsPerGame": 4.36,
+      "avgRoundsToKill": 4.88,
+      "passivePerGame": 0.46
+     }
+    }
+   },
+   "activation": {
+    "att": {
+     "avgUsed": 5,
+     "useRate": 100
+    },
+    "def": {
+     "avgUsed": 4.99,
+     "useRate": 99.81
+    }
+   }
+  },
+  "symmetric hard/normal": {
+   "games": 100,
+   "errors": 0,
+   "wins": {
+    "ru": 57,
+    "ua": 42
+   },
+   "winRate": {
+    "ru": 57,
+    "ua": 42
+   },
+   "byReason": {
+    "hq": {
+     "ru": 0,
+     "ua": 0
+    },
+    "objectives": {
+     "ru": 0,
+     "ua": 0
+    },
+    "annihilation": {
+     "ru": 0,
+     "ua": 0
+    },
+    "survived": {
+     "ru": 0,
+     "ua": 0
+    },
+    "limitPoints": {
+     "ru": 57,
+     "ua": 40
+    },
+    "limitHp": {
+     "ru": 0,
+     "ua": 2
     },
     "limitDraw": {
      "ru": 0,
@@ -5024,10 +4088,9 @@
     }
    },
    "reasons": {
-    "ru:limitObjectives": 56,
-    "ua:limitHp": 21,
-    "ua:limitObjectives": 14,
-    "ru:limitHp": 8,
+    "ru:limitPoints": 57,
+    "ua:limitPoints": 40,
+    "ua:limitHp": 2,
     "draw:limitDraw": 1
    },
    "avgRounds": 14,
@@ -5040,8 +4103,8 @@
     }
    },
    "avgSurvivors": {
-    "ru": 10.95,
-    "ua": 11.21
+    "ru": 11.37,
+    "ua": 10.79
    },
    "draws": 1,
    "crossing": {
@@ -5054,222 +4117,222 @@
    "combat": {
     "pairs": {
      "armor>recon": {
-      "n": 225,
-      "avgChance": 74.93,
-      "movedShare": 36.44
+      "n": 228,
+      "avgChance": 75.66,
+      "movedShare": 36.84
      },
      "armor>armor": {
-      "n": 793,
-      "avgChance": 52.8,
-      "movedShare": 31.02
+      "n": 1012,
+      "avgChance": 52.7,
+      "movedShare": 27.17
      },
      "mortar>armor": {
-      "n": 341,
-      "avgChance": 12.76,
-      "movedShare": 20.82
-     },
-     "mortar>infantry": {
-      "n": 469,
-      "avgChance": 41.86,
-      "movedShare": 31.13
+      "n": 277,
+      "avgChance": 14.22,
+      "movedShare": 11.19
      },
      "armor>infantry": {
-      "n": 489,
-      "avgChance": 69.45,
-      "movedShare": 19.43
+      "n": 442,
+      "avgChance": 67.42,
+      "movedShare": 17.87
      },
-     "infantry>armor": {
-      "n": 99,
-      "avgChance": 13.13,
-      "movedShare": 32.32
+     "mortar>infantry": {
+      "n": 502,
+      "avgChance": 38.43,
+      "movedShare": 32.47
      },
      "antitank>armor": {
-      "n": 83,
-      "avgChance": 54.7,
-      "movedShare": 30.12
-     },
-     "artillery>armor": {
-      "n": 105,
-      "avgChance": 39.71,
-      "movedShare": 0
+      "n": 49,
+      "avgChance": 48.98,
+      "movedShare": 40.82
      },
      "armor>antitank": {
-      "n": 110,
-      "avgChance": 66.09,
-      "movedShare": 40
-     },
-     "artillery>antitank": {
-      "n": 21,
-      "avgChance": 72.86,
-      "movedShare": 0
-     },
-     "infantry>infantry": {
-      "n": 298,
-      "avgChance": 49.33,
-      "movedShare": 16.11
-     },
-     "infantry>mortar": {
-      "n": 59,
-      "avgChance": 33.9,
-      "movedShare": 22.03
-     },
-     "artillery>infantry": {
-      "n": 61,
-      "avgChance": 69.34,
-      "movedShare": 0
-     },
-     "mortar>recon": {
-      "n": 32,
-      "avgChance": 50.31,
-      "movedShare": 25
-     },
-     "infantry>recon": {
-      "n": 26,
-      "avgChance": 50.38,
-      "movedShare": 26.92
-     },
-     "recon>infantry": {
-      "n": 9,
-      "avgChance": 30,
-      "movedShare": 0
-     },
-     "armor>mortar": {
-      "n": 45,
-      "avgChance": 66.89,
-      "movedShare": 66.67
-     },
-     "recon>armor": {
-      "n": 11,
-      "avgChance": 10,
-      "movedShare": 36.36
-     },
-     "recon>recon": {
-      "n": 14,
-      "avgChance": 20.71,
-      "movedShare": 92.86
-     },
-     "mortar>mortar": {
-      "n": 28,
-      "avgChance": 41.07,
-      "movedShare": 39.29
-     },
-     "armor>signal": {
-      "n": 6,
-      "avgChance": 76.67,
-      "movedShare": 66.67
-     },
-     "artillery>recon": {
-      "n": 18,
-      "avgChance": 76.67,
-      "movedShare": 0
-     },
-     "mortar>antitank": {
-      "n": 45,
-      "avgChance": 46.22,
-      "movedShare": 28.89
-     },
-     "artillery>mortar": {
-      "n": 6,
-      "avgChance": 56.67,
-      "movedShare": 0
+      "n": 70,
+      "avgChance": 66,
+      "movedShare": 27.14
      },
      "infantry>antitank": {
-      "n": 28,
-      "avgChance": 48.57,
-      "movedShare": 28.57
+      "n": 31,
+      "avgChance": 46.45,
+      "movedShare": 35.48
      },
-     "mortar>artillery": {
-      "n": 1,
-      "avgChance": 70,
+     "infantry>infantry": {
+      "n": 373,
+      "avgChance": 47.48,
+      "movedShare": 14.48
+     },
+     "artillery>antitank": {
+      "n": 27,
+      "avgChance": 72.22,
+      "movedShare": 0
+     },
+     "infantry>armor": {
+      "n": 166,
+      "avgChance": 14.64,
+      "movedShare": 29.52
+     },
+     "armor>mortar": {
+      "n": 52,
+      "avgChance": 65.38,
+      "movedShare": 51.92
+     },
+     "recon>recon": {
+      "n": 32,
+      "avgChance": 21.56,
+      "movedShare": 84.38
+     },
+     "infantry>mortar": {
+      "n": 50,
+      "avgChance": 35,
+      "movedShare": 28
+     },
+     "mortar>recon": {
+      "n": 10,
+      "avgChance": 44,
+      "movedShare": 30
+     },
+     "mortar>antitank": {
+      "n": 32,
+      "avgChance": 44.69,
+      "movedShare": 15.63
+     },
+     "artillery>recon": {
+      "n": 24,
+      "avgChance": 80.42,
+      "movedShare": 0
+     },
+     "recon>armor": {
+      "n": 16,
+      "avgChance": 10.63,
+      "movedShare": 31.25
+     },
+     "artillery>infantry": {
+      "n": 51,
+      "avgChance": 70.98,
+      "movedShare": 0
+     },
+     "artillery>armor": {
+      "n": 126,
+      "avgChance": 38.97,
+      "movedShare": 0
+     },
+     "mortar>mortar": {
+      "n": 5,
+      "avgChance": 36,
+      "movedShare": 60
+     },
+     "recon>infantry": {
+      "n": 4,
+      "avgChance": 37.5,
       "movedShare": 0
      },
      "mortar>signal": {
       "n": 5,
-      "avgChance": 66,
+      "avgChance": 52,
       "movedShare": 40
      },
      "infantry>signal": {
       "n": 1,
-      "avgChance": 50,
-      "movedShare": 0
-     },
-     "armor>artillery": {
-      "n": 2,
-      "avgChance": 90,
-      "movedShare": 100
-     },
-     "antitank>antitank": {
-      "n": 1,
       "avgChance": 30,
-      "movedShare": 100
+      "movedShare": 0
      },
      "antitank>infantry": {
       "n": 3,
+      "avgChance": 30,
+      "movedShare": 33.33
+     },
+     "infantry>recon": {
+      "n": 2,
+      "avgChance": 55,
+      "movedShare": 0
+     },
+     "artillery>signal": {
+      "n": 3,
+      "avgChance": 86.67,
+      "movedShare": 0
+     },
+     "antitank>mortar": {
+      "n": 1,
+      "avgChance": 40,
+      "movedShare": 100
+     },
+     "artillery>mortar": {
+      "n": 1,
+      "avgChance": 90,
+      "movedShare": 0
+     },
+     "armor>signal": {
+      "n": 1,
+      "avgChance": 90,
+      "movedShare": 100
+     },
+     "recon>mortar": {
+      "n": 1,
       "avgChance": 40,
       "movedShare": 0
      }
     },
     "terrain": {
      "city": {
-      "n": 2662,
-      "avgRaw": 46.99,
-      "avgChance": 47.43
+      "n": 2963,
+      "avgRaw": 46.77,
+      "avgChance": 47.2
      },
      "plain": {
-      "n": 646,
-      "avgRaw": 57.69,
-      "avgChance": 57.35
-     },
-     "forest": {
-      "n": 62,
-      "avgRaw": 46.77,
-      "avgChance": 46.61
+      "n": 531,
+      "avgRaw": 53.27,
+      "avgChance": 53.09
      },
      "paddy": {
-      "n": 64,
-      "avgRaw": 69.06,
-      "avgChance": 68.28
+      "n": 52,
+      "avgRaw": 69.9,
+      "avgChance": 69.04
+     },
+     "forest": {
+      "n": 51,
+      "avgRaw": 43.33,
+      "avgChance": 43.14
      }
     },
     "attacksByType": {
-     "armor": 1670,
-     "mortar": 1061,
-     "infantry": 511,
-     "antitank": 87,
-     "artillery": 269,
-     "recon": 34
+     "armor": 1805,
+     "mortar": 957,
+     "antitank": 53,
+     "infantry": 623,
+     "artillery": 286,
+     "recon": 53
     },
     "moveAttacksByType": {
-     "armor": 503,
-     "mortar": 333,
-     "infantry": 108,
-     "recon": 17,
-     "antitank": 26
+     "armor": 485,
+     "mortar": 300,
+     "antitank": 22,
+     "recon": 32,
+     "infantry": 128
     },
-    "armorMoveAttackShare": 30.12,
-    "antitankVsArmorPerGame": 0.83,
-    "antitankVsArmorMovedShare": 30.12
+    "armorMoveAttackShare": 26.87,
+    "antitankVsArmorPerGame": 0.49,
+    "antitankVsArmorMovedShare": 40.82
    },
    "illegalMoves": 0,
    "fires": {
     "shotsPerGame": {
-     "mortar": 10.61,
-     "artillery": 2.69
+     "mortar": 9.57,
+     "artillery": 2.86
     },
     "ffShotsPerGame": {
-     "att:artillery": 0.22,
-     "def:artillery": 0.16
+     "def:artillery": 0.26,
+     "att:artillery": 0.24
     },
     "ffAvgDamage": {
-     "att:artillery": 1,
-     "def:artillery": 1
+     "def:artillery": 1,
+     "att:artillery": 1
     },
-    "fogShare": 14.1,
-    "fogHitRate": 9.6,
-    "visHitRate": 35.2,
+    "fogShare": 12.1,
+    "fogHitRate": 4.6,
+    "visHitRate": 35.4,
     "avgLosses": {
-     "ru": 4.05,
-     "ua": 3.79
+     "ru": 3.63,
+     "ua": 4.21
     },
     "captureRound": {
      "SC": {
@@ -5277,12 +4340,12 @@
       "avgRound": 2
      },
      "SL": {
-      "games": 73,
-      "avgRound": 7.86
+      "games": 55,
+      "avgRound": 7.78
      },
      "SR": {
-      "games": 75,
-      "avgRound": 5.97
+      "games": 73,
+      "avgRound": 7.23
      }
     },
     "mortarLostRate": null
@@ -5290,56 +4353,1423 @@
    "sym": {
     "firstMover": "ru",
     "secondMover": "ua",
-    "firstWinRate": 64,
-    "secondWinRate": 35,
+    "firstWinRate": 57,
+    "secondWinRate": 42,
     "drawRate": 1,
-    "avgFirstClashRound": 3.21,
+    "avgFirstClashRound": 2.77,
     "clashGames": 100,
     "flipsPerGame": {
-     "SL": 1.85,
-     "SC": 6.21,
-     "SR": 1.61
+     "SL": 1.53,
+     "SC": 6.67,
+     "SR": 1.76
     },
     "stallRate": 0,
     "stallBase": 100,
+    "attacksByRound": [
+     0,
+     0.27,
+     1.48,
+     2.18,
+     2.51,
+     2.5,
+     2.75,
+     2.26,
+     2.65,
+     3.15,
+     4.51,
+     4.45,
+     4.58,
+     4.48
+    ],
+    "lateFlipRate": 13,
+    "lateBase": 100,
+    "heldRounds": {
+     "SL": [
+      3.82,
+      5.86
+     ],
+     "SC": [
+      2.04,
+      2.76
+     ],
+     "SR": [
+      5.1,
+      3.6
+     ]
+    },
+    "finalScore": [
+     18.07,
+     14.98
+    ],
+    "avgScoreGap": 9.47,
+    "scoreCurve": [
+     [
+      0,
+      2,
+      2.7,
+      3.41,
+      4.23,
+      5.33,
+      6.81,
+      8.37,
+      10.02,
+      11.75,
+      13.32,
+      14.89,
+      16.45,
+      18.07
+     ],
+     [
+      0,
+      0.02,
+      0.23,
+      0.69,
+      1.48,
+      2.72,
+      4.24,
+      5.79,
+      7.36,
+      8.92,
+      10.47,
+      11.98,
+      13.45,
+      14.98
+     ]
+    ],
     "bySide": {
      "ru": {
-      "indLossPerGame": 0.42,
-      "indLossEarlyPerGame": 0,
-      "artyShotsPerGame": 1.19,
-      "mortarShotsPerGame": 4.54,
-      "fogShotsPerGame": 0.58,
-      "fogHitRate": 5.2,
-      "ffPerGame": 0.22,
-      "nearKillsPerGame": 3.79,
-      "avgRoundsToKill": 3.84,
-      "passivePerGame": 0.72
+      "indLossPerGame": 0.38,
+      "indLossEarlyPerGame": 0.07,
+      "artyShotsPerGame": 1.23,
+      "mortarShotsPerGame": 4.35,
+      "fogShotsPerGame": 0.57,
+      "fogHitRate": 5.3,
+      "ffPerGame": 0.24,
+      "nearKillsPerGame": 4.18,
+      "avgRoundsToKill": 3.67,
+      "passivePerGame": 0.43
      },
      "ua": {
-      "indLossPerGame": 0.44,
-      "indLossEarlyPerGame": 0.06,
-      "artyShotsPerGame": 1.5,
-      "mortarShotsPerGame": 6.07,
-      "fogShotsPerGame": 1.29,
-      "fogHitRate": 11.6,
-      "ffPerGame": 0.16,
-      "nearKillsPerGame": 4.04,
-      "avgRoundsToKill": 5.28,
-      "passivePerGame": 0.45
+      "indLossPerGame": 0.36,
+      "indLossEarlyPerGame": 0.08,
+      "artyShotsPerGame": 1.63,
+      "mortarShotsPerGame": 5.22,
+      "fogShotsPerGame": 0.94,
+      "fogHitRate": 4.3,
+      "ffPerGame": 0.26,
+      "nearKillsPerGame": 3.63,
+      "avgRoundsToKill": 4.49,
+      "passivePerGame": 0.47
+     }
+    }
+   },
+   "activation": {
+    "att": {
+     "avgUsed": 4.97,
+     "useRate": 99.36
+    },
+    "def": {
+     "avgUsed": 4.97,
+     "useRate": 99.47
+    }
+   }
+  },
+  "symmetric hardSpread/normal": {
+   "games": 100,
+   "errors": 0,
+   "wins": {
+    "ru": 57,
+    "ua": 42
+   },
+   "winRate": {
+    "ru": 57,
+    "ua": 42
+   },
+   "byReason": {
+    "hq": {
+     "ru": 0,
+     "ua": 0
+    },
+    "objectives": {
+     "ru": 0,
+     "ua": 0
+    },
+    "annihilation": {
+     "ru": 0,
+     "ua": 0
+    },
+    "survived": {
+     "ru": 0,
+     "ua": 0
+    },
+    "limitPoints": {
+     "ru": 57,
+     "ua": 40
+    },
+    "limitHp": {
+     "ru": 0,
+     "ua": 2
+    },
+    "limitDraw": {
+     "ru": 0,
+     "ua": 0,
+     "draw": 1
+    }
+   },
+   "reasons": {
+    "ru:limitPoints": 57,
+    "ua:limitPoints": 40,
+    "ua:limitHp": 2,
+    "draw:limitDraw": 1
+   },
+   "avgRounds": 14,
+   "firstCapture": {
+    "games": 100,
+    "avgRound": 2,
+    "bySide": {
+     "ru": 100,
+     "ua": 0
+    }
+   },
+   "avgSurvivors": {
+    "ru": 11.37,
+    "ua": 10.79
+   },
+   "draws": 1,
+   "crossing": {
+    "games": 0,
+    "avgStartRound": null,
+    "avgGap": null,
+    "avgArtyDamageAfter": null,
+    "avgDefenderDamageOnArrival": 0
+   },
+   "combat": {
+    "pairs": {
+     "armor>recon": {
+      "n": 228,
+      "avgChance": 75.66,
+      "movedShare": 36.84
+     },
+     "armor>armor": {
+      "n": 1012,
+      "avgChance": 52.7,
+      "movedShare": 27.17
+     },
+     "mortar>armor": {
+      "n": 277,
+      "avgChance": 14.22,
+      "movedShare": 11.19
+     },
+     "armor>infantry": {
+      "n": 442,
+      "avgChance": 67.42,
+      "movedShare": 17.87
+     },
+     "mortar>infantry": {
+      "n": 502,
+      "avgChance": 38.43,
+      "movedShare": 32.47
+     },
+     "antitank>armor": {
+      "n": 49,
+      "avgChance": 48.98,
+      "movedShare": 40.82
+     },
+     "armor>antitank": {
+      "n": 70,
+      "avgChance": 66,
+      "movedShare": 27.14
+     },
+     "infantry>antitank": {
+      "n": 31,
+      "avgChance": 46.45,
+      "movedShare": 35.48
+     },
+     "infantry>infantry": {
+      "n": 373,
+      "avgChance": 47.48,
+      "movedShare": 14.48
+     },
+     "artillery>antitank": {
+      "n": 27,
+      "avgChance": 72.22,
+      "movedShare": 0
+     },
+     "infantry>armor": {
+      "n": 166,
+      "avgChance": 14.64,
+      "movedShare": 29.52
+     },
+     "armor>mortar": {
+      "n": 52,
+      "avgChance": 65.38,
+      "movedShare": 51.92
+     },
+     "recon>recon": {
+      "n": 32,
+      "avgChance": 21.56,
+      "movedShare": 84.38
+     },
+     "infantry>mortar": {
+      "n": 50,
+      "avgChance": 35,
+      "movedShare": 28
+     },
+     "mortar>recon": {
+      "n": 10,
+      "avgChance": 44,
+      "movedShare": 30
+     },
+     "mortar>antitank": {
+      "n": 32,
+      "avgChance": 44.69,
+      "movedShare": 15.63
+     },
+     "artillery>recon": {
+      "n": 24,
+      "avgChance": 80.42,
+      "movedShare": 0
+     },
+     "recon>armor": {
+      "n": 16,
+      "avgChance": 10.63,
+      "movedShare": 31.25
+     },
+     "artillery>infantry": {
+      "n": 51,
+      "avgChance": 70.98,
+      "movedShare": 0
+     },
+     "artillery>armor": {
+      "n": 126,
+      "avgChance": 38.97,
+      "movedShare": 0
+     },
+     "mortar>mortar": {
+      "n": 5,
+      "avgChance": 36,
+      "movedShare": 60
+     },
+     "recon>infantry": {
+      "n": 4,
+      "avgChance": 37.5,
+      "movedShare": 0
+     },
+     "mortar>signal": {
+      "n": 5,
+      "avgChance": 52,
+      "movedShare": 40
+     },
+     "infantry>signal": {
+      "n": 1,
+      "avgChance": 30,
+      "movedShare": 0
+     },
+     "antitank>infantry": {
+      "n": 3,
+      "avgChance": 30,
+      "movedShare": 33.33
+     },
+     "infantry>recon": {
+      "n": 2,
+      "avgChance": 55,
+      "movedShare": 0
+     },
+     "artillery>signal": {
+      "n": 3,
+      "avgChance": 86.67,
+      "movedShare": 0
+     },
+     "antitank>mortar": {
+      "n": 1,
+      "avgChance": 40,
+      "movedShare": 100
+     },
+     "artillery>mortar": {
+      "n": 1,
+      "avgChance": 90,
+      "movedShare": 0
+     },
+     "armor>signal": {
+      "n": 1,
+      "avgChance": 90,
+      "movedShare": 100
+     },
+     "recon>mortar": {
+      "n": 1,
+      "avgChance": 40,
+      "movedShare": 0
+     }
+    },
+    "terrain": {
+     "city": {
+      "n": 2963,
+      "avgRaw": 46.77,
+      "avgChance": 47.2
+     },
+     "plain": {
+      "n": 531,
+      "avgRaw": 53.27,
+      "avgChance": 53.09
+     },
+     "paddy": {
+      "n": 52,
+      "avgRaw": 69.9,
+      "avgChance": 69.04
+     },
+     "forest": {
+      "n": 51,
+      "avgRaw": 43.33,
+      "avgChance": 43.14
+     }
+    },
+    "attacksByType": {
+     "armor": 1805,
+     "mortar": 957,
+     "antitank": 53,
+     "infantry": 623,
+     "artillery": 286,
+     "recon": 53
+    },
+    "moveAttacksByType": {
+     "armor": 485,
+     "mortar": 300,
+     "antitank": 22,
+     "recon": 32,
+     "infantry": 128
+    },
+    "armorMoveAttackShare": 26.87,
+    "antitankVsArmorPerGame": 0.49,
+    "antitankVsArmorMovedShare": 40.82
+   },
+   "illegalMoves": 0,
+   "fires": {
+    "shotsPerGame": {
+     "mortar": 9.57,
+     "artillery": 2.86
+    },
+    "ffShotsPerGame": {
+     "def:artillery": 0.26,
+     "att:artillery": 0.24
+    },
+    "ffAvgDamage": {
+     "def:artillery": 1,
+     "att:artillery": 1
+    },
+    "fogShare": 12.1,
+    "fogHitRate": 4.6,
+    "visHitRate": 35.4,
+    "avgLosses": {
+     "ru": 3.63,
+     "ua": 4.21
+    },
+    "captureRound": {
+     "SC": {
+      "games": 100,
+      "avgRound": 2
+     },
+     "SL": {
+      "games": 55,
+      "avgRound": 7.78
+     },
+     "SR": {
+      "games": 73,
+      "avgRound": 7.23
+     }
+    },
+    "mortarLostRate": null
+   },
+   "sym": {
+    "firstMover": "ru",
+    "secondMover": "ua",
+    "firstWinRate": 57,
+    "secondWinRate": 42,
+    "drawRate": 1,
+    "avgFirstClashRound": 2.77,
+    "clashGames": 100,
+    "flipsPerGame": {
+     "SL": 1.53,
+     "SC": 6.67,
+     "SR": 1.76
+    },
+    "stallRate": 0,
+    "stallBase": 100,
+    "attacksByRound": [
+     0,
+     0.27,
+     1.48,
+     2.18,
+     2.51,
+     2.5,
+     2.75,
+     2.26,
+     2.65,
+     3.15,
+     4.51,
+     4.45,
+     4.58,
+     4.48
+    ],
+    "lateFlipRate": 13,
+    "lateBase": 100,
+    "heldRounds": {
+     "SL": [
+      3.82,
+      5.86
+     ],
+     "SC": [
+      2.04,
+      2.76
+     ],
+     "SR": [
+      5.1,
+      3.6
+     ]
+    },
+    "finalScore": [
+     18.07,
+     14.98
+    ],
+    "avgScoreGap": 9.47,
+    "scoreCurve": [
+     [
+      0,
+      2,
+      2.7,
+      3.41,
+      4.23,
+      5.33,
+      6.81,
+      8.37,
+      10.02,
+      11.75,
+      13.32,
+      14.89,
+      16.45,
+      18.07
+     ],
+     [
+      0,
+      0.02,
+      0.23,
+      0.69,
+      1.48,
+      2.72,
+      4.24,
+      5.79,
+      7.36,
+      8.92,
+      10.47,
+      11.98,
+      13.45,
+      14.98
+     ]
+    ],
+    "bySide": {
+     "ru": {
+      "indLossPerGame": 0.38,
+      "indLossEarlyPerGame": 0.07,
+      "artyShotsPerGame": 1.23,
+      "mortarShotsPerGame": 4.35,
+      "fogShotsPerGame": 0.57,
+      "fogHitRate": 5.3,
+      "ffPerGame": 0.24,
+      "nearKillsPerGame": 4.18,
+      "avgRoundsToKill": 3.67,
+      "passivePerGame": 0.43
+     },
+     "ua": {
+      "indLossPerGame": 0.36,
+      "indLossEarlyPerGame": 0.08,
+      "artyShotsPerGame": 1.63,
+      "mortarShotsPerGame": 5.22,
+      "fogShotsPerGame": 0.94,
+      "fogHitRate": 4.3,
+      "ffPerGame": 0.26,
+      "nearKillsPerGame": 3.63,
+      "avgRoundsToKill": 4.49,
+      "passivePerGame": 0.47
+     }
+    }
+   },
+   "activation": {
+    "att": {
+     "avgUsed": 4.97,
+     "useRate": 99.36
+    },
+    "def": {
+     "avgUsed": 4.97,
+     "useRate": 99.47
+    }
+   }
+  },
+  "symmetric normal/easy": {
+   "games": 100,
+   "errors": 0,
+   "wins": {
+    "ru": 66,
+    "ua": 34
+   },
+   "winRate": {
+    "ru": 66,
+    "ua": 34
+   },
+   "byReason": {
+    "hq": {
+     "ru": 0,
+     "ua": 0
+    },
+    "objectives": {
+     "ru": 0,
+     "ua": 0
+    },
+    "annihilation": {
+     "ru": 0,
+     "ua": 0
+    },
+    "survived": {
+     "ru": 0,
+     "ua": 0
+    },
+    "limitPoints": {
+     "ru": 65,
+     "ua": 32
+    },
+    "limitHp": {
+     "ru": 1,
+     "ua": 2
+    }
+   },
+   "reasons": {
+    "ru:limitPoints": 65,
+    "ua:limitPoints": 32,
+    "ua:limitHp": 2,
+    "ru:limitHp": 1
+   },
+   "avgRounds": 14,
+   "firstCapture": {
+    "games": 100,
+    "avgRound": 2,
+    "bySide": {
+     "ru": 100,
+     "ua": 0
+    }
+   },
+   "avgSurvivors": {
+    "ru": 10.89,
+    "ua": 9.87
+   },
+   "draws": 0,
+   "crossing": {
+    "games": 0,
+    "avgStartRound": null,
+    "avgGap": null,
+    "avgArtyDamageAfter": null,
+    "avgDefenderDamageOnArrival": 0
+   },
+   "combat": {
+    "pairs": {
+     "armor>recon": {
+      "n": 231,
+      "avgChance": 74.76,
+      "movedShare": 45.45
+     },
+     "armor>armor": {
+      "n": 834,
+      "avgChance": 53.65,
+      "movedShare": 30.94
+     },
+     "artillery>antitank": {
+      "n": 54,
+      "avgChance": 77.78,
+      "movedShare": 0
+     },
+     "recon>antitank": {
+      "n": 4,
+      "avgChance": 17.5,
+      "movedShare": 0
+     },
+     "antitank>recon": {
+      "n": 1,
+      "avgChance": 30,
+      "movedShare": 0
+     },
+     "mortar>armor": {
+      "n": 264,
+      "avgChance": 12.92,
+      "movedShare": 30.68
+     },
+     "infantry>armor": {
+      "n": 132,
+      "avgChance": 12.65,
+      "movedShare": 59.09
+     },
+     "armor>infantry": {
+      "n": 568,
+      "avgChance": 69.68,
+      "movedShare": 17.08
+     },
+     "infantry>antitank": {
+      "n": 41,
+      "avgChance": 48.05,
+      "movedShare": 31.71
+     },
+     "armor>mortar": {
+      "n": 41,
+      "avgChance": 65.85,
+      "movedShare": 58.54
+     },
+     "armor>antitank": {
+      "n": 161,
+      "avgChance": 67.39,
+      "movedShare": 31.68
+     },
+     "mortar>infantry": {
+      "n": 420,
+      "avgChance": 37.88,
+      "movedShare": 39.29
+     },
+     "infantry>infantry": {
+      "n": 235,
+      "avgChance": 46.64,
+      "movedShare": 24.68
+     },
+     "antitank>armor": {
+      "n": 95,
+      "avgChance": 54,
+      "movedShare": 37.89
+     },
+     "artillery>recon": {
+      "n": 35,
+      "avgChance": 78.29,
+      "movedShare": 0
+     },
+     "artillery>infantry": {
+      "n": 62,
+      "avgChance": 72.1,
+      "movedShare": 0
+     },
+     "artillery>armor": {
+      "n": 131,
+      "avgChance": 39.47,
+      "movedShare": 0
+     },
+     "antitank>antitank": {
+      "n": 7,
+      "avgChance": 28.57,
+      "movedShare": 42.86
+     },
+     "mortar>recon": {
+      "n": 31,
+      "avgChance": 52.26,
+      "movedShare": 45.16
+     },
+     "mortar>mortar": {
+      "n": 22,
+      "avgChance": 38.64,
+      "movedShare": 54.55
+     },
+     "mortar>antitank": {
+      "n": 68,
+      "avgChance": 45.59,
+      "movedShare": 39.71
+     },
+     "recon>recon": {
+      "n": 27,
+      "avgChance": 23.7,
+      "movedShare": 66.67
+     },
+     "infantry>mortar": {
+      "n": 36,
+      "avgChance": 38.89,
+      "movedShare": 25
+     },
+     "mortar>signal": {
+      "n": 5,
+      "avgChance": 52,
+      "movedShare": 20
+     },
+     "antitank>mortar": {
+      "n": 1,
+      "avgChance": 20,
+      "movedShare": 0
+     },
+     "recon>armor": {
+      "n": 12,
+      "avgChance": 10,
+      "movedShare": 50
+     },
+     "artillery>mortar": {
+      "n": 11,
+      "avgChance": 73.64,
+      "movedShare": 0
+     },
+     "armor>signal": {
+      "n": 1,
+      "avgChance": 70,
+      "movedShare": 100
+     },
+     "mortar>artillery": {
+      "n": 1,
+      "avgChance": 40,
+      "movedShare": 100
+     },
+     "artillery>signal": {
+      "n": 4,
+      "avgChance": 80,
+      "movedShare": 0
+     },
+     "infantry>recon": {
+      "n": 6,
+      "avgChance": 53.33,
+      "movedShare": 33.33
+     },
+     "armor>artillery": {
+      "n": 4,
+      "avgChance": 80,
+      "movedShare": 75
+     },
+     "antitank>infantry": {
+      "n": 4,
+      "avgChance": 45,
+      "movedShare": 0
+     },
+     "recon>infantry": {
+      "n": 1,
+      "avgChance": 30,
+      "movedShare": 0
+     }
+    },
+    "terrain": {
+     "city": {
+      "n": 3013,
+      "avgRaw": 48.41,
+      "avgChance": 48.85
+     },
+     "plain": {
+      "n": 472,
+      "avgRaw": 64.28,
+      "avgChance": 63.79
+     },
+     "paddy": {
+      "n": 46,
+      "avgRaw": 68.04,
+      "avgChance": 67.39
+     },
+     "forest": {
+      "n": 19,
+      "avgRaw": 40,
+      "avgChance": 40
+     }
+    },
+    "attacksByType": {
+     "armor": 1840,
+     "artillery": 325,
+     "recon": 44,
+     "antitank": 108,
+     "mortar": 923,
+     "infantry": 450
+    },
+    "moveAttacksByType": {
+     "armor": 539,
+     "infantry": 160,
+     "mortar": 380,
+     "antitank": 39,
+     "recon": 24
+    },
+    "armorMoveAttackShare": 29.29,
+    "antitankVsArmorPerGame": 0.95,
+    "antitankVsArmorMovedShare": 37.89
+   },
+   "illegalMoves": 0,
+   "fires": {
+    "shotsPerGame": {
+     "artillery": 3.25,
+     "mortar": 9.23
+    },
+    "ffShotsPerGame": {
+     "att:artillery": 0.48,
+     "def:artillery": 0.33
+    },
+    "ffAvgDamage": {
+     "att:artillery": 1.04,
+     "def:artillery": 1.06
+    },
+    "fogShare": 9.7,
+    "fogHitRate": 13.2,
+    "visHitRate": 37.8,
+    "avgLosses": {
+     "ru": 4.11,
+     "ua": 5.13
+    },
+    "captureRound": {
+     "SC": {
+      "games": 100,
+      "avgRound": 2
+     },
+     "SL": {
+      "games": 72,
+      "avgRound": 6.92
+     },
+     "SR": {
+      "games": 72,
+      "avgRound": 6.31
+     }
+    },
+    "mortarLostRate": null
+   },
+   "sym": {
+    "firstMover": "ru",
+    "secondMover": "ua",
+    "firstWinRate": 66,
+    "secondWinRate": 34,
+    "drawRate": 0,
+    "avgFirstClashRound": 2.93,
+    "clashGames": 100,
+    "flipsPerGame": {
+     "SL": 1.57,
+     "SC": 6.6,
+     "SR": 1.71
+    },
+    "stallRate": 0,
+    "stallBase": 100,
+    "attacksByRound": [
+     0,
+     0.18,
+     1.49,
+     2.34,
+     2.59,
+     2.3,
+     2.55,
+     2.37,
+     2.66,
+     3.26,
+     4.26,
+     4.46,
+     4.17,
+     4.27
+    ],
+    "lateFlipRate": 10,
+    "lateBase": 100,
+    "heldRounds": {
+     "SL": [
+      5.39,
+      4.1
+     ],
+     "SC": [
+      1.47,
+      3.03
+     ],
+     "SR": [
+      5.72,
+      3.33
+     ]
+    },
+    "finalScore": [
+     18.98,
+     13.49
+    ],
+    "avgScoreGap": 10.77,
+    "scoreCurve": [
+     [
+      0,
+      2,
+      2.88,
+      3.94,
+      5.03,
+      6.23,
+      7.61,
+      9.24,
+      10.77,
+      12.38,
+      13.97,
+      15.69,
+      17.24,
+      18.98
+     ],
+     [
+      0,
+      0.01,
+      0.27,
+      0.75,
+      1.59,
+      2.74,
+      4.14,
+      5.64,
+      7.14,
+      8.5,
+      9.7,
+      10.91,
+      12.22,
+      13.49
+     ]
+    ],
+    "bySide": {
+     "ru": {
+      "indLossPerGame": 0.5,
+      "indLossEarlyPerGame": 0.04,
+      "artyShotsPerGame": 1.77,
+      "mortarShotsPerGame": 4.43,
+      "fogShotsPerGame": 0.53,
+      "fogHitRate": 17,
+      "ffPerGame": 0.48,
+      "nearKillsPerGame": 5.12,
+      "avgRoundsToKill": 3.95,
+      "passivePerGame": 0.66
+     },
+     "ua": {
+      "indLossPerGame": 0.77,
+      "indLossEarlyPerGame": 0.16,
+      "artyShotsPerGame": 1.48,
+      "mortarShotsPerGame": 4.8,
+      "fogShotsPerGame": 0.68,
+      "fogHitRate": 10.3,
+      "ffPerGame": 0.33,
+      "nearKillsPerGame": 4.1,
+      "avgRoundsToKill": 4.73,
+      "passivePerGame": 0.62
      }
     }
    },
    "activation": {
     "att": {
      "avgUsed": 5,
-     "useRate": 99.96
+     "useRate": 99.94
     },
     "def": {
-     "avgUsed": 4.93,
-     "useRate": 98.67
+     "avgUsed": 5,
+     "useRate": 99.93
     }
    }
   },
-  "symmetric trace": "752a1bc300f91711fbbda4ed7db03b9a9c20ad5f"
+  "symmetric normal/hard": {
+   "games": 100,
+   "errors": 0,
+   "wins": {
+    "ru": 77,
+    "ua": 23
+   },
+   "winRate": {
+    "ru": 77,
+    "ua": 23
+   },
+   "byReason": {
+    "hq": {
+     "ru": 0,
+     "ua": 0
+    },
+    "objectives": {
+     "ru": 0,
+     "ua": 0
+    },
+    "annihilation": {
+     "ru": 0,
+     "ua": 0
+    },
+    "survived": {
+     "ru": 0,
+     "ua": 0
+    },
+    "limitPoints": {
+     "ru": 76,
+     "ua": 23
+    },
+    "limitHp": {
+     "ru": 1,
+     "ua": 0
+    }
+   },
+   "reasons": {
+    "ru:limitPoints": 76,
+    "ua:limitPoints": 23,
+    "ru:limitHp": 1
+   },
+   "avgRounds": 14,
+   "firstCapture": {
+    "games": 100,
+    "avgRound": 2,
+    "bySide": {
+     "ru": 100,
+     "ua": 0
+    }
+   },
+   "avgSurvivors": {
+    "ru": 10.98,
+    "ua": 11.08
+   },
+   "draws": 0,
+   "crossing": {
+    "games": 0,
+    "avgStartRound": null,
+    "avgGap": null,
+    "avgArtyDamageAfter": null,
+    "avgDefenderDamageOnArrival": 0
+   },
+   "combat": {
+    "pairs": {
+     "armor>recon": {
+      "n": 222,
+      "avgChance": 76.44,
+      "movedShare": 29.28
+     },
+     "armor>armor": {
+      "n": 858,
+      "avgChance": 52.49,
+      "movedShare": 26.46
+     },
+     "mortar>armor": {
+      "n": 311,
+      "avgChance": 13.09,
+      "movedShare": 20.9
+     },
+     "infantry>mortar": {
+      "n": 75,
+      "avgChance": 35.47,
+      "movedShare": 22.67
+     },
+     "armor>antitank": {
+      "n": 96,
+      "avgChance": 63.65,
+      "movedShare": 36.46
+     },
+     "mortar>infantry": {
+      "n": 527,
+      "avgChance": 40.21,
+      "movedShare": 32.07
+     },
+     "infantry>infantry": {
+      "n": 332,
+      "avgChance": 47.8,
+      "movedShare": 13.55
+     },
+     "armor>infantry": {
+      "n": 446,
+      "avgChance": 69.69,
+      "movedShare": 14.8
+     },
+     "artillery>armor": {
+      "n": 92,
+      "avgChance": 42.5,
+      "movedShare": 0
+     },
+     "infantry>armor": {
+      "n": 122,
+      "avgChance": 15.66,
+      "movedShare": 25.41
+     },
+     "mortar>signal": {
+      "n": 1,
+      "avgChance": 50,
+      "movedShare": 0
+     },
+     "armor>signal": {
+      "n": 2,
+      "avgChance": 85,
+      "movedShare": 100
+     },
+     "recon>recon": {
+      "n": 42,
+      "avgChance": 25.95,
+      "movedShare": 59.52
+     },
+     "antitank>armor": {
+      "n": 76,
+      "avgChance": 52.76,
+      "movedShare": 30.26
+     },
+     "infantry>antitank": {
+      "n": 52,
+      "avgChance": 48.46,
+      "movedShare": 17.31
+     },
+     "antitank>infantry": {
+      "n": 6,
+      "avgChance": 23.33,
+      "movedShare": 16.67
+     },
+     "artillery>infantry": {
+      "n": 37,
+      "avgChance": 67.03,
+      "movedShare": 0
+     },
+     "armor>mortar": {
+      "n": 52,
+      "avgChance": 64.23,
+      "movedShare": 53.85
+     },
+     "mortar>antitank": {
+      "n": 42,
+      "avgChance": 41.9,
+      "movedShare": 45.24
+     },
+     "artillery>antitank": {
+      "n": 27,
+      "avgChance": 75.56,
+      "movedShare": 0
+     },
+     "artillery>recon": {
+      "n": 24,
+      "avgChance": 78.33,
+      "movedShare": 0
+     },
+     "recon>armor": {
+      "n": 15,
+      "avgChance": 10,
+      "movedShare": 13.33
+     },
+     "mortar>mortar": {
+      "n": 25,
+      "avgChance": 44,
+      "movedShare": 44
+     },
+     "infantry>recon": {
+      "n": 11,
+      "avgChance": 52.73,
+      "movedShare": 36.36
+     },
+     "mortar>recon": {
+      "n": 15,
+      "avgChance": 50.67,
+      "movedShare": 46.67
+     },
+     "artillery>mortar": {
+      "n": 9,
+      "avgChance": 76.67,
+      "movedShare": 0
+     },
+     "antitank>antitank": {
+      "n": 1,
+      "avgChance": 40,
+      "movedShare": 0
+     },
+     "infantry>signal": {
+      "n": 1,
+      "avgChance": 50,
+      "movedShare": 0
+     },
+     "artillery>signal": {
+      "n": 1,
+      "avgChance": 70,
+      "movedShare": 0
+     },
+     "armor>artillery": {
+      "n": 3,
+      "avgChance": 90,
+      "movedShare": 66.67
+     },
+     "antitank>mortar": {
+      "n": 1,
+      "avgChance": 10,
+      "movedShare": 0
+     },
+     "recon>infantry": {
+      "n": 4,
+      "avgChance": 47.5,
+      "movedShare": 0
+     }
+    },
+    "terrain": {
+     "city": {
+      "n": 2811,
+      "avgRaw": 46.28,
+      "avgChance": 46.73
+     },
+     "forest": {
+      "n": 47,
+      "avgRaw": 41.38,
+      "avgChance": 41.7
+     },
+     "plain": {
+      "n": 592,
+      "avgRaw": 57.11,
+      "avgChance": 56.79
+     },
+     "paddy": {
+      "n": 78,
+      "avgRaw": 68.14,
+      "avgChance": 67.44
+     }
+    },
+    "attacksByType": {
+     "armor": 1679,
+     "mortar": 1084,
+     "infantry": 593,
+     "artillery": 250,
+     "recon": 61,
+     "antitank": 84
+    },
+    "moveAttacksByType": {
+     "armor": 425,
+     "mortar": 363,
+     "infantry": 106,
+     "recon": 27,
+     "antitank": 24
+    },
+    "armorMoveAttackShare": 25.31,
+    "antitankVsArmorPerGame": 0.76,
+    "antitankVsArmorMovedShare": 30.26
+   },
+   "illegalMoves": 0,
+   "fires": {
+    "shotsPerGame": {
+     "mortar": 10.84,
+     "artillery": 2.5
+    },
+    "ffShotsPerGame": {
+     "att:artillery": 0.23,
+     "def:artillery": 0.16
+    },
+    "ffAvgDamage": {
+     "att:artillery": 1.04,
+     "def:artillery": 1
+    },
+    "fogShare": 15.4,
+    "fogHitRate": 9.8,
+    "visHitRate": 35,
+    "avgLosses": {
+     "ru": 4.02,
+     "ua": 3.92
+    },
+    "captureRound": {
+     "SC": {
+      "games": 100,
+      "avgRound": 2
+     },
+     "SL": {
+      "games": 66,
+      "avgRound": 6.79
+     },
+     "SR": {
+      "games": 77,
+      "avgRound": 6.95
+     }
+    },
+    "mortarLostRate": null
+   },
+   "sym": {
+    "firstMover": "ru",
+    "secondMover": "ua",
+    "firstWinRate": 77,
+    "secondWinRate": 23,
+    "drawRate": 0,
+    "avgFirstClashRound": 2.84,
+    "clashGames": 100,
+    "flipsPerGame": {
+     "SL": 1.57,
+     "SC": 6.48,
+     "SR": 1.79
+    },
+    "stallRate": 0,
+    "stallBase": 100,
+    "attacksByRound": [
+     0,
+     0.23,
+     1.21,
+     2.14,
+     2.3,
+     2.27,
+     2.48,
+     2.63,
+     3.05,
+     3.36,
+     4.66,
+     4.47,
+     4.33,
+     4.38
+    ],
+    "lateFlipRate": 9,
+    "lateBase": 100,
+    "heldRounds": {
+     "SL": [
+      5.2,
+      5
+     ],
+     "SC": [
+      2.98,
+      2.57
+     ],
+     "SR": [
+      5.78,
+      3.56
+     ]
+    },
+    "finalScore": [
+     21.66,
+     13.7
+    ],
+    "avgScoreGap": 10.8,
+    "scoreCurve": [
+     [
+      0,
+      2,
+      2.75,
+      4.06,
+      5.49,
+      7.38,
+      9.32,
+      11.18,
+      12.94,
+      14.6,
+      16.25,
+      17.96,
+      19.75,
+      21.66
+     ],
+     [
+      0,
+      0,
+      0.11,
+      0.59,
+      1.38,
+      2.5,
+      4.02,
+      5.54,
+      7.16,
+      8.57,
+      9.83,
+      11.14,
+      12.45,
+      13.7
+     ]
+    ],
+    "bySide": {
+     "ru": {
+      "indLossPerGame": 0.52,
+      "indLossEarlyPerGame": 0.03,
+      "artyShotsPerGame": 1.1,
+      "mortarShotsPerGame": 4.84,
+      "fogShotsPerGame": 0.6,
+      "fogHitRate": 3.3,
+      "ffPerGame": 0.23,
+      "nearKillsPerGame": 3.91,
+      "avgRoundsToKill": 3.77,
+      "passivePerGame": 0.75
+     },
+     "ua": {
+      "indLossPerGame": 0.47,
+      "indLossEarlyPerGame": 0.08,
+      "artyShotsPerGame": 1.4,
+      "mortarShotsPerGame": 6,
+      "fogShotsPerGame": 1.45,
+      "fogHitRate": 12.4,
+      "ffPerGame": 0.16,
+      "nearKillsPerGame": 4.02,
+      "avgRoundsToKill": 5.37,
+      "passivePerGame": 0.41
+     }
+    }
+   },
+   "activation": {
+    "att": {
+     "avgUsed": 5,
+     "useRate": 99.93
+    },
+    "def": {
+     "avgUsed": 4.92,
+     "useRate": 98.33
+    }
+   }
+  },
+  "symmetric trace": "5365db8769efee70a8c614317e46efd133f1a7f2"
  }
 }

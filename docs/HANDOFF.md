@@ -1,28 +1,26 @@
-# HANDOFF (2026-11-12) — 대칭 AI 개선 v2 (규칙 변화 없음, 작업 전 태그 `stable-before-ai-symmetric`)
+# HANDOFF (2026-11-12) — 대칭 전장 점수제 (rulesVersion 10, 작업 전 태그 `stable-before-score-victory`)
 
 ## 끝난 것과 검증
-- 대칭 전장(`aiProfile: 'symmetric'`)에서만 켜지는 새 AI(v2): 본 적 기억, 간접 사격 단서·포병 쿨다운 추정, 위험 지도, 집결 진입, 포병·박격포 사거리 확보와 안개 속 사격, 위협 제거(집중·마무리·반격, 추격 제한, 최소 수비).
-- 진단 전용 프로필: `v1:<난이도>`(기존 중립 AI), `turtle`(수비 봇, js/ai-intel.js). 화면 난이도 목록에는 없음.
-- 검증: `check.js` 춘천 7·호스토멜 7 항목 SAME(대칭 7 항목은 AI 변경으로 새 기준선 저장). `test.js` 70 통과·0 실패·6 건너뜀(새 테스트 6개: intel 갱신, 안개(기억·위험 지도·쿨다운), 쿨다운 안전 구간, 사격 단서, 결정성·다른 시나리오 필드 없음).
-- 계산 시간: AI 한 턴 평균 39~46ms, 최대 약 115ms(Node, 진단 2,400판 기준), 브라우저 20~40ms.
-- 진단(200판×선공/후공, `node tools/sym-ai.js 200`): 새 AI vs turtle 승률 81.5/89.0%, 기존 AI vs turtle 59.5/65.0%, 새 AI vs 기존 AI 69.0/62.5%, 새 AI 자기 대결 선공 54.0%.
-
-- 시작 화면 난이도: 시나리오 `aiProfiles`(화면 목록만)로 호스토멜·대칭은 쉬움/보통/어려움 3개(산개전술 = 강이 없어 어려움과 같음), 춘천은 4개. 목록에 없는 선택은 `extends` 바탕(산개전술 → 어려움)으로. 설명은 시나리오별 실제 AI 기준(`profile.<id>.desc.<시나리오>`).
+- 대칭 전장만: 거점을 점유한 동안 점수가 쌓이고 14라운드 끝에 총점 → 남은 체력 → 무승부. 전멸 승리는 그대로, 거점 2개 즉시 승리는 없음(v9부터).
+- 데이터: `objectivePoints { SL: 1, SC: 2, SR: 1 }`, `scoreTiming 'ownTurnEnd'`(자기 턴을 끝낼 때 자기 점유) | `'roundEnd'`, `scoreTarget null`(닿으면 즉시 승리), 승리 조건 `roundLimitPoints`.
+- 대칭 검사: 회전 짝 거점(왼쪽·오른쪽) 점수 같음, 승리 조건 양쪽 같은 형식. 형식 오류는 `validateScenario`.
+- 화면: HUD 점수 칩(보는 진영 먼저, 진영 색 점, 남은 라운드), 로그 `라운드 n: 진영 +3 (중앙 2, 오른쪽 1)`(상대는 합계만), 규칙 안내 문구(점수 값은 데이터에서), 결과 화면 최종 점수.
+- 검증: 춘천·호스토멜 `check.js` SAME, `test.js` 통과(점수 테스트 7개 추가). 브라우저: 기본·리치·휴대폰·2인 대전 가림막 확인.
+- 진단: `node tools/sym-score.js [n] [A,B,...] [out.json]` (SCORING_COMBOS A~F + OLD = 이전 거점 수 판정).
 
 ## 주요 변경 위치
-- `js/ai-intel.js`(새 파일, engine.js 다음): `intelInit`·`intelOnVision`·`intelOnIndirectFire`(state.aiIntel, 대칭만), `intelRecords`, `intelArtyResting`, `threatMap`, `expectedLoss`, `threatScore`, `symUrgency`, `symV2Context/Position/Attack/FogTargets/Goals`, `turtleTakeTurn`.
-- `js/engine.js`: aiTakeTurn 프로필 분기, buildAiContext `ctx.v2`, 점수 함수에 v2 항목 연결, 박격포 이동 후 사격 필터(intel/likely 허용), `distanceField` 버킷 큐(결과 동일), simulateGames `res.sym.bySide`(진영별 지표, `opts.timing`+`opts.clock` 때만 계산 시간), `diagnoseSymmetricAI`.
-- `js/ai-config.js` `AI_CONFIG.SYMMETRIC.INTEL`·`V2`(난이도별 `LEVELS`). `tools/sym-ai.js` 진단 실행기.
+- `js/engine.js`: `roundLimitType`, `heldPoints`, `awardPoints`(endTurn 안, 이벤트 `scored`), `scoreTargetResult`, `pointsLimitResult`·`limitCompare`·`limitResultNow`, loadScenario `OBJECTIVE_POINTS/SCORE_TIMING/SCORE_TARGET`, state `score`·`scoreLog`(점수제만), simulateGames `res.sym`(attacksByRound, scoreCurve, finalScore, lateFlipRate, heldRounds), `SCORING_COMBOS`·`diagnoseScoring`, AI `objPointWeight`.
+- `js/ai-intel.js` `symUrgency`: 점수제면 예상 총점(지금 점수 + 점유 점수 × 남은 라운드) 차이.
+- `js/ui.js`: HUD `hud-goal` 자리에 점수 칩, describeEvent/describeFull `scored`, 규칙 안내, 결과 화면.
 
 ## 확정된 결정
-- 정보: 기억(state.memory) + 공개 시작 배치(`INTEL_FROM_SETUP`) + 자기 유닛이 맞은 피해 모양. 증원은 상대 포병 수 계산에만 시나리오 일정(공개 데이터) 사용, state.pending 은 읽지 않음.
-- 행동 한도(5) 때문에 포병이 이동 후보에 밀려 놀던 문제 → `fireReady`(사격 가산), `artyReach`/`artyCover`(사거리로 접근). 포병 표적 옆 아군이 있으면 가산 없이 `ffAdjacent` 감점 + 아군의 `clearLane`(비켜 주기)로 2단계 행동.
-- 압박은 승리 조건 데이터(roundLimitScore·holdObjectives)와 점유 차이로 계산.
+- 거점 점유 상태는 지금처럼 공개 정보(거점 칩·표식이 실제 점유자를 보여 줌). 시야 밖 거점을 '마지막으로 본 상태'로 바꾸는 표시는 이번에 하지 않음(기존 동작 유지, 새로 드러나는 정보 없음).
+- 0점 지급은 로그에 남기지 않음. 게임 안 저장 기능은 없어 '저장·불러오기'는 상태 직렬화(JSON) 후 이어 하기로 검사.
+- AI 최소 조정: 중립 모드의 거점 머묾·점령 가치 × (거점 점수 / 평균 점수), 압박은 예상 총점 기준.
 
 ## 알려진 문제
-- 안개 속 사격은 판당 0.3~1.0회, 명중률 8~17%(시야 밖 −50). '올 가능성이 높은 칸'은 거점 칸만.
-- 위험 지도는 근사(불확실 반경은 맨해튼, 직접 공격 도달은 지형 비용 경계 탐색). 상대 포병의 표적 선택은 모델링하지 않음.
-- 진단 표의 '맞고만 있던 라운드' = 거점을 점유한 채 상대 턴에 피해를 입고 이어지는 자기 턴에 공격·사격이 없던 횟수.
+- 남은 막판 쏠림 요인: 중립 AI의 `APPROACH_GROWTH`(5라운드부터 접근 가중치 +10%/라운드)가 그대로라 11라운드 이후 공격 수가 6~10라운드의 약 1.8배.
+- AI끼리 선공이 62% 안팎(ownTurnEnd). roundEnd는 49:51.
 
 ## 다음에 볼 곳
-- 값은 사람 플레이로: `AI_CONFIG.SYMMETRIC.V2`(riskWeight, minSupport, fireReady 등). 행동 추적은 진단 스크립트로 (로그 화면에는 표시 없음).
+- 값은 사람 플레이로: `objectivePoints`, `scoreTiming`, `scoreTarget`(시나리오 데이터). AI 개선은 별도 작업.
