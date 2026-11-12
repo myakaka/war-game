@@ -75,6 +75,9 @@
       sideMin: 240, sideVw: 0.22, sideMax: 320,   // 우측 열 = clamp(240px, 22vw, 320px). 로그 드로어 폭도 같음
       gap: 12, narrowGap: 8, narrowSide: 16,
       lblWide: 16, lblNarrow: 12, frameBorder: 4,
+      // PC 배치 (넓은 화면 중 칸이 cellMin 이상 나오는 경우): 지도는 높이에 맞춰 최대, 오른쪽 패널 하나. 못 맞추면 휴대폰 가로 배치(compact)
+      // barH: 지도 바로 위 상태 줄(라운드·턴·행동·점수), dialogPad: 지도 위 확인 창과 지도 가장자리·유닛 칸 사이
+      pc: { panelW: 440, panelWSmall: 360, smallBelowW: 1280, cellMin: 40, margin: 20, marginTop: 8, gap: 20, barH: 32, dialogPad: 12 },
     },
     /* 터치 */
     touch: { balloonMs: 3000 },
@@ -537,6 +540,7 @@
     const changed = on !== rich.on;
     rich.on = on;
     boardEl.classList.toggle('rich', on);
+    $('#app').classList.toggle('rich-on', on);   // PC 여백 배경의 질감 정도
     boardEl.classList.toggle('grid-on', on && ui.gridAlways);
     if (on) paintRichBg();
     renderThemeSettings();
@@ -944,10 +948,20 @@
     if (title) el.title = title; else el.removeAttribute('title');
   }
   // 숨기는 순서: 내 유닛 수 → 시나리오 이름 → 거점 이름 → 증원 예정을 짧게 → 거점 소유 글자(색 점은 남음) → 증원 예정
+  const both = (long, short) => `<span class="bl">${long}</span><span class="bs">${short}</span>`;
   const HUD_LEVELS = ['hide-units', 'hide-title', 'hide-objname', 'short-reinf', 'hide-owner', 'hide-reinf'];
   function fitHud() {
     const hud = $('#hud');
     hud.classList.remove(...HUD_LEVELS);
+    if (ui.pc) {   // PC: 패널 칩은 줄을 나눠 들어감. 지도 위 상태 줄은 넘치면 짧은 글자로
+      const bar = $('#map-status');
+      bar.classList.remove('short');
+      bar.classList.add('measuring');
+      const over = bar.scrollWidth > bar.clientWidth + 1;
+      bar.classList.remove('measuring');
+      bar.classList.toggle('short', over);
+      return;
+    }
     const rows = ui.wide ? [hud] : [$('#hud-r1'), $('#hud-r2')];
     hud.classList.add('measuring');
     const over = () => rows.some((r) => r.scrollWidth > r.clientWidth + 1);
@@ -967,7 +981,8 @@
     if (ui.deploy) { renderDeployHud(); fitHud(); return; }
     const max = GAME_CONFIG.MAX_ROUNDS;
     const roundFull = t('hud.round', { n: st.round, max });
-    setChip('hud-round', txSpan(W ? roundFull : t('hud.roundShort', { n: st.round, max })), roundFull);
+    const roundShort = txSpan(t('hud.roundShort', { n: st.round, max }));
+    setChip('hud-round', W ? both(txSpan(roundFull), roundShort) : roundShort, roundFull);
     let turn;
     if (st.winner) turn = t('hdr.gameOver');
     else if (!hotseat()) turn = t(st.turn === AI_SIDE ? 'hdr.turnAI' : 'hdr.turnPlayer', { side: S(st.turn) });
@@ -1000,7 +1015,7 @@
         + (left ? txSpan(' · ' + t('hud.roundsLeftShort', { n: left })) : '');
       const wide = txSpan(t('hud.scoreLbl')) + ` ${dotHtml(a)}${txSpan(t('hud.scoreSide', { side: S(a), n: st.score[a] }))}<span class="sc-sep">:</span>${dotHtml(b)}${txSpan(t('hud.scoreSide', { side: S(b), n: st.score[b] }))}`
         + (left ? txSpan(' · ' + t('hud.roundsLeft', { n: left })) : '');
-      setChip('hud-goal', W ? wide : short, full, 'chip score-chip');
+      setChip('hud-goal', W ? both(wide, short) : short, full, 'chip score-chip');
       $('#hud-goal').setAttribute('aria-label', full);
     } else if (symGoal) {
       // 화면을 보는 진영 자신의 점유 수만 (종료 후 전체 공개·AI 모드 관전 시에는 플레이어 진영)
@@ -1008,14 +1023,16 @@
       if (own) {
         const gp = { have: st.objectives.filter((o) => o.owner === own).length, total: st.objectives.length };
         const full = t('hud.goalSym', gp);
-        setChip('hud-goal', txSpan(W ? full : t('hud.goalSymShort', gp)), full, 'chip orange');
+        const gs = txSpan(t('hud.goalSymShort', gp));
+        setChip('hud-goal', W ? both(txSpan(full), gs) : gs, full, 'chip orange');
       } else setChip('hud-goal', null);
     } else if (WS) {
       const have = st.objectives.filter((o) => o.owner === WS).length, need = holdCount();
       const attackerView = hotseat() && me === WS;
       const gp = { att: S(WS), have, need };
       const goalFull = t(attackerView ? 'hud.goalAttack' : 'hdr.northNeed', gp);
-      setChip('hud-goal', txSpan(W ? goalFull : t(attackerView ? 'hud.goalAttackShort' : 'hud.goalShort', { ...gp, att: SS(WS) })), goalFull, 'chip orange');
+      const gs = txSpan(t(attackerView ? 'hud.goalAttackShort' : 'hud.goalShort', { ...gp, att: SS(WS) }));
+      setChip('hud-goal', W ? both(txSpan(goalFull), gs) : gs, goalFull, 'chip orange');
     } else setChip('hud-goal', null);
     const mine = me === 'all' ? (hotseat() ? null : PLAYER) : me;
     if (mine) setChip('hud-units', txSpan(t('hud.myUnits', { n: st.units.filter((u) => u.side === mine).length })));
@@ -2247,6 +2264,7 @@
       <div class="hint" style="margin-top:6px">${esc(t('confirm.terrain', { terrain: TR(terrainAt(target.r, target.c).key) }))}</div>
       <div class="btn-row" style="margin-top:14px"><button class="primary" id="btn-atk-yes">${esc(t('confirm.yes.' + kind))}</button><button id="btn-atk-no">${esc(t('confirm.no'))}</button></div>
     </div>`, () => showAttackConfirm(id, target));
+    overlayOnMap([sel, target]);   // PC: 지도 위, 공격자·대상 칸을 피해서
     ui.confirm = { id, target };
     $('#btn-atk-yes').onclick = confirmAttack;
     $('#btn-atk-no').onclick = cancelAttack;
@@ -2339,6 +2357,7 @@
       <div style="margin-bottom:8px">${esc(t('choice.line', { unit: U(sel.type), from: P(sel), pos: P(target) }))}</div>
       <div class="btn-row" style="margin-top:14px"><button class="primary" id="btn-ch-move">${esc(t('choice.move'))}</button><button id="btn-ch-fire">${esc(t('choice.fire'))}</button><button id="btn-ch-no">${esc(t('confirm.no'))}</button></div>
     </div>`, () => showMoveFireChoice(id, target));
+    overlayOnMap([sel, target]);   // PC: 지도 위, 공격자·대상 칸을 피해서
     ui.choice = { id, target };
     $('#btn-ch-move').onclick = () => choiceDo('move');
     $('#btn-ch-fire').onclick = () => choiceDo('fire');
@@ -2913,7 +2932,7 @@
   }
 
   /* ---------- 오버레이 (공격 확인·시작·승패·가림막·요약). 열려 있는 동안 포커스를 안에 가둠 ---------- */
-  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain', 'sheet', 'rules'];
+  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain', 'sheet', 'rules', 'at-map'];
   /** redraw: 언어를 바꿨을 때 이 창을 현재 언어로 다시 그리는 함수. kind: 배경 종류 */
   function showOverlay(html, redraw = null, kind = 'confirm') {
     const ov = $('#overlay');
@@ -2925,6 +2944,7 @@
     ov.classList.remove(...OVERLAY_KINDS);
     ov.classList.add(kind, 'show');
     const modal = $('#modal');
+    modal.style.left = modal.style.top = '';   // 지도 위 배치(overlayOnMap)에서 남은 위치
     modal.innerHTML = html;
     const h = modal.querySelector('h1, h2');
     modal.setAttribute('aria-label', h ? h.textContent : t('app.docTitle'));
@@ -2989,6 +3009,7 @@
     renderDiffSelect();
     rich.on = false;
     boardEl.classList.remove('rich', 'grid-on');
+    $('#app').classList.remove('rich-on');
     if (save) { try { localStorage.setItem(SCEN_KEY, GAME_CONFIG.SCENARIO_ID); } catch (e) { /* 저장 불가 환경 */ } }
     fitLayout();
   }
@@ -3188,7 +3209,7 @@
   }
   /** 게임 중 규칙 창: 가림막 중에는 열지 않음 (2인 대전 정보 보호). 닫으면 열기 전 화면으로 */
   function openRulesInGame() {
-    if (ui.screen !== 'game' || !ui.viewer) return;
+    if ((ui.screen !== 'game' && ui.screen !== 'deploy') || !ui.viewer) return;
     closePop(false);
     const resultOpen = !!(ui.state && ui.state.winner && $('#overlay').classList.contains('show'));
     showRules(resultOpen ? showResult : hideOverlay, 'rules');
@@ -3512,21 +3533,77 @@
     $('#logbar').hidden = name === 'deploy' && !ui.wide;   // 좁은 배치 화면: 로그 바 대신 지도·트레이를 크게
     fitLayout();
   }
+  /**
+   * PC: 공격 확인·이동/사격 선택 창을 지도 위에 띄움. 화면 안 후보 자리(8px 간격) 중 공격자·대상 칸과
+   * 겹치지 않으면서 지도와 가장 많이 겹치는 자리 (같으면 두 칸에서 먼 쪽). 모두 겹치면 겹침이 가장 적은 자리. 상태 변화 없음
+   */
+  function overlayOnMap(cellsToAvoid) {
+    if (!ui.pc) return;
+    const ov = $('#overlay'), m = $('#modal');
+    ov.classList.add('at-map');
+    if (cellsToAvoid) ui.mapAvoid = cellsToAvoid;
+    const B = $('#board').getBoundingClientRect(), pad = DESIGN.layout.pc.dialogPad;
+    m.style.left = '0px'; m.style.top = '0px';
+    const w = m.offsetWidth, h = m.offsetHeight;
+    const avoid = (ui.mapAvoid || []).map(({ r, c }) => cells[idx(r, c)].el.getBoundingClientRect());
+    const inter = (x0, y0, x1, y1, a) => Math.max(0, Math.min(x1, a.right) - Math.max(x0, a.left)) * Math.max(0, Math.min(y1, a.bottom) - Math.max(y0, a.top));
+    const hit = (s) => avoid.reduce((sum, a) => sum + inter(s.x - pad, s.y - pad, s.x + w + pad, s.y + h + pad, a), 0);
+    const onMap = (s) => inter(s.x, s.y, s.x + w, s.y + h, B);
+    const far = (s) => Math.min(...avoid.map((a) => Math.hypot(s.x + w / 2 - (a.left + a.right) / 2, s.y + h / 2 - (a.top + a.bottom) / 2)));
+    let best = null, bestKey = null;
+    for (let y = pad; y <= window.innerHeight - h - pad; y += 8) {
+      for (let x = pad; x <= window.innerWidth - w - pad; x += 8) {
+        const s = { x, y }, key = [-hit(s), onMap(s), far(s)];
+        if (!best || key[0] > bestKey[0] || (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) { best = s; bestKey = key; }
+      }
+    }
+    if (!best) best = { x: B.left + pad, y: B.top + pad };
+    m.style.left = Math.round(Math.max(pad, best.x)) + 'px';
+    m.style.top = Math.round(Math.max(pad, best.y)) + 'px';
+  }
+  /** PC: 라운드·턴·행동·점수(목표) 칩을 지도 바로 위 줄로. 다른 배치에서는 원래 상단 줄 자리 */
+  const MAP_CHIPS = ['hud-round', 'hud-turn', 'hud-act', 'hud-goal'];
+  /** PC 배치: 상태(HUD)와 로그를 오른쪽 패널 안으로 옮김. 다른 배치에서는 원래 자리 (요소·이벤트는 그대로) */
+  function placePcDom(pc) {
+    const side = $('#side');
+    if (pc) {
+      for (const id of MAP_CHIPS) $('#map-status').appendChild($('#' + id));
+      side.insertBefore($('#hud'), side.firstChild);
+      side.insertBefore($('#drawer'), $('#controls'));
+      $('#controls').insertBefore($('#card-btns'), $('#controls').firstChild);   // 행동 종료·선택 해제: 아래 보조 버튼 줄로
+    } else {
+      for (const id of ['hud-round', 'hud-turn', 'hud-act']) $('#hud-r1').insertBefore($('#' + id), $('#btn-help'));
+      $('#hud-r2').insertBefore($('#hud-goal'), $('#hud-units'));
+      $('#app').insertBefore($('#hud'), $('#stage'));
+      $('#stage').appendChild($('#drawer'));
+      $('#card-full').appendChild($('#card-btns'));
+    }
+  }
   const sideWidth = (W) => { const L = DESIGN.layout; return Math.round(Math.min(L.sideMax, Math.max(L.sideMin, W * L.sideVw))); };
   function fitLayout() {
     const L = DESIGN.layout;
     const W = window.innerWidth, H = window.innerHeight;
-    const compact = !(W >= L.wideMinW && W / H >= L.wideMinAspect) && W / H >= L.wideMinAspect && H < L.compactMaxH;
-    const wide = (W >= L.wideMinW && W / H >= L.wideMinAspect) || compact;   // compact 는 넓은 화면 배치를 작은 크기로
-    const changed = wide !== ui.wide || compact !== ui.compact;
+    const P = L.pc;
+    const big = W >= L.wideMinW && W / H >= L.wideMinAspect;
+    // PC 배치: 지도(정사각형) + 오른쪽 패널(고정 폭). 칸이 P.cellMin 보다 작아지면 휴대폰 가로 배치로
+    const pw = W < P.smallBelowW ? P.panelWSmall : P.panelW;
+    const pcAvailW = W - 2 * P.margin - pw - P.gap, pcAvailH = H - P.margin - P.marginTop - P.barH;   // 위: 작은 여백 + 상태 줄, 아래: 여백
+    const pc = big && Math.floor((Math.min(pcAvailW, pcAvailH) - L.lblWide - L.frameBorder) / N) >= P.cellMin;
+    const compact = (!big && W / H >= L.wideMinAspect && H < L.compactMaxH) || (big && !pc);
+    const wide = big || compact;   // compact 는 넓은 화면 배치를 작은 크기로
+    const changed = wide !== ui.wide || compact !== ui.compact || pc !== ui.pc;
+    if (pc !== ui.pc) placePcDom(pc);
     ui.wide = wide;
     ui.compact = compact;
+    ui.pc = pc;
     const app = $('#app');
     app.classList.toggle('wide', wide);
     app.classList.toggle('narrow', !wide);
     app.classList.toggle('compact', compact);
+    app.classList.toggle('pc', pc);
+    document.body.classList.toggle('pc', pc);
     const root = document.documentElement.style;
-    const sw = sideWidth(W);
+    const sw = pc ? pw : sideWidth(W);
     root.setProperty('--side-w', sw + 'px');
     const lbl = wide && !compact ? L.lblWide : L.lblNarrow;
     root.setProperty('--lbl', lbl + 'px');
@@ -3546,6 +3623,9 @@
     if (ui.screen === 'start' || ui.screen === 'curtain') {
       availW = W - 2 * L.gap;
       availH = H - 2 * L.gap;
+    } else if (pc) {
+      availW = pcAvailW;
+      availH = pcAvailH;
     } else if (wide) {
       const hudH = $('#hud').offsetHeight, logH = $('#logbar').offsetHeight;
       const g = compact ? L.narrowGap : L.gap;
@@ -3558,9 +3638,12 @@
       availH = H - hudH - logH - ui.lastSideH - abarH - 3 * L.narrowGap;
     }
     let cell = Math.floor((Math.min(availW, availH) - extra) / N);
-    cell = Math.max(L.cellFloor, Math.min(L.cellMax, cell));   // cellMin 미만이면 하단 UI 를 우선 (지도가 더 작아짐)
+    // cellMin 미만이면 하단 UI 를 우선 (지도가 더 작아짐). PC 게임 화면은 상한 없이 높이에 맞춤 (칸은 정수 px, 지도 = 칸 × N)
+    cell = Math.max(L.cellFloor, pc && ui.screen !== 'start' && ui.screen !== 'curtain' ? cell : Math.min(L.cellMax, cell));
     root.setProperty('--cell', cell + 'px');
     ui.cellSize = cell;
+    if (pc) root.setProperty('--pc-h', (P.barH + lbl + N * cell + L.frameBorder) + 'px');   // 패널 높이 = 상태 줄 + 지도 틀 높이
+    if (pc && $('#overlay').classList.contains('at-map')) overlayOnMap();
     themeOnLayout();
     if (!wide && (ui.screen === 'game' || ui.screen === 'deploy')) {   // 게임 화면 아래 빈 공간만큼 조작 줄을 올림 (게임 중에는 높이가 같아 위치 고정)
       const free = H - $('#side').getBoundingClientRect().bottom - L.narrowGap - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--abar-h'));
@@ -3924,6 +4007,7 @@
   $('#btn-restart').onclick = () => { closePop(false); if (ui.tut) loadTutStep(ui.tut.k); else newGame(); };
   $('#btn-rules-game').onclick = openRulesInGame;
   $('#btn-help').onclick = openRulesInGame;
+  $('#btn-rules-side').onclick = openRulesInGame;
   $('#btn-menu').onclick = () => { closePop(false); goMenu(); };
   $('#difficulty-select').onchange = (e) => { ui.difficulty = e.target.value; e.target.title = resolveProfile(ui.difficulty).description; };
   document.querySelectorAll('#lang-seg [data-lang], #seg-lang [data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });

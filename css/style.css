@@ -661,3 +661,68 @@ body.reduce-motion .tut-pulse, body.reduce-motion #btn-end-turn.tut-pulse-btn { 
 .hud-help { width: 32px; height: 32px; padding: 0; font-weight: 700; flex: 0 0 auto; }
 #app.narrow .hud-help { width: 44px; height: 44px; margin: -6px 0; }
 .tut-ask p { line-height: 1.5; }
+
+/* ===== PC 배치 (#app.pc: 넓은 화면에서 칸이 DESIGN.layout.pc.cellMin 이상): 지도 최대 + 오른쪽 패널 하나 =====
+   패널 위→아래: 상태(HUD) · 유닛 카드(배치 트레이·코치) · 로그(남는 공간, 안에서 스크롤) · 보조 버튼 줄 · 턴 종료 */
+.pc-only { display: none; }
+#app.pc {
+  /* 여백 배경: 어두운 단색 + 아주 약한 잡음 (게임 정보 없음). 리치 테마는 낮은 주파수 얼룩을 약하게 더함 */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.05 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 45%, #161b22 0%, #0d1015 75%);
+}
+#app.pc.rich-on {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.07 0 0 0 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='720'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.44 0 0 0 0 0.32 0.12 0 0 0 -0.02'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 45%, #1a1b1c 0%, #0e0f11 75%);
+}
+#app.pc #stage { align-items: center; justify-content: center; gap: 20px; padding: 8px 20px 20px; }   /* DESIGN.layout.pc 의 marginTop · margin */
+#app.pc #map-col { gap: 0; }
+#app.pc .logbar, #app.pc #btn-log, #app.pc #drawer-close { display: none; }
+#app.pc #board { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 14px 44px rgba(0, 0, 0, 0.55); }
+#app.pc #side { height: var(--pc-h); align-self: center; gap: 8px; overflow: hidden; }
+/* 1. 상태: 제목·언어 / 라운드·턴·행동·점수(목표)·증원·내 유닛 / 거점 */
+#app.pc #hud { flex-wrap: wrap; row-gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); overflow: visible; }
+#app.pc #hud::before, #app.pc #hud::after { content: ""; flex-basis: 100%; height: 0; }
+#app.pc #hud::before { order: 3; }
+#app.pc #hud::after { order: 9; }
+#app.pc .hud-title { order: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#app.pc #hud-round { order: 1; }
+#app.pc #btn-help, #app.pc #hud .lang-seg { order: 2; }
+#app.pc #btn-help { margin-left: auto; }
+#app.pc #btn-help:not([hidden]) + .lang-seg { margin-left: 0; }
+#app.pc #hud-turn { order: 4; }
+#app.pc #hud-act { order: 5; }
+#app.pc #hud-goal { order: 6; }
+#app.pc #hud-reinf { order: 7; }
+#app.pc #hud-units { order: 8; }
+#app.pc .hud-objs { order: 10; flex-wrap: wrap; flex: 1 1 100%; }
+/* 2~4. 카드는 내용만큼(넘치면 안에서 스크롤), 로그는 남는 공간 */
+#app.pc .card, #app.pc .tray, #app.pc .coach { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+#app.pc #drawer, #app.pc.drawer-open #drawer { flex: 1 1 0; width: auto; min-height: 84px; border-width: 1px; transition: none; }
+#app.pc #log { min-width: 0; }
+/* 5. 아래 고정: 보조 버튼 줄 → 남은 행동 → 턴 종료(큰 버튼) */
+#app.pc .controls { margin-top: auto; }
+#app.pc .card-btns { order: -1; }
+#app.pc .icon-row { order: 0; }
+#app.pc .act-count { order: 1; }
+#app.pc #btn-end-turn { order: 2; height: 52px; font-size: 17px; }
+#app.pc .pc-only { display: flex; }
+/* 공격 확인·이동/사격 선택: 지도 위에 띄움. 자리는 JS(overlayOnMap)가 공격자·대상 칸을 피해 정함 (지도는 살짝만 어둡게) */
+body.pc #overlay.at-map { display: block; padding: 0; background: rgba(5, 7, 10, 0.18); }
+body.pc #overlay.at-map .modal { position: fixed; width: 400px; max-width: calc(100vw - 32px); max-height: calc(100vh - 40px); box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6); }
+/* 지도 바로 위 상태 줄: 라운드 · 턴 · 행동 · 점수(목표). 한 줄 고정, 넘치면 칩 글자가 말줄임 */
+.map-status { display: none; }
+#app.pc .map-status { display: flex; align-items: center; justify-content: center; gap: 6px; height: 32px; flex: 0 0 auto; width: 0; min-width: 100%; overflow: hidden;   /* 지도 폭을 넓히지 않음 */ padding-bottom: 6px; }
+#app.pc .map-status > .chip { flex: 0 1 auto; min-width: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+#app.pc .map-status > #hud-turn { flex-shrink: 3; }
+body[data-screen="start"] .map-status, body[data-screen="curtain"] .map-status { display: none !important; }
+#app.pc .card, #app.pc #log, #app.pc .tray, #app.pc .coach { scrollbar-width: thin; scrollbar-color: #3a4352 transparent; }
+body[data-screen="deploy"] #app.pc .card-btns { display: none; }   /* 배치 화면: 유닛 카드가 없을 때와 같게 */
+/* 상태 칩의 긴/짧은 글자 (짧은 쪽은 PC 지도 위 상태 줄이 넘칠 때만) */
+.chip .bl { display: contents; }
+.chip .bs { display: none; }
+.map-status.short .chip .bl { display: none; }
+.map-status.short .chip .bs { display: contents; }
+#app.pc .map-status.measuring > .chip { flex-shrink: 0 !important; }

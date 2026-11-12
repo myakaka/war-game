@@ -1,24 +1,27 @@
-# HANDOFF (2026-11-12) — 튜토리얼과 규칙 화면 (규칙 변화 없음, 작업 전 태그 `stable-before-tutorial`)
+# HANDOFF (2026-11-12) — PC 화면 배치 개편 (규칙 변화 없음, 작업 전 태그 `stable-before-pc-layout`)
 
 ## 끝난 것과 검증
-- 규칙 화면: 접고 펴는 9개 항목(목적·이동·명중·지형·안개·병종·거점·간접 화력·용어), 수치는 규칙·시나리오 데이터에서. 시작 화면 '규칙 보기', 게임 중 설정 '규칙', 튜토리얼·연습 판 HUD '?'. 가림막 중에는 열리지 않음. 좁은 화면은 전체 화면 시트(닫기 44px, 글자 14px 이상).
-- 튜토리얼 8단계(코치 창: 진행 점, n/8, 이전·다시 해 보기·다음·종료) → 연습 판(일반 규칙, 중립 AI 쉬움, 기록에 넣지 않음). 처음 실행 때 한 번 '튜토리얼을 해 볼까요?'. 저장(localStorage)이 막혀도 동작.
-- 검증: `check.js` 춘천·호스토멜·대칭 21항목 SAME, `test.js` 통과(튜토리얼 테스트 7개). 브라우저: 360×640·390×844·412×915·1280에서 8단계·연습 판·규칙 화면, 기본·리치 테마, 가림막 차단, 저장 차단 모드.
+- PC 배치(`#app.pc`): 너비 900 이상·가로 화면에서 칸이 40px 이상 나오면 지도는 높이에 맞춰 최대(칸 정수 px, 지도 = 칸 × N), 오른쪽 패널 하나(440px, 창 1280 미만은 360px). 칸이 40px 밑이면 휴대폰 가로 배치(compact)로.
+- 지도 바로 위 한 줄(`#map-status`): 라운드·턴·행동·점수(목표). 넘치면 짧은 글자(`.bl`/`.bs`).
+- 패널 위→아래: 상태(제목·언어 / 증원·내 유닛 / 거점) → 유닛 카드(배치 트레이·튜토리얼 코치) → 로그(남는 공간, 안에서 스크롤) → 행동 종료·선택 해제 → 범례·설정·규칙 → 턴 종료(52px).
+- 공격 확인·이동/사격 선택 창은 PC에서 지도 위(`#overlay.at-map`, `overlayOnMap`): 공격자·대상 칸과 겹치지 않으면서 지도와 가장 많이 겹치는 자리.
+- 여백 배경: CSS 그라디언트 + SVG 잡음(data URI). 리치 테마는 낮은 주파수 얼룩을 약하게 더함.
+- 검증: `check.js` 21항목 SAME, `test.js` 통과. 브라우저: 1280×720·1440×900·1920×1080·2560×1440 × 세 시나리오(기본), 리치 테마, 공격 확인 겹침 계산, 로그 150줄, 핫시트 가림막, 창 크기 변경. 900 미만(360·390·740×360·880×1000) 요소 위치 측정값과 정지 화면 픽셀이 작업 전과 같음.
 
 ## 주요 변경 위치
-- `js/scenarios/tutorial.js`(새): `tutorial`(tutorialSteps 포함)·`tutorialPractice`, 둘 다 `hidden`.
-- `js/tutorial.js`(새, engine·ai-intel 다음): `tutorialState`, `tutorialAllows`, `tutorialRecord`, `tutorialProgress`, `tutorialHighlight`, `tutorialEndTurn`, `tutorialParams`.
-- `js/ui.js`: `ruleSectionHtml`·`showRules(back, kind)`·`openRulesInGame`, 튜토리얼 화면(`startTutorial`, `loadTutStep`, `renderCoach`, `renderTutMarks`, `tutOk`/`tutBlocked`/`tutRecord`, `startPractice`, `tutCleanup`, `showTutAsk`). 입력 관문은 onCellClick·확인 창·턴 종료·행동 종료.
-- `js/engine.js`: `listScenarios`가 hidden 제외, `loadScenario`에서 `intelClearCaches()`(지도 크기가 다른 시나리오로 바꿀 때 AI 캐시 섞임 방지, 값은 같음). `tools/check.js`는 hidden 제외.
+- `js/ui.js`: `DESIGN.layout.pc`(패널 폭·최소 칸·여백), `fitLayout`(pc 판정과 칸 계산, `--pc-h`), `placePcDom`(상태 칩은 지도 위 줄로, HUD·로그·카드 버튼은 패널로 옮기고 되돌림), `overlayOnMap`, `fitHud`(pc 는 숨김 없음), 테마 적용 시 `#app.rich-on`.
+- `css/style.css` 끝의 `PC 배치` 블록. `index.html`: `#btn-rules-side`(PC 에서만 보임).
+- 규칙 화면은 배치 화면(deploy)에서도 열림(가림막 중에는 여전히 안 열림).
+- 확인 도구: `tools/shot.js`(헤드리스 Edge 스크린샷), `tools/layout-check.js`(900px 미만 배치 비교, 기준값 `tools/layout-baseline.json`).
 
 ## 확정된 결정
-- 튜토리얼 '안개 끔'은 만들지 않음(규칙 분기 금지). 대신 단계 배치로 보일 것만 보이게 함.
-- 시드: 2단계 빗나감(2), 6단계 명중(6), 8단계 아군 파편 + 적 포병 빗나감(9). 단계 목표는 행동 기준.
-- 원래 시나리오·모드는 기억했다가 종료할 때 되돌림(저장된 시나리오 선택은 바꾸지 않음).
+- 칸이 40px 밑이 되는 PC 창(높이 약 700px 미만 등)은 휴대폰 가로 배치. 리치 테마는 PC 배치에서만.
+- PC 게임 화면은 칸 상한 없음(시작 화면은 기존 상한 56px).
 
 ## 알려진 문제
-- 360×640에서 코치 창·카드·조작 줄 때문에 8×8 지도 칸이 약 18px로 작음(가리지는 않음).
-- 엔진 `resolveAttack`의 '불가능한 공격' 오류 메시지가 변수 이름 겹침으로 다른 오류(TDZ)로 나옴(오류 경로만, 결과 영향 없음). 튜토리얼은 미리 검사해서 부르지 않음.
+- 1280×720 처럼 낮은 창에서는 유닛 카드가 안에서 스크롤됨(스탯 줄이 아래로 밀림).
+- 헤드리스 Edge 에서 리치 테마 2560×1440 전체 캡처가 멈춤(화면은 60fps 정상, 부분·축소 캡처는 됨).
+- 고해상도(dpr 2) 큰 화면에서 지형 그림(768px)·활주로 그림(314×627)은 확대되어 조금 흐릴 수 있음.
 
 ## 다음에 볼 곳
-- 문구: `STRINGS` `tut.*`, `rules.*`. 단계 배치·시드: `js/scenarios/tutorial.js`.
+- 배치 수치: `DESIGN.layout.pc`. 패널 순서·모양: `css/style.css` 의 PC 블록.
