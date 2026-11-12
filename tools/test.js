@@ -554,10 +554,10 @@ test('대칭 검사: 기본 데이터는 통과, 지형·거점·배치·증원�
   for (const id of ['chuncheon', 'hostomel']) assert.ok(!E.SCENARIOS.find((x) => x.id === id).symmetric);
 });
 
-test('대칭 시나리오: 선공 firstMover, 고정 배치(배치 구역 없음), 양쪽 병종 수 같음·회전 배치, 기존 시나리오 배치 구역은 그대로', () => {
+test('대칭 시나리오: 선공 firstMover, 직접 배치 구역(양쪽 끝 4행), 양쪽 병종 수 같음·회전 배치, 기존 시나리오 배치 구역은 그대로', () => {
   E.loadScenario('symmetric');
   assert.deepEqual([...C().ROUND_ORDER], ['ru', 'ua']);
-  assert.deepEqual({ ...C().DEPLOY_ZONES }, {});
+  assert.deepEqual(JSON.parse(JSON.stringify(C().DEPLOY_ZONES)), { ru: { rows: [0, 3] }, ua: { rows: [12, 15] } });
   const st = E.createInitialState();
   for (const type of Object.keys(C().UNIT_TYPES)) {
     const n = (side) => st.units.filter((u) => u.side === side && u.type === type).length + st.pending.filter((p) => p.side === side && p.type === type).length;

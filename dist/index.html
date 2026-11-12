@@ -2312,7 +2312,7 @@ SCENARIOS.push({
     { round: 8, side: 'ru', type: 'armor', pos: [0, 3] }, { round: 8, side: 'ru', type: 'infantry', pos: [0, 6] },
     { round: 8, side: 'ua', type: 'armor', pos: [15, 12] }, { round: 8, side: 'ua', type: 'infantry', pos: [15, 9] },
   ],
-  placementZones: { ua: null, ru: null },   // 고정 배치 (직접 배치 단계 없음)
+  placementZones: { ua: { rows: [12, 15] }, ru: { rows: [0, 3] } },   // 직접 배치: 자기 쪽 끝 4행 (회전 대칭)
   zoneLabelKey: null,
   river: null,
   aiConstants: {},
