@@ -199,7 +199,9 @@
   const boardEl = $('#board');
   const boardWrapEl = $('#board-wrap'), bannerEl = $('#banner'), diceEl = $('#dice');   // 가림막 동안 문서에서 떼어 내므로 참조를 보관
   const cells = [];   // { el, dyn }
-  let hlUnder, hlOver, hlHover, fxLayer;
+  let hlUnder, hlOver, hlHover, fxLayer, fxCv;
+  let fxSeed = (Date.now() & 0xffff) + 1;   // 연출 전용 난수 씨앗 (게임 난수와 무관)
+  const fxEnv = () => ({ n: N, cellPx: (ui.cellSize || cellPx()) * (ui.zoom ? ui.zoom.z : 1), rich: rich.on, cap: ui.wide ? FX.cap.pc : FX.cap.phone, mul: speedMul() });
   const P = (p) => `(${p.r},${p.c})`;
   const speedMul = () => DESIGN.fx.speed[ui.speed] || 1;
   const wait = (ms) => new Promise((res) => setTimeout(res, ms * speedMul()));
@@ -724,6 +726,7 @@
     hlOver = boardEl.querySelector('.hl-over');
     hlHover = boardEl.querySelector('.hl-hover');
     fxLayer = boardEl.querySelector('.fx-layer');
+    fxCv = createFxCanvas(fxLayer, fxEnv);   // 전투 효과 입자 (js/fx.js). 지도 좌표를 따르므로 확대/이동이 그대로 적용
   }
   boardEl.addEventListener('pointermove', (e) => {
     if (e.pointerType === 'touch') return;
@@ -887,7 +890,7 @@
     // 쿨다운: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 사격 대기는 표시하지 않음)
     const cool = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer ? cooldownTurnsLeft(ui.view, u) : 0;
     if (cool) label += ', ' + t('aria.cooldown', { n: cool });
-    const coolHtml = cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>` : '';
+    const coolHtml = cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '';
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
       const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0 });
       return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
@@ -1676,6 +1679,8 @@
   function clearFx() {
     resetAngles();
     if (fxLayer) fxLayer.innerHTML = '';
+    if (fxCv) { fxCv.clear(); fxLayer.appendChild(fxCv.canvas); }
+    stopShake();
     ui.anim = { hideUnits: new Set(), hideFlag: null };
     const b = bannerEl;
     b.style.opacity = '0';
@@ -1757,6 +1762,37 @@
     render();
   }
 
+  /** 화면 흔들림: 지도 영역(#board-frame)만 CSS translate 로 움직임 (확대 transform 과 별개 속성). 연출 줄이기면 없음.
+   *  연출 중에는 입력이 잠겨 있어(ui.busy) 칸이 어긋나 눌리지 않음 */
+  let shakeTok = 0;
+  const shakeRng = fxRng(Date.now() >>> 0);
+  function stopShake() { shakeTok++; if (typeof frameEl !== 'undefined' && frameEl) frameEl.style.translate = ''; }
+  function mapShake(amp, ms) {
+    if (ui.reduceMotion) return;
+    const my = ++shakeTok;
+    const ph = shakeRng() * Math.PI * 2;
+    tween(ms * speedMul(), (p) => {
+      if (my !== shakeTok) return;
+      const a = amp * (1 - p) * (1 - p);   // 점차 감쇠
+      const x = a * Math.sin(ph + p * 38), y = a * Math.cos(ph * 1.7 + p * 31);
+      frameEl.style.translate = p >= 1 ? '' : `${x.toFixed(2)}px ${y.toFixed(2)}px`;
+    });
+  }
+  /** 피격: 0.2초 흰색·붉은색 번쩍임 + 사격 방향으로 아주 약하게 밀림 (push: 칸 배수, null 이면 밀지 않음) */
+  async function unitHitFx(pos, push) {
+    const els = [...cells[idx(pos.r, pos.c)].dyn.querySelectorAll('.unit, .unit-top')];
+    if (!els.length) return;
+    const cs = cellPx(), C = FX.color;
+    await tween(FX.unitFlashMs * speedMul(), (p) => {
+      const f = Math.sin(Math.PI * p);
+      const tf = push ? `translate(${(push.x * cs * f).toFixed(2)}px, ${(push.y * cs * f).toFixed(2)}px)` : '';
+      for (const el of els) {
+        el.style.transform = tf;
+        el.style.filter = p >= 1 ? '' : `brightness(${(1 + 1.4 * f).toFixed(2)}) drop-shadow(0 0 ${(4 * f).toFixed(1)}px ${p < 0.5 ? C.hitWhite : C.hitRed})`;
+      }
+    });
+    for (const el of els) { el.style.transform = ''; el.style.filter = ''; }
+  }
   /** 피격: 좌우 감쇠 흔들림 (연출 줄이기: 붉은 링 정지 표시) */
   async function shakeFx(pos) {
     const token = ui.gameId, mul = speedMul(), F = DESIGN.fx;
@@ -1971,35 +2007,38 @@
     const mine = ev.side === me;
     const tVis = vis.has(idx(ev.target.r, ev.target.c));
     const fVis = vis.has(idx(ev.from.r, ev.from.c));
-    const faced = rich.on && !ui.reduceMotion && tVis && fVis ? ev.attackerId : null;   // 방향 전환: 예광선과 같은 조건 (보이는 공격만)
-    if (rich.on && !ui.reduceMotion && tVis && fVis) {   // 리치: 공격자 → 대상 짧은 예광선 (양 끝이 모두 보일 때만)
-      const X = DESIGN.rich.tracer, x1 = cellX(ev.from) + 20, y1 = cellY(ev.from) + 20, x2 = cellX(ev.target) + 20, y2 = cellY(ev.target) + 20;
-      const svg = fxSvg(`<line x1="${x1}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="${X.line}" stroke-width="${X.w}" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`);
-      const ln = svg.firstChild;
-      turnUnit(faced, faceAngle(ev.side, ev.unitType, ev.from, ev.target), DESIGN.rich.face.turnMs);   // 예광선과 동시에 (기다리지 않음)
-      await tween(X.ms * speedMul(), (p) => {
-        const a = Math.max(0, p * 1.6 - 0.6), b = Math.min(1, p * 1.6);
-        ln.setAttribute('x1', String(x1 + (x2 - x1) * a)); ln.setAttribute('y1', String(y1 + (y2 - y1) * a));
-        ln.setAttribute('x2', String(x1 + (x2 - x1) * b)); ln.setAttribute('y2', String(y1 + (y2 - y1) * b));
-      }, token);
-      svg.remove();
-      if (token !== ui.gameId) return;
-    }
+    const faced = rich.on && !ui.reduceMotion && tVis && fVis ? ev.attackerId : null;   // 방향 전환: 양 끝이 모두 보이는 공격만
+    const turning = faced ? turnUnit(faced, faceAngle(ev.side, ev.unitType, ev.from, ev.target), DESIGN.rich.face.turnMs) : null;   // 주사위와 동시에
     if (mine || tVis || fVis) {
       const who = mine ? REL(true, ev.unitType) : (fVis ? REL(false, ev.unitType) : { t: 'dice.enemyFire' });
       await showDice(ev, t('dice.title', { who, pos: P(ev.target) }), mine && ev.fogged, hotseat() && mine && ev.fogged);
       if (token !== ui.gameId) return;
     }
-    if (!ev.hit) { if (tVis) await missFx(ev.target); }
-    else if (ev.indirect && tVis) await impactFx(ev.target, vis, GAME_CONFIG.UNIT_TYPES[ev.unitType].splash === false);
-    else if (mine && !tVis && !hotseat()) pushLog(me, M('log.hitUnknown', null, me));
+    if (turning) await turning;   // 방향을 다 돌린 뒤 발사
     if (token !== ui.gameId) return;
+    // 발사 → 탄도/비행 → 착탄 (js/fx.js 가 시야 규칙으로 목록을 만들고 캔버스가 그림. 끝나는 여운은 기다리지 않음)
     const dmg = events.filter((e) => (e.type === 'damage' || e.type === 'splashDamage') && vis.has(idx(e.pos.r, e.pos.c)));
-    await Promise.all(dmg.map((e) => shakeFx(e.pos)));
+    const dead = events.filter((e) => e.type === 'destroyed' && vis.has(idx(e.pos.r, e.pos.c)));
+    const plan = planAttackFx(ev, {
+      me, vis, N, rm: ui.reduceMotion, seed: fxSeed++,
+      dmg: dmg.map((e) => ({ pos: e.pos, splash: e.type === 'splashDamage' })), dead: dead.map((e) => ({ pos: e.pos })),
+      splash: !!ev.indirect && GAME_CONFIG.UNIT_TYPES[ev.unitType].splash !== false,
+    });
+    fxCv.fit();
+    fxCv.play(plan.items);
+    for (const s of plan.shakes) setTimeout(() => { if (token === ui.gameId) mapShake(s.amp, s.ms); }, s.at * speedMul());
+    await wait(plan.hitAt);
+    if (token !== ui.gameId) return;
+    if (ui.reduceMotion) {   // 연출 줄이기: 기존 정지 표시도 함께 (빗나감 ×, 포격 칸 색칠)
+      if (!ev.hit) { if (tVis) await missFx(ev.target); }
+      else if (ev.indirect && tVis) await impactFx(ev.target, vis, GAME_CONFIG.UNIT_TYPES[ev.unitType].splash === false);
+    }
+    if (ev.hit && mine && !tVis && !hotseat()) pushLog(me, M('log.hitUnknown', null, me));
+    if (token !== ui.gameId) return;
+    await Promise.all(plan.units.map((u) => wait(u.at - plan.hitAt).then(() => (ui.reduceMotion ? shakeFx(u.pos) : unitHitFx(u.pos, u.push)))));
     if (faced) turnUnit(faced, 0, DESIGN.rich.face.backMs);   // 공격 연출이 끝나면 원래 방향으로 (기다리지 않음)
     if (token !== ui.gameId) return;
-    ui.view = post; render();
-    const dead = events.filter((e) => e.type === 'destroyed' && vis.has(idx(e.pos.r, e.pos.c)));
+    ui.view = post; render();   // 체력 숫자는 번쩍임 직후에 바뀜
     await Promise.all([...dmg.map((e) => damageNumberFx(e.pos, e.amount, e.side === ev.side)), ...dead.map(destroyFx)]);
   }
 

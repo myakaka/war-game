@@ -1,5 +1,5 @@
 // 헤드리스 Edge 화면 확인: node tools/shot.js <steps.json> [출력 폴더]  (Edge 경로는 EDGE 환경 변수로 바꿀 수 있음)
-// 정적 서버(ui.js 끝에 window.__T 훅만 주입) + Edge CDP. 단계: {w,h,mobile} 뷰포트, js 실행, png 저장
+// 정적 서버(ui.js 끝에 window.__T 훅만 주입) + Edge CDP. 단계: {w,h,mobile} 뷰포트, {cpu} CPU 느리게, js 실행, png 저장
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +16,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(ROOT, p);
   if (!fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
   let body = fs.readFileSync(f);
-  if (p === '/js/ui.js') body = Buffer.from(body.toString('utf8').replace(/\}\)\(\);\s*$/, '  window.__T = { ui, render, showResult, newGame, renderHeader };\n})();\n'));
+  if (p === '/js/ui.js') body = Buffer.from(body.toString('utf8').replace(/\}\)\(\);\s*$/, '  window.__T = { ui, render, showResult, newGame, renderHeader, playAttack, setReduceMotion };\n})();\n'));
   // ?nostore: localStorage 접근이 오류를 내는 환경 (사생활 보호 모드 가정)
   if (p === '/index.html' && req.url.includes('nostore')) body = Buffer.from(body.toString('utf8').replace('<head>', "<head><script>Object.defineProperty(window, 'localStorage', { get() { throw new Error('blocked'); } });</script>"));
   res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream' });
@@ -49,6 +49,7 @@ server.listen(0, async () => {
       await send('Emulation.setDeviceMetricsOverride', { width: s.w, height: s.h, deviceScaleFactor: 1, mobile: !!s.mobile });
       if (s.mobile) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     }
+    if (s.cpu) await send('Emulation.setCPUThrottlingRate', { rate: s.cpu });   // CPU 느리게 (예: 4)
     if (s.nav) { await send('Page.navigate', { url: `http://127.0.0.1:${port}/${s.nav}` }); await new Promise((r) => setTimeout(r, 1500)); }
     if (s.js) { const v = await ev(s.js); if (v !== undefined) console.log(`[${s.name || 'js'}]`, typeof v === 'string' ? v : JSON.stringify(v)); }
     if (s.sleep) await new Promise((r) => setTimeout(r, s.sleep));

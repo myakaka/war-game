@@ -1153,3 +1153,84 @@ test('확대: 두 칸이 모두 보이게 조정 (들어가면 배율 유지, �
   assert.ok(far.z < 2.5 && far.z >= 1);
   assert.ok(inView(far, box(0, 0)) && inView(far, box(15, 15)));
 });
+
+/* ---------------- 전투 효과 (js/fx.js, 화면 연출 목록. 규칙·난수와 무관) ---------------- */
+const fxEv = (o) => ({ type: 'diceRoll', side: 'a', unitType: 'infantry', from: { r: 10, c: 5 }, target: { r: 6, c: 5 }, hit: true, indirect: false, ...o });
+const fxAll = (N) => new Set(Array.from({ length: N * N }, (_, i) => i));
+const fxVis = (N, cells) => new Set(cells.map(([r, c]) => r * N + c));
+const kinds = (plan) => plan.items.map((i) => i.kind);
+const fxBase = (o) => ({ me: 'a', N: 16, vis: fxAll(16), dmg: [], dead: [], splash: false, rm: false, seed: 7, ...o });
+
+test('효과: 직접 사격 명중은 대상 위 불꽃·반짝임, 빗나감은 대상 둘레 먼지만 (반짝임 없음)', () => {
+  const hit = E.planAttackFx(fxEv({}), fxBase({ dmg: [{ pos: { r: 6, c: 5 } }] }));
+  assert.equal(kinds(hit).filter((k) => k === 'tracer').length, 3);
+  assert.ok(kinds(hit).includes('sparks'));
+  assert.equal(hit.units.length, 1);
+  const miss = E.planAttackFx(fxEv({ hit: false }), fxBase({}));
+  assert.ok(kinds(miss).includes('dust'));
+  assert.ok(!kinds(miss).includes('sparks') && miss.units.length === 0);
+  for (const d of miss.items.filter((i) => i.kind === 'dust')) assert.ok(Math.hypot(d.x - 5.5, d.y - 6.5) >= 0.35, '먼지는 유닛 위가 아니라 둘레');
+  const armor = E.planAttackFx(fxEv({ unitType: 'armor' }), fxBase({ dmg: [{ pos: { r: 6, c: 5 } }], dead: [{ pos: { r: 6, c: 5 } }] }));
+  assert.ok(kinds(armor).includes('blast') && kinds(armor).includes('debris'));
+  assert.ok(armor.items.filter((i) => i.kind === 'smoke').length >= 3, '포구 연기 + 폭발 연기 + 격파 연기');
+  assert.ok(armor.end <= E.FX.maxAttackMs + 1200 && armor.hitAt <= 400);
+});
+
+test('효과: 박격포는 한 칸, 포병은 중심 뒤 주변 4칸이 0.1초 간격 (아군 피해 포함), 흔들림 박격포 < 포병', () => {
+  const mo = E.planAttackFx(fxEv({ unitType: 'mortar', indirect: true }), fxBase({ dmg: [{ pos: { r: 6, c: 5 } }] }));
+  assert.ok(kinds(mo).includes('shell') && kinds(mo).filter((k) => k === 'blast').length === 1);
+  const dmg = [{ pos: { r: 6, c: 5 } }, { pos: { r: 5, c: 5 }, splash: true }, { pos: { r: 6, c: 4 }, splash: true }];
+  const ar = E.planAttackFx(fxEv({ unitType: 'artillery', indirect: true }), fxBase({ splash: true, dmg }));
+  const blasts = ar.items.filter((i) => i.kind === 'blast').sort((a, b) => a.at - b.at);
+  assert.equal(blasts.length, 5);
+  for (let k = 1; k < 5; k++) assert.equal(blasts[k].at - blasts[k - 1].at, E.FX.splashGap);
+  assert.equal(ar.units.length, 3, '아군·적 구분 없이 보이는 피해 유닛 모두');
+  assert.ok(ar.units.find((u) => u.pos.r === 5).at > ar.hitAt);
+  const amp = (p, kind) => p.shakes.find((s) => s.kind === kind).amp;
+  assert.ok(amp(mo, 'mortarFire') < amp(ar, 'artyFire') && amp(mo, 'mortarLand') < amp(ar, 'artyLand'));
+  assert.ok(ar.end - 0 <= E.FX.maxAttackMs + 1200);
+  const last = Math.max(...ar.items.filter((i) => i.kind === 'blast').map((i) => i.at + i.ms));
+  assert.ok(last <= E.FX.maxAttackMs, '착탄 연출은 1.5초 안');
+});
+
+test('효과 안개: 시야 밖 발사는 착탄만, 보이지 않는 곳끼리는 없음, 흔들림 크기는 거리와 무관', () => {
+  const N = 16;
+  // 적(b) 포병이 시야 밖 (1,5) 에서 시야 안 (12,5) 로
+  const vis = fxVis(N, [[12, 5], [11, 5], [13, 5], [12, 4], [12, 6]]);
+  const ev = fxEv({ side: 'b', unitType: 'artillery', indirect: true, from: { r: 1, c: 5 }, target: { r: 12, c: 5 } });
+  const p = E.planAttackFx(ev, fxBase({ vis, splash: true, dmg: [{ pos: { r: 12, c: 5 } }] }));
+  const atSrc = (i) => Math.hypot((i.x ?? i.x1) - 5.5, (i.y ?? i.y1) - 1.5) < 1;
+  assert.ok(!p.items.some(atSrc), '발사 칸 근처에 아무것도 그리지 않음');
+  assert.ok(!kinds(p).includes('shell') && !kinds(p).includes('ring'), '비행·발사 고리 없음');
+  assert.ok(!p.shakes.some((s) => s.kind === 'artyFire'));
+  assert.ok(p.shakes.some((s) => s.kind === 'artyLand'));
+  assert.ok(p.units.every((u) => u.push === null), '밀림 방향으로 사격 방향을 드러내지 않음');
+  // 착탄 시각이 거리와 무관
+  const far = E.planAttackFx({ ...ev, from: { r: 0, c: 0 } }, fxBase({ vis, splash: true }));
+  assert.equal(far.hitAt, p.hitAt);
+  assert.deepEqual(far.shakes.map((s) => s.amp), p.shakes.map((s) => s.amp));
+  // 보이지 않는 곳끼리
+  const none = E.planAttackFx(fxEv({ side: 'b', unitType: 'mortar', indirect: true, from: { r: 1, c: 1 }, target: { r: 3, c: 3 } }), fxBase({ vis }));
+  assert.equal(none.items.length, 0);
+  assert.equal(none.shakes.length, 0);
+  // 보이는 적이 시야 밖 칸을 쏨: 발사만, 비행·착탄 없음
+  const out = E.planAttackFx(fxEv({ side: 'b', unitType: 'armor', from: { r: 12, c: 5 }, target: { r: 2, c: 2 } }), fxBase({ vis }));
+  assert.ok(kinds(out).includes('flash') && !kinds(out).includes('tracer') && !kinds(out).includes('blast'));
+  // 내 사격이 안개 속에 떨어짐: 명중/빗나감이 같은 모양
+  const mv = fxVis(N, [[12, 5]]);
+  const mk = (hit) => E.planAttackFx(fxEv({ unitType: 'artillery', indirect: true, from: { r: 12, c: 5 }, target: { r: 6, c: 5 }, hit }), fxBase({ vis: mv, splash: true }));
+  const shape = (pl) => JSON.stringify(pl.items.map((i) => [i.kind, i.at, i.x && +i.x.toFixed(3), i.r]));
+  assert.equal(shape(mk(true)), shape(mk(false)));
+});
+
+test('효과 난수: 연출 목록은 Math.random 을 쓰지 않고, 만든 뒤에도 시드 고정 시뮬레이션 결과가 같음', () => {
+  E.loadScenario('symmetric');
+  const before = JSON.stringify(E.simulateGames(2));
+  run('globalThis.__fxR = Math.random; Math.random = () => { throw new Error("fx used Math.random"); }');
+  try {
+    for (let s = 1; s < 40; s++) E.planAttackFx(fxEv({ unitType: s % 2 ? 'artillery' : 'infantry', indirect: s % 2 === 1, hit: s % 3 > 0 }), fxBase({ seed: s, splash: s % 2 === 1, dmg: [{ pos: { r: 6, c: 5 } }] }));
+  } finally { run('Math.random = globalThis.__fxR'); }
+  assert.equal(JSON.stringify(E.simulateGames(2)), before);
+  const a = E.fxRng(5), b = E.fxRng(5);
+  for (let i = 0; i < 5; i++) assert.equal(a(), b());
+});

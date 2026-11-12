@@ -756,3 +756,13 @@ body.pc #overlay.at-map .modal { width: 320px; padding: 14px 16px; }
 #app.pc.log-folded #drawer { flex: 0 0 auto; min-height: 0; }
 #app.pc.log-folded #log { display: none; }
 #app.pc.log-folded .controls { margin-top: 0; }   /* 로그를 접으면 아래 버튼 묶음도 바로 위로 */
+
+/* 전투 효과 캔버스 (js/fx.js): 유닛 위, 피해 숫자(SVG)·UI 아래 */
+.fx-layer > canvas.fx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* 내 포병 쿨다운: 포신 위로 가는 연기 한 줄기 (상대 유닛에는 만들지 않음) */
+.cool-smoke { position: absolute; left: 50%; top: 18%; width: 0; height: 0; z-index: 8; pointer-events: none; }
+.cool-smoke > i { position: absolute; left: -3px; top: 0; width: 6px; height: 6px; border-radius: 50%; background: rgba(120,116,108,0.5); opacity: 0; animation: cool-smoke 2.4s linear infinite; }
+.cool-smoke > i:nth-child(2) { animation-delay: 0.8s; }
+.cool-smoke > i:nth-child(3) { animation-delay: 1.6s; }
+@keyframes cool-smoke { 0% { transform: translate(0, 0) scale(0.6); opacity: 0; } 20% { opacity: 0.5; } 100% { transform: translate(5px, -18px) scale(2); opacity: 0; } }
+body.reduce-motion .cool-smoke { display: none; }
