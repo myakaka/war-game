@@ -51,7 +51,7 @@ function trace() {
 
 function collect() {
   const out = { games: GAMES, rulesVersion: E.GAME_CONFIG.RULES_VERSION, results: {} };
-  for (const s of E.SCENARIOS) {
+  for (const s of E.SCENARIOS.filter((x) => !x.hidden)) {   // 튜토리얼 전용 시나리오(hidden)는 비교 대상 아님
     E.loadScenario(s.id);
     for (const c of combos()) {
       // role 키(att/def)로 넘김: simulateGames 가 진영 id 또는 역할로 프로필을 고름

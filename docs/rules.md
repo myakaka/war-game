@@ -85,6 +85,7 @@
 | `objectiveControl` | `'sticky'`(기본) 또는 `'presence'` |
 | `symmetric`, `aiProfile` | `true`면 회전 대칭 검사, `'symmetric'`이면 AI 중립 모드 |
 | `aiProfiles` | 시작 화면 난이도 목록(프로필 id 배열, 생략하면 전체). 화면 표시만 바꾸고 AI 판단에는 쓰지 않음 |
+| `hidden`, `tutorialSteps` | `hidden: true`면 시작 화면 목록·시드 비교(check.js)에서 빠짐. `tutorialSteps`는 튜토리얼 단계 데이터(`js/tutorial.js`가 읽음: setup, allowedActions, ordered, goal, highlight, seed, enemyScript) |
 | `deployments` | round 0 = 시작 배치(AI 추정 위치 겸용), round 1 이상 = 예약 투입(`pos` 또는 `count`+`cells`) |
 | `placementZones`, `zoneLabelKey` | 직접 배치 구역, 안내 문구 키 |
 | `victory` | 진영별 승리 조건 목록 (`enterHQ`, `annihilation`, `holdObjectives`, `surviveRounds`, `roundLimitScore`, `roundLimitPoints`) |
@@ -96,3 +97,8 @@
 | `art` | 그림 세트 (PC 리치 테마 전용 장식: 지형 키별 그림, `terrainOffset`, `unitSet`, `overlays` runway/patch). 규칙 로직은 읽지 않고, 없으면 그 시나리오는 기본 테마만 |
 
 불러올 때 `validateScenario`가 모든 시나리오를 검사하고, 오류가 있으면 콘솔에 출력한다.
+
+## 튜토리얼 (규칙 변화 없음)
+- 시나리오 `tutorial`(8×8, 아군 `ally`/적군 `enemy`, 행동 한도 3, 간접 화력은 대칭 전장과 같은 값)과 연습 판 `tutorialPractice`(8×8 회전 대칭, 양쪽 4기, 거점 1개 점수 1, 5라운드, 중립 AI 쉬움). 둘 다 `hidden`.
+- 8단계: 선택과 이동 → 공격과 명중률 → 지형 → 안개 → 행동 제한 → 거점과 점수 → 박격포 → 포병. 단계마다 시작 상태·허용 입력·목표(행동 기준, 빗나가도 완료)·주사위 시드가 데이터에 있다. 상대는 AI 대신 단계의 정해진 행동만 한다.
+- 판정·주사위·안개는 일반 게임과 같은 엔진 함수를 부르고, 코치 문구의 수치는 `tutorialParams()`가 규칙·시나리오 데이터에서 읽는다.

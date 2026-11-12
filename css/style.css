@@ -602,3 +602,62 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
 .atk-sheet .sh-foot #btn-atk-no { flex: 0 0 34%; min-width: var(--touch); }
 .atk-sheet .sh-foot #btn-atk-yes { flex: 1 1 auto; min-width: 0; }
 .move-fire-choice .btn-row button { min-height: 44px; }   /* 이동/사격 선택 창: 터치 대상 최소 44px */
+
+/* ===== 규칙 화면 (접고 펴는 항목, 좁은 화면은 전체 화면 시트) ===== */
+#overlay.rules { background: rgba(5, 7, 10, 0.6); }
+.rules-sheet { font-size: 14px; }
+.rules-head { position: sticky; top: -20px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--panel); padding: 4px 0 6px; }
+.rules-head h2 { margin: 0; }
+.rules-x { width: 44px; height: 44px; font-size: 22px; }
+.rules-sheet .hint { font-size: 14px; }
+.rules-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.rule-sec { border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); }
+.rule-sec > summary { min-height: 44px; display: flex; align-items: center; padding: 0 12px; font-weight: 700; cursor: pointer; list-style: none; }
+.rule-sec > summary::-webkit-details-marker { display: none; }
+.rule-sec > summary::after { content: '▸'; margin-left: auto; color: var(--muted); }
+.rule-sec[open] > summary::after { content: '▾'; }
+.rule-body { padding: 0 12px 10px; line-height: 1.55; }
+.rule-body ul { margin: 6px 0; padding-left: 18px; }
+.rules-victory { border-left: 3px solid var(--warn); padding-left: 8px; margin: 6px 0; }
+.rules-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0; }
+.rules-table th, .rules-table td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.rules-table th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.rules-table th.wrap { white-space: normal; word-break: keep-all; }
+.rules-table td:not(:first-child):not(:last-child), .rules-table.units td { white-space: nowrap; }
+.rules-table.units .ru-desc td { white-space: normal; color: var(--muted); padding-top: 0; }
+.rules-table .ru-name { display: flex; align-items: center; gap: 6px; }
+.rules-table .uc-sym { width: 26px; height: 26px; min-width: 26px; padding: 0; border: 0; background: var(--map-paper); border-radius: 4px; box-shadow: none; flex: 0 0 26px; }
+.rules-table .uc-sym svg { width: 26px; height: 26px; display: block; }
+@media (max-width: 700px) {
+  #overlay.rules { padding: 0; }
+  #overlay.rules .modal { max-width: none; width: 100%; height: 100%; max-height: none; border-radius: 0; border: 0; padding: 0 16px 16px; }
+  .rules-head { top: 0; padding-top: max(6px, env(safe-area-inset-top)); }
+  .rules-table th, .rules-table td { padding: 4px 3px; }
+}
+
+/* ===== 튜토리얼 코치 창 (좁은 화면: 조작 줄 바로 위, 화면 높이 30% 이내 / 넓은 화면: 오른쪽 패널) ===== */
+.coach { background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-height: 0; flex: 0 0 auto; }
+#app.narrow .coach { max-height: 30vh; max-height: 30dvh; }
+.coach-head { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
+.coach-dots { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+.cdot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--muted); }
+.cdot.done { background: var(--muted); }
+.cdot.cur { background: #ffd54f; border-color: #ffd54f; }
+.coach-n { color: var(--muted); font-size: 13px; flex: 0 0 auto; }
+.coach-title { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; min-width: 0; word-break: keep-all; }
+.coach-text { font-size: 14px; line-height: 1.45; overflow-y: auto; min-height: 0; flex: 1 1 auto; word-break: keep-all; }
+.coach-done { margin-top: 4px; color: #9fe0a6; }
+.coach-hint { font-size: 14px; color: var(--warn); }
+.coach-hint:empty { display: none; }
+.coach-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; flex: 0 0 auto; }
+#app.narrow .coach-btns { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr); }
+.coach-btns button { min-height: 44px; padding: 0 4px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: keep-all; }
+/* 눌러 볼 곳 표시: 살짝 맥박 치는 테두리 (정답 표시가 아님). 연출 줄이기면 고정 테두리 */
+.tut-layer { position: absolute; inset: 0; display: grid; pointer-events: none; z-index: 9; }
+.tut-pulse { border: 3px solid #ffd54f; border-radius: 4px; margin: 1px; animation: tutPulse 1.2s ease-in-out infinite; }
+#btn-end-turn.tut-pulse-btn { box-shadow: 0 0 0 3px #ffd54f; animation: tutPulse 1.2s ease-in-out infinite; }
+@keyframes tutPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+body.reduce-motion .tut-pulse, body.reduce-motion #btn-end-turn.tut-pulse-btn { animation: none; opacity: 1; }
+.hud-help { width: 32px; height: 32px; padding: 0; font-weight: 700; flex: 0 0 auto; }
+#app.narrow .hud-help { width: 44px; height: 44px; margin: -6px 0; }
+.tut-ask p { line-height: 1.5; }

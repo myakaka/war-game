@@ -609,6 +609,65 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
 .atk-sheet .sh-foot #btn-atk-no { flex: 0 0 34%; min-width: var(--touch); }
 .atk-sheet .sh-foot #btn-atk-yes { flex: 1 1 auto; min-width: 0; }
 .move-fire-choice .btn-row button { min-height: 44px; }   /* 이동/사격 선택 창: 터치 대상 최소 44px */
+
+/* ===== 규칙 화면 (접고 펴는 항목, 좁은 화면은 전체 화면 시트) ===== */
+#overlay.rules { background: rgba(5, 7, 10, 0.6); }
+.rules-sheet { font-size: 14px; }
+.rules-head { position: sticky; top: -20px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--panel); padding: 4px 0 6px; }
+.rules-head h2 { margin: 0; }
+.rules-x { width: 44px; height: 44px; font-size: 22px; }
+.rules-sheet .hint { font-size: 14px; }
+.rules-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 12px; }
+.rule-sec { border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); }
+.rule-sec > summary { min-height: 44px; display: flex; align-items: center; padding: 0 12px; font-weight: 700; cursor: pointer; list-style: none; }
+.rule-sec > summary::-webkit-details-marker { display: none; }
+.rule-sec > summary::after { content: '▸'; margin-left: auto; color: var(--muted); }
+.rule-sec[open] > summary::after { content: '▾'; }
+.rule-body { padding: 0 12px 10px; line-height: 1.55; }
+.rule-body ul { margin: 6px 0; padding-left: 18px; }
+.rules-victory { border-left: 3px solid var(--warn); padding-left: 8px; margin: 6px 0; }
+.rules-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0; }
+.rules-table th, .rules-table td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.rules-table th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.rules-table th.wrap { white-space: normal; word-break: keep-all; }
+.rules-table td:not(:first-child):not(:last-child), .rules-table.units td { white-space: nowrap; }
+.rules-table.units .ru-desc td { white-space: normal; color: var(--muted); padding-top: 0; }
+.rules-table .ru-name { display: flex; align-items: center; gap: 6px; }
+.rules-table .uc-sym { width: 26px; height: 26px; min-width: 26px; padding: 0; border: 0; background: var(--map-paper); border-radius: 4px; box-shadow: none; flex: 0 0 26px; }
+.rules-table .uc-sym svg { width: 26px; height: 26px; display: block; }
+@media (max-width: 700px) {
+  #overlay.rules { padding: 0; }
+  #overlay.rules .modal { max-width: none; width: 100%; height: 100%; max-height: none; border-radius: 0; border: 0; padding: 0 16px 16px; }
+  .rules-head { top: 0; padding-top: max(6px, env(safe-area-inset-top)); }
+  .rules-table th, .rules-table td { padding: 4px 3px; }
+}
+
+/* ===== 튜토리얼 코치 창 (좁은 화면: 조작 줄 바로 위, 화면 높이 30% 이내 / 넓은 화면: 오른쪽 패널) ===== */
+.coach { background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-height: 0; flex: 0 0 auto; }
+#app.narrow .coach { max-height: 30vh; max-height: 30dvh; }
+.coach-head { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
+.coach-dots { display: inline-flex; gap: 4px; flex: 0 0 auto; }
+.cdot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--muted); }
+.cdot.done { background: var(--muted); }
+.cdot.cur { background: #ffd54f; border-color: #ffd54f; }
+.coach-n { color: var(--muted); font-size: 13px; flex: 0 0 auto; }
+.coach-title { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; min-width: 0; word-break: keep-all; }
+.coach-text { font-size: 14px; line-height: 1.45; overflow-y: auto; min-height: 0; flex: 1 1 auto; word-break: keep-all; }
+.coach-done { margin-top: 4px; color: #9fe0a6; }
+.coach-hint { font-size: 14px; color: var(--warn); }
+.coach-hint:empty { display: none; }
+.coach-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; flex: 0 0 auto; }
+#app.narrow .coach-btns { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr); }
+.coach-btns button { min-height: 44px; padding: 0 4px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: keep-all; }
+/* 눌러 볼 곳 표시: 살짝 맥박 치는 테두리 (정답 표시가 아님). 연출 줄이기면 고정 테두리 */
+.tut-layer { position: absolute; inset: 0; display: grid; pointer-events: none; z-index: 9; }
+.tut-pulse { border: 3px solid #ffd54f; border-radius: 4px; margin: 1px; animation: tutPulse 1.2s ease-in-out infinite; }
+#btn-end-turn.tut-pulse-btn { box-shadow: 0 0 0 3px #ffd54f; animation: tutPulse 1.2s ease-in-out infinite; }
+@keyframes tutPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+body.reduce-motion .tut-pulse, body.reduce-motion #btn-end-turn.tut-pulse-btn { animation: none; opacity: 1; }
+.hud-help { width: 32px; height: 32px; padding: 0; font-weight: 700; flex: 0 0 auto; }
+#app.narrow .hud-help { width: 44px; height: 44px; margin: -6px 0; }
+.tut-ask p { line-height: 1.5; }
 </style>
 </head>
 <body data-screen="start">
@@ -619,6 +678,7 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
       <span class="chip" id="hud-round"></span>
       <span class="chip blue" id="hud-turn"></span>
       <span class="chip" id="hud-act" hidden></span>
+      <button class="hud-help" id="btn-help" hidden data-i18n-aria="aria.rules">?</button>
       <div class="seg lang-seg" id="lang-seg" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div>
     </div>
     <div class="hud-row" id="hud-r2">
@@ -661,6 +721,7 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
         </div>
       </section>
       <section id="tray" class="tray" hidden></section>
+      <section id="coach" class="coach" hidden aria-live="polite"></section>
 
       <div class="controls" id="controls">
         <button id="btn-end-turn" class="primary"><span class="tx" id="end-label"></span><span class="cnt" id="end-cnt"></span></button>
@@ -706,7 +767,7 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
           <div class="set-row"><span class="set-lbl tx" data-i18n="lang.label"></span>
             <div class="seg" id="seg-lang" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div></div>
           <div class="set-row" id="diff-wrap"><span class="set-lbl tx" data-i18n="lbl.aiDifficulty"></span><select id="difficulty-select"></select></div>
-          <div class="set-btns"><button id="btn-restart" data-i18n="btn.restart"></button><button id="btn-menu" data-i18n="btn.menu"></button></div>
+          <div class="set-btns"><button id="btn-restart" data-i18n="btn.restart"></button><button id="btn-rules-game" data-i18n="btn.rulesGame"></button><button id="btn-menu" data-i18n="btn.menu"></button></div>
         </div>
       </div>
     </aside>
@@ -1082,6 +1143,73 @@ const STRINGS = {
     'intro.pointsTarget': '한쪽 총점이 {n}점에 닿으면 바로 승리합니다.',
     'scenErr.objectivePoints': 'objectivePoints 는 모든 거점 id 에 0 이상의 정수 점수가 있어야 합니다 (scoreTiming·scoreTarget·roundLimitPoints 에 필요)',
     'scenErr.scoreTiming': '알 수 없는 점수 시점 {v}', 'scenErr.scoreTarget': '목표 점수는 1 이상의 정수여야 합니다: {v}',
+
+    // 튜토리얼·연습 판 (중립 이름)
+    'side.ally': '아군', 'side.enemy': '적군',
+    'scen.tutorial.name': '튜토리얼', 'scen.tutorial.desc': '규칙을 단계별로 직접 해 보는 작은 판', 'scen.tutorial.sub': '튜토리얼',
+    'scen.practice.name': '연습 판', 'scen.practice.desc': '작은 지도의 짧은 연습 판', 'scen.practice.sub': '연습 판',
+    'obj.T': '마을', 'obj.T.short': '마을', 'obj.P': '중앙 마을', 'obj.P.short': '중앙',
+    'tut.s1.title': '선택과 이동',
+    'tut.s1.text': '파란 사각형이 아군입니다. 깜빡이는 보병을 눌러 선택하면 갈 수 있는 칸이 표시됩니다. 그중 한 칸을 눌러 이동해 보세요.',
+    'tut.s1.done': '위쪽 행동 칩의 남은 수가 하나 줄었습니다 (한 턴 최대 {act}). 유닛이 그 턴에 처음 이동하거나 공격하면 행동 1회를 씁니다.',
+    'tut.s2.title': '공격과 명중률',
+    'tut.s2.text': '보병을 선택하고 붙어 있는 적(빨간 마름모)을 누르면 공격 확인 창이 열립니다. 명중률과 보정 칩을 보고 공격을 눌러 보세요.',
+    'tut.s2.done': '명중률은 {base}%에서 시작해 보정이 붙고, {dice}면체 주사위로 정합니다 (최소 {min}%, 최대 {max}%). 확률이라 빗나갈 수 있습니다.',
+    'tut.s3.title': '지형',
+    'tut.s3.text': '숲에 선 적과 평지에 선 적을 차례로 눌러 확인 창을 열어 보세요. 지형 보정이 다릅니다 (숲 {forest}%, 평지 {plain}%). 확인 창은 취소해도 됩니다.',
+    'tut.s3.done': '방어자가 선 칸의 지형이 명중률을 바꿉니다 (도심 {city}%). {marsh}에는 기갑이 들어갈 수 없습니다.',
+    'tut.s4.title': '안개',
+    'tut.s4.text': '사선 무늬 칸은 아군 시야 밖입니다. 보병을 깜빡이는 칸으로 옮겨 시야를 넓혀 보세요. 그다음 박격포로 안개 속 칸을 눌러 확인 창을 열어 보세요.',
+    'tut.s4.done': '시야가 넓어지면 보이지 않던 것이 보일 수 있습니다. 시야 밖 칸을 쏘면 명중률 −{fog}%가 붙습니다.',
+    'tut.s5.title': '행동 제한',
+    'tut.s5.text': '이번 턴에 남은 행동은 1회입니다. 깜빡이는 보병을 옮긴 뒤 다른 보병을 눌러 보세요. 그다음 턴 종료를 눌러 턴을 끝내 보세요 (한 번 더 누르면 종료).',
+    'tut.s5.done': '한 턴에 {act}기만 행동할 수 있습니다. 유닛마다 한 번의 행동을 어디에 쓸지 정하는 것이 이 게임의 기본 선택입니다.',
+    'tut.s6.title': '거점과 점수',
+    'tut.s6.text': '점선 테두리 4칸이 거점입니다. 보병을 거점 안으로 옮기면 적과 함께 있게 되어 다툼이 됩니다. 그다음 기갑으로 거점 안의 적을 공격해 보세요.',
+    'tut.s6.done': '한 칸이라도 있고 적이 없으면 점유, 양쪽이 있으면 아무도 점수를 못 받습니다. 대칭 전장은 거점마다 {symPts}점을 {symWhen} 받습니다.',
+    'tut.s7.title': '박격포',
+    'tut.s7.text': '박격포는 {mMin}~{mRange}칸 떨어진 한 칸을 쏩니다. 명중하면 피해 {mDmg}, 쿨다운 {mCd}턴이고 이동한 뒤에도 쏠 수 있습니다. 적을 한 번 쏴 보세요.',
+    'tut.s7.done': '안개 속 칸도 쏠 수 있지만, 아무도 보고 있지 않은 칸이면 명중률 −{fog}%가 붙습니다.',
+    'tut.s8.title': '포병',
+    'tut.s8.text': '포병은 {aMin}~{aRange}칸 거리의 칸을 포격하고, 명중하면 붙은 4칸에도 {splash}만큼 피해가 갑니다. 아군도 맞습니다. 적을 쏘고 턴을 끝낸 뒤 다음 턴에 포병을 다시 눌러 보세요.',
+    'tut.s8.done': '포병은 쏜 뒤 자기 턴 {aCd}번을 쉽니다 (이동은 가능). 상대 포병이 언제 쉬는지는 보이지 않습니다.',
+    'tut.ptItem': '{obj} {n}', 'tut.when.ownTurn': '자기 턴을 끝낼 때', 'tut.when.roundEnd': '라운드가 끝날 때',
+    'tut.hint': '지금은 {what}: 깜빡이는 곳을 눌러 보세요.', 'tut.hintDone': '이 단계는 끝났습니다. 다음으로 넘어가세요.',
+    'tut.what.select': '유닛 선택', 'tut.what.move': '이동', 'tut.what.attack': '공격', 'tut.what.preview': '공격 대상 확인',
+    'tut.what.endTurn': '턴 종료 버튼', 'tut.what.selectBlocked': '다른 유닛 선택', 'tut.what.selectCooldown': '포병 선택',
+    'tut.progress': '{n}/{max}', 'tut.doneChip': '완료', 'aria.tutProgress': '튜토리얼 {n}/{max} 단계',
+    'btn.tutPrev': '이전', 'btn.tutRetry': '다시 해 보기', 'btn.tutNext': '다음', 'btn.tutExit': '종료',
+    'btn.tutorial': '튜토리얼', 'btn.tutStart': '시작', 'btn.tutLater': '나중에',
+    'tut.ask.title': '튜토리얼을 해 볼까요?', 'tut.ask.body': '작은 판에서 8단계로 규칙을 직접 해 보며 배웁니다. 언제든 종료할 수 있습니다.',
+    'tut.practice.title': '연습 판', 'tut.practice.body': '작은 지도에서 양쪽 {n}기, 거점 1개, {max}라운드짜리 판을 쉬운 AI와 한 번 해 봅니다.',
+    'btn.practiceGo': '연습 판 시작', 'btn.toMain': '메인으로', 'btn.rulesView': '규칙 보기', 'btn.rulesGame': '규칙', 'aria.rules': '규칙 보기',
+    // 규칙 화면 (항목별, 수치는 데이터에서)
+    'rules.sec.goal': '게임의 목적과 한 라운드', 'rules.sec.move': '이동과 행동 제한', 'rules.sec.hit': '공격과 명중률', 'rules.sec.terrain': '지형',
+    'rules.sec.fog': '안개와 시야', 'rules.sec.units': '병종', 'rules.sec.obj': '거점과 점수', 'rules.sec.fires': '박격포와 포병', 'rules.sec.terms': '용어',
+    'rules.now': '지금 시나리오: {name}',
+    'rules.flow': '한 라운드에 양쪽이 한 번씩 턴을 가집니다. 내 턴에는 유닛을 골라 이동하거나 공격하고, 턴 종료를 누르면 상대 턴으로 넘어갑니다.',
+    'rules.actShown': '남은 행동은 화면 위의 행동 n/N으로 보입니다.',
+    'rules.dmg': '명중하면 피해 = 공격력 − 방어력 (최소 {min}). 상대가 기갑이면 기갑 공격력을 씁니다. 체력이 1 줄 때마다 공격력·방어력이 {pen}씩 줄어듭니다.',
+    'rules.th.terrain': '지형', 'rules.th.cost': '이동 비용', 'rules.th.hit': '명중 보정', 'rules.th.note': '비고',
+    'rules.ter.blocked': '{units} 못 들어감', 'rules.ter.endMove': '들어가면 이동 끝', 'rules.ter.partial': '이동력이 모자라도 들어감 (남은 이동력 모두 사용)',
+    'rules.fog1': '각 유닛은 시야 거리(병종 표) 안의 칸을 봅니다. 아군 누구도 보지 못하는 칸은 사선 무늬이고, 그 안의 적은 보이지 않습니다.',
+    'rules.fog2': '시야 밖 칸을 공격하면 명중률 −{fog}%. 한 번 본 적은 기억으로 표시되지만 지금도 그 자리에 있다는 보장은 없습니다.',
+    'rules.th.unit': '병종', 'rules.th.mv': '이동', 'rules.th.vis': '시야', 'rules.th.atk': '공격 (일반/기갑)', 'rules.th.def': '방어', 'rules.th.rng': '사거리',
+    'unitDesc.infantry': '기본 전투 병종. 거점을 차지하고 지킵니다.', 'unitDesc.armor': '빠르고 강하지만 들어가지 못하는 지형이 있습니다.',
+    'unitDesc.artillery': '멀리 포격합니다. 이동한 턴에는 쏘지 못하고, 명중하면 주변도 맞습니다.', 'unitDesc.recon': '시야가 넓고 빠르지만 약합니다.',
+    'unitDesc.signal': '공격하지 못하지만 주변 아군의 명중률을 올립니다.', 'unitDesc.antitank': '기갑을 상대로 강합니다.',
+    'unitDesc.mortar': '가까운 간접 사격. 한 칸에 고정 피해를 주고, 이동한 뒤에도 쏩니다.',
+    'rules.contest': '다툼: 양쪽 유닛이 같은 거점(여러 칸이면 어느 칸이든)에 있으면 아무도 점유하지 못합니다.',
+    'rules.sticky': '거점은 마지막으로 들어간 진영이 계속 가집니다 (비워 둬도 유지).',
+    'rules.splash': '포병이 명중하면 붙은 4칸에도 {splash}만큼 피해가 갑니다. 아군도 맞습니다.',
+    'rules.enemyCd': '상대 포병·박격포의 쿨다운은 보이지 않습니다.',
+    'rules.term.range': '사거리: 공격할 수 있는 거리 (가로 칸 수 + 세로 칸 수).',
+    'rules.term.cooldown': '쿨다운: 쏜 뒤 다시 쏠 수 없는 자기 턴 수.',
+    'rules.term.contest': '다툼: 양쪽 유닛이 같은 거점에 있어 아무도 점유하지 못한 상태.',
+    'rules.term.fog': '시야 밖: 아군 누구도 보지 못하는 칸 (사선 무늬).',
+    'rules.term.action': '행동: 유닛이 그 턴에 처음 이동하거나 공격하는 것. 한 턴의 행동 수는 정해져 있습니다.',
+    'rules.term.moveAttack': '이동 후 공격: 남은 이동력이 공격 비용 이상이면 이동한 뒤 공격할 수 있습니다 (명중률 보정).',
+    'rules.term.splash': '피해 범위: 포병이 명중한 칸과 붙은 4칸.',
     'result.r.drawAnnihilation': '양쪽이 모두 전멸했습니다',
     'result.titleDraw': '무승부', 'log.draw': '무승부 — {reason}',
     'log.objLost': '{obj}: 점유자 없음', 'log.objContested': '{obj}: 다툼 중 (점유자 없음)',
@@ -1441,6 +1569,72 @@ const STRINGS = {
     'intro.pointsTarget': 'A side that reaches {n} points wins at once.',
     'scenErr.objectivePoints': 'objectivePoints needs a whole-number score of 0 or more for every objective id (required by scoreTiming, scoreTarget and roundLimitPoints)',
     'scenErr.scoreTiming': 'Unknown scoring timing {v}', 'scenErr.scoreTarget': 'Target score must be a whole number of 1 or more: {v}',
+
+    // tutorial & practice (neutral names)
+    'side.ally': 'Friendly forces', 'side.enemy': 'Enemy forces',
+    'scen.tutorial.name': 'Tutorial', 'scen.tutorial.desc': 'A small board to try the rules step by step', 'scen.tutorial.sub': 'Tutorial',
+    'scen.practice.name': 'Practice', 'scen.practice.desc': 'A short practice game on a small map', 'scen.practice.sub': 'Practice',
+    'obj.T': 'Village', 'obj.T.short': 'Village', 'obj.P': 'Central village', 'obj.P.short': 'Center',
+    'tut.s1.title': 'Select and move',
+    'tut.s1.text': 'Blue squares are your units. Tap the blinking infantry to select it; the tiles it can reach light up. Tap one of them to move.',
+    'tut.s1.done': 'The actions counter {act}/{act} at the top went down by one. A unit uses one action the first time it moves or attacks in a turn.',
+    'tut.s2.title': 'Attack and hit chance',
+    'tut.s2.text': 'Select the infantry and tap the adjacent enemy (red diamond) to open the attack sheet. Look at the hit chance and its modifier chips, then press Attack.',
+    'tut.s2.done': 'Hit chance starts at {base}%, modifiers are added, and a d{dice} decides ({min}% to {max}%). It is a chance, so attacks can miss.',
+    'tut.s3.title': 'Terrain',
+    'tut.s3.text': 'Open the attack sheet on the enemy in the forest, then on the one in the open. The terrain modifier differs (forest {forest}%, plain {plain}%). You can cancel the sheet.',
+    'tut.s3.done': 'The defender\'s tile changes the hit chance (urban {city}%). Armor cannot enter {marsh}.',
+    'tut.s4.title': 'Fog of war',
+    'tut.s4.text': 'Hatched tiles are out of your sight. Move the infantry to the blinking tile to see farther. Then open the attack sheet on a fogged tile with the mortar.',
+    'tut.s4.done': 'Seeing farther can reveal what was hidden. Firing at a tile no one can see costs −{fog}% hit chance.',
+    'tut.s5.title': 'Activation limit',
+    'tut.s5.text': 'Only 1 action is left this turn. Move the blinking infantry, then tap the other infantry. Then end the turn (press End turn again to confirm).',
+    'tut.s5.done': 'Only {act} units can act per turn. Deciding where each unit\'s single action goes is the core choice of this game.',
+    'tut.s6.title': 'Objectives and score',
+    'tut.s6.text': 'The four dashed tiles are an objective. Move the infantry into it: with an enemy also inside, it becomes contested. Then attack the enemy inside with the armor.',
+    'tut.s6.done': 'A side holds it with any unit inside and no enemy; contested objectives score for nobody. In the symmetric field the objectives give {symPts} points {symWhen}.',
+    'tut.s7.title': 'Mortar',
+    'tut.s7.text': 'Mortars hit one tile {mMin}–{mRange} tiles away for {mDmg} damage, cooldown {mCd}, and can fire after moving. Fire once at the enemy.',
+    'tut.s7.done': 'You can fire into fog too, but a tile no friendly unit can see costs −{fog}% hit chance.',
+    'tut.s8.title': 'Artillery',
+    'tut.s8.text': 'Artillery shells a tile {aMin}–{aRange} tiles away; a hit also deals {splash} damage to the 4 adjacent tiles, friendlies included. Fire at the enemy, end the turn, then tap the artillery again next turn.',
+    'tut.s8.done': 'After firing, artillery rests for {aCd} of its own turns (it can still move). You cannot see when enemy artillery is resting.',
+    'tut.ptItem': '{obj} {n}', 'tut.when.ownTurn': 'when each side ends its own turn', 'tut.when.roundEnd': 'at the end of each round',
+    'tut.hint': 'Now: {what}. Tap the blinking spot.', 'tut.hintDone': 'This step is done. Go to Next.',
+    'tut.what.select': 'select the unit', 'tut.what.move': 'move', 'tut.what.attack': 'attack', 'tut.what.preview': 'check the target',
+    'tut.what.endTurn': 'the End turn button', 'tut.what.selectBlocked': 'select the other unit', 'tut.what.selectCooldown': 'select the artillery',
+    'tut.progress': '{n}/{max}', 'tut.doneChip': 'Done', 'aria.tutProgress': 'Tutorial step {n} of {max}',
+    'btn.tutPrev': 'Back', 'btn.tutRetry': 'Try again', 'btn.tutNext': 'Next', 'btn.tutExit': 'Exit',
+    'btn.tutorial': 'Tutorial', 'btn.tutStart': 'Start', 'btn.tutLater': 'Later',
+    'tut.ask.title': 'Try the tutorial?', 'tut.ask.body': 'Learn the rules hands-on in 8 short steps on a small board. You can exit any time.',
+    'tut.practice.title': 'Practice game', 'tut.practice.body': 'Play one short game against an easy AI: a small map, {n} units a side, one objective, {max} rounds.',
+    'btn.practiceGo': 'Start practice', 'btn.toMain': 'Main menu', 'btn.rulesView': 'Rules', 'btn.rulesGame': 'Rules', 'aria.rules': 'View rules',
+    'rules.sec.goal': 'Goal and the round', 'rules.sec.move': 'Movement and activation limit', 'rules.sec.hit': 'Attacks and hit chance', 'rules.sec.terrain': 'Terrain',
+    'rules.sec.fog': 'Fog and sight', 'rules.sec.units': 'Unit types', 'rules.sec.obj': 'Objectives and score', 'rules.sec.fires': 'Mortars and artillery', 'rules.sec.terms': 'Terms',
+    'rules.now': 'Current scenario: {name}',
+    'rules.flow': 'In each round both sides take one turn. On your turn, pick units to move or attack, then press End turn to pass to the opponent.',
+    'rules.actShown': 'Remaining actions are shown at the top as Actions n/N.',
+    'rules.dmg': 'A hit deals Attack − Defense damage (at least {min}); against armor the armor attack value is used. Each lost HP lowers attack and defense by {pen}.',
+    'rules.th.terrain': 'Terrain', 'rules.th.cost': 'Move cost', 'rules.th.hit': 'Hit mod', 'rules.th.note': 'Notes',
+    'rules.ter.blocked': 'No {units}', 'rules.ter.endMove': 'Entering ends movement', 'rules.ter.partial': 'Can enter with too little movement (uses the rest)',
+    'rules.fog1': 'Each unit sees tiles within its sight range (unit table). Tiles no friendly unit can see are hatched, and enemies there are hidden.',
+    'rules.fog2': 'Attacking an unseen tile costs −{fog}% hit chance. Enemies you saw are remembered, but they may have moved.',
+    'rules.th.unit': 'Unit', 'rules.th.mv': 'Move', 'rules.th.vis': 'Sight', 'rules.th.atk': 'Attack (soft/armor)', 'rules.th.def': 'Defense', 'rules.th.rng': 'Range',
+    'unitDesc.infantry': 'Core fighting unit; takes and holds objectives.', 'unitDesc.armor': 'Fast and strong, but some terrain is off-limits.',
+    'unitDesc.artillery': 'Long-range shelling; cannot fire on turns it moved, and hits splash nearby tiles.', 'unitDesc.recon': 'Wide sight and fast, but weak.',
+    'unitDesc.signal': 'Cannot attack, but raises nearby friendly units\' hit chance.', 'unitDesc.antitank': 'Strong against armor.',
+    'unitDesc.mortar': 'Short indirect fire; fixed damage to one tile, can fire after moving.',
+    'rules.contest': 'Contested: if both sides have units on the same objective (any of its tiles), no one holds it.',
+    'rules.sticky': 'An objective stays with the last side that entered it, even if left empty.',
+    'rules.splash': 'An artillery hit also deals {splash} damage to the 4 adjacent tiles, friendlies included.',
+    'rules.enemyCd': 'You cannot see the cooldown of enemy artillery or mortars.',
+    'rules.term.range': 'Range: how far a unit can attack (tiles across + tiles down).',
+    'rules.term.cooldown': 'Cooldown: own turns a gun must wait before firing again.',
+    'rules.term.contest': 'Contested: both sides have units on an objective, so no one holds it.',
+    'rules.term.fog': 'Out of sight: a tile no friendly unit can see (hatched).',
+    'rules.term.action': 'Action: a unit\'s first move or attack in a turn. Each turn allows a set number.',
+    'rules.term.moveAttack': 'Move then attack: if remaining movement covers the attack cost, a unit can attack after moving (hit penalty).',
+    'rules.term.splash': 'Splash: the hit tile plus its 4 adjacent tiles.',
     'result.r.drawAnnihilation': 'Both sides were wiped out',
     'result.titleDraw': 'Draw', 'log.draw': 'Draw — {reason}',
     'log.objLost': '{obj}: no one holds it', 'log.objContested': '{obj}: contested (no one holds it)',
@@ -2044,6 +2238,240 @@ SCENARIOS.push({
   arrivalRadius: 3,
 });
 </script>
+<script data-src="js/scenarios/tutorial.js">
+'use strict';
+/* =====================================================================
+   튜토리얼 전용 시나리오 (시작 화면 목록에는 나오지 않음: hidden)
+   - 'tutorial'         : 8단계 실습용 작은 판. 단계 데이터 tutorialSteps (js/tutorial.js 가 읽음)
+   - 'tutorialPractice' : 마지막 연습 판 (일반 규칙·AI 그대로)
+   규칙·병종·지형 수치는 일반 게임과 같은 데이터(rules.js)를 쓴다. 이 파일은 지도·유닛 배치·단계만 정한다.
+   진영은 중립 이름(아군 ally / 적군 enemy). 국기·부대 이름 없음.
+   ===================================================================== */
+const TUTORIAL_FIRES = {
+  blindFire: true,
+  mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
+  artillery: { range: 5, cooldown: 1 },
+};
+const TUTORIAL_ART = {
+  terrain: {
+    plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
+    paddy: 'assets/terrain/wetland.jpg', city: 'assets/terrain/urban.jpg',
+  },
+  unitSet: 'hostomel',
+  overlays: [],
+};
+
+/*
+ * tutorialSteps: 단계마다
+ *   id, titleKey, textKey(코치 문구), doneKey(완료 정리 문구)  — 문구 안의 수치는 js/tutorial.js tutorialParams() 가 데이터에서 채움
+ *   seed          주사위 시드 (같은 단계를 다시 하면 같은 결과)
+ *   setup         { units: [{ side, type, pos:[r,c], hp?, firedRound? }], round?, actUsed?(이번 턴 이미 쓴 행동 수) }
+ *                 유닛 id = 진영 첫 글자 대문자 + 그 진영 안 순서 (A1, A2, …, E1, …)
+ *   allowedActions { select:[id], move:{ id: 'any' | 'obj:<거점 id>' | [[r,c]] }, attack:{ id: 'any' | 'fog' | [[r,c]] }, endTurn: bool }
+ *   ordered       true 면 목표 순서대로만 입력 가능
+ *   goal          [{ do: 'select'|'move'|'attack'|'preview'|'selectBlocked'|'selectCooldown'|'endTurn'|'contested'|'own', unit?, at?, obj?, hl?:[[r,c]] }]
+ *                 결과가 아니라 행동으로 정의 (공격은 빗나가도 완료). contested/own 은 바로 앞 행동이 만드는 상태
+ *   highlight     처음 깜빡일 칸 (목표마다 hl 이 있으면 그것)
+ *   enemyScript   턴 종료 때 상대 턴에 실행할 정해진 행동 [{ unit, attack:[r,c] }] (AI 는 움직이지 않음)
+ */
+const TUTORIAL_STEPS = [
+  {
+    id: 'select', titleKey: 'tut.s1.title', textKey: 'tut.s1.text', doneKey: 'tut.s1.done', seed: 11,
+    setup: { units: [
+      { side: 'ally', type: 'infantry', pos: [6, 3] }, { side: 'ally', type: 'infantry', pos: [6, 6] },
+      { side: 'enemy', type: 'infantry', pos: [0, 1] }, { side: 'enemy', type: 'infantry', pos: [0, 6] },
+    ] },
+    allowedActions: { select: ['A1'], move: { A1: 'any' } },
+    goal: [{ do: 'move', unit: 'A1' }],
+    highlight: [[6, 3]],
+  },
+  {
+    id: 'attack', titleKey: 'tut.s2.title', textKey: 'tut.s2.text', doneKey: 'tut.s2.done', seed: 2,
+    setup: { units: [
+      { side: 'ally', type: 'infantry', pos: [4, 3] },
+      { side: 'enemy', type: 'infantry', pos: [3, 3] }, { side: 'enemy', type: 'infantry', pos: [0, 6] },
+    ] },
+    allowedActions: { select: ['A1'], attack: { A1: [[3, 3]] } },
+    goal: [{ do: 'attack', unit: 'A1', hl: [[3, 3]] }],
+    highlight: [[4, 3]],
+  },
+  {
+    id: 'terrain', titleKey: 'tut.s3.title', textKey: 'tut.s3.text', doneKey: 'tut.s3.done', seed: 3,
+    setup: { units: [
+      { side: 'ally', type: 'infantry', pos: [2, 2] },
+      { side: 'enemy', type: 'infantry', pos: [2, 1] }, { side: 'enemy', type: 'infantry', pos: [1, 2] },
+    ] },
+    allowedActions: { select: ['A1'], attack: { A1: [[2, 1], [1, 2]] } },
+    goal: [{ do: 'preview', unit: 'A1', at: [[2, 1]], hl: [[2, 1]] }, { do: 'preview', unit: 'A1', at: [[1, 2]], hl: [[1, 2]] }],
+    highlight: [[2, 2]],
+  },
+  {
+    id: 'fog', titleKey: 'tut.s4.title', textKey: 'tut.s4.text', doneKey: 'tut.s4.done', seed: 4, ordered: true,
+    setup: { units: [
+      { side: 'ally', type: 'infantry', pos: [6, 3] }, { side: 'ally', type: 'mortar', pos: [7, 6] },
+      { side: 'enemy', type: 'infantry', pos: [2, 3] }, { side: 'enemy', type: 'infantry', pos: [0, 7] },
+    ] },
+    allowedActions: { select: ['A1', 'A2'], move: { A1: [[4, 3]] }, attack: { A2: 'fog' } },
+    goal: [{ do: 'move', unit: 'A1', at: [[4, 3]], hl: [[4, 3]] }, { do: 'preview', unit: 'A2', at: 'fog', hl: [[4, 6]] }],
+    highlight: [[6, 3]],
+  },
+  {
+    id: 'activation', titleKey: 'tut.s5.title', textKey: 'tut.s5.text', doneKey: 'tut.s5.done', seed: 5, ordered: true,
+    setup: { actUsed: -1, units: [
+      { side: 'ally', type: 'infantry', pos: [6, 2] }, { side: 'ally', type: 'infantry', pos: [6, 5] },
+      { side: 'enemy', type: 'infantry', pos: [0, 1] }, { side: 'enemy', type: 'infantry', pos: [0, 6] },
+    ] },
+    allowedActions: { select: ['A1', 'A2'], move: { A1: 'any' }, endTurn: true },
+    goal: [{ do: 'move', unit: 'A1' }, { do: 'selectBlocked', unit: 'A2' }, { do: 'endTurn' }],
+    highlight: [[6, 2]],
+  },
+  {
+    id: 'objective', titleKey: 'tut.s6.title', textKey: 'tut.s6.text', doneKey: 'tut.s6.done', seed: 6, ordered: true,
+    setup: { units: [
+      { side: 'ally', type: 'infantry', pos: [3, 4] }, { side: 'ally', type: 'armor', pos: [1, 6] },
+      { side: 'enemy', type: 'infantry', pos: [1, 5], hp: 1 }, { side: 'enemy', type: 'infantry', pos: [0, 0] },
+    ] },
+    allowedActions: { select: ['A1', 'A2'], move: { A1: 'obj:T' }, attack: { A2: [[1, 5]] } },
+    goal: [
+      { do: 'move', unit: 'A1', at: 'obj:T', hl: [[2, 4]] }, { do: 'contested', obj: 'T' },
+      { do: 'attack', unit: 'A2', hl: [[1, 5]] }, { do: 'own', obj: 'T' },
+    ],
+    highlight: [[3, 4]],
+  },
+  {
+    id: 'mortar', titleKey: 'tut.s7.title', textKey: 'tut.s7.text', doneKey: 'tut.s7.done', seed: 7,
+    setup: { units: [
+      { side: 'ally', type: 'mortar', pos: [6, 4] }, { side: 'ally', type: 'infantry', pos: [4, 3] },
+      { side: 'enemy', type: 'infantry', pos: [3, 4] }, { side: 'enemy', type: 'infantry', pos: [0, 7] },
+    ] },
+    allowedActions: { select: ['A1'], move: { A1: 'any' }, attack: { A1: 'any' } },
+    goal: [{ do: 'attack', unit: 'A1', hl: [[3, 4]] }],
+    highlight: [[6, 4]],
+  },
+  {
+    id: 'artillery', titleKey: 'tut.s8.title', textKey: 'tut.s8.text', doneKey: 'tut.s8.done', seed: 9, ordered: true,
+    setup: { units: [
+      { side: 'ally', type: 'artillery', pos: [7, 3] }, { side: 'ally', type: 'infantry', pos: [3, 4] },
+      { side: 'enemy', type: 'infantry', pos: [3, 3] }, { side: 'enemy', type: 'infantry', pos: [2, 3] },
+      { side: 'enemy', type: 'artillery', pos: [0, 6] },
+    ] },
+    allowedActions: { select: ['A1'], attack: { A1: [[3, 3]] }, endTurn: true },
+    goal: [{ do: 'attack', unit: 'A1', hl: [[3, 3]] }, { do: 'endTurn' }, { do: 'selectCooldown', unit: 'A1' }],
+    highlight: [[7, 3]],
+    enemyScript: [{ unit: 'E3', attack: [3, 4] }],
+  },
+];
+
+SCENARIOS.push({
+  id: 'tutorial', hidden: true,
+  nameKey: 'scen.tutorial.name', descKey: 'scen.tutorial.desc', subKey: 'scen.tutorial.sub',
+  scaleMeters: 100,
+  map: [
+    '........',
+    '.f..##..',
+    '.f..##..',
+    '........',
+    '........',
+    'ww...f..',
+    'ww......',
+    '........',
+  ],
+  sides: {
+    ally: { role: 'def', nameKey: 'side.ally', color: '#1e88e5' },
+    enemy: { role: 'att', nameKey: 'side.enemy', color: '#e53935' },
+  },
+  playerSide: 'ally',
+  firstMover: 'ally',
+  rounds: 20,
+  hq: { ally: null, enemy: null },
+  objectiveControl: 'presence',
+  objectives: [
+    { id: 'T', nameKey: 'obj.T', shortNameKey: 'obj.T.short', cells: [[1, 4], [1, 5], [2, 4], [2, 5]], startOwner: null },
+  ],
+  objectivePoints: { T: 2 },
+  // 기본 배치: 단계마다 setup 으로 바꾸므로 판에는 쓰이지 않음. 단계에 나오는 병종을 모두 넣어 범례·규칙 화면의 병종 목록에 나오게 함
+  deployments: [
+    { round: 0, side: 'ally', type: 'infantry', pos: [6, 3] }, { round: 0, side: 'ally', type: 'infantry', pos: [6, 6] },
+    { round: 0, side: 'ally', type: 'armor', pos: [7, 0] }, { round: 0, side: 'ally', type: 'mortar', pos: [7, 4] }, { round: 0, side: 'ally', type: 'artillery', pos: [7, 7] },
+    { round: 0, side: 'enemy', type: 'infantry', pos: [0, 1] }, { round: 0, side: 'enemy', type: 'infantry', pos: [0, 6] },
+    { round: 0, side: 'enemy', type: 'artillery', pos: [0, 4] },
+  ],
+  placementZones: { ally: null, enemy: null },
+  zoneLabelKey: null,
+  river: null,
+  aiConstants: {},
+  objectiveCheckAfter: null,
+  activations: { def: 3, att: 3 },
+  fires: TUTORIAL_FIRES,
+  victory: {
+    ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
+    enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
+  },
+  terrainNames: { paddy: 'terrain.marsh' },
+  overlays: [],
+  art: TUTORIAL_ART,
+  arrivalRadius: 3,
+  tutorialSteps: TUTORIAL_STEPS,
+});
+
+// 연습 판: 작은 회전 대칭 지도, 양쪽 4기, 거점 1개(4칸), 5라운드. 일반 규칙과 AI(중립 모드, 쉬움)
+SCENARIOS.push({
+  id: 'tutorialPractice', hidden: true,
+  nameKey: 'scen.practice.name', descKey: 'scen.practice.desc', subKey: 'scen.practice.sub',
+  scaleMeters: 100,
+  map: [
+    '........',
+    '..f..f..',
+    '........',
+    '...##...',
+    '...##...',
+    '........',
+    '..f..f..',
+    '........',
+  ],
+  sides: {
+    ally: { role: 'def', nameKey: 'side.ally', color: '#1e88e5' },
+    enemy: { role: 'att', nameKey: 'side.enemy', color: '#e53935' },
+  },
+  playerSide: 'ally',
+  firstMover: 'ally',
+  secondMoverBonus: 0,
+  rounds: 5,
+  hq: { ally: null, enemy: null },
+  symmetric: true,
+  aiProfile: 'symmetric',
+  objectiveControl: 'presence',
+  objectives: [
+    { id: 'P', nameKey: 'obj.P', shortNameKey: 'obj.P.short', cells: [[3, 3], [3, 4], [4, 3], [4, 4]], startOwner: null },
+  ],
+  objectivePoints: { P: 1 },
+  scoreTiming: 'ownTurnEnd',
+  scoreTarget: null,
+  deployments: [
+    { round: 0, side: 'ally', type: 'infantry', pos: [6, 3] }, { round: 0, side: 'ally', type: 'infantry', pos: [6, 4] },
+    { round: 0, side: 'ally', type: 'armor', pos: [7, 2] }, { round: 0, side: 'ally', type: 'mortar', pos: [7, 5] },
+    // 적군 = 아군 칸 (r,c) → (7-r, 7-c)
+    { round: 0, side: 'enemy', type: 'infantry', pos: [1, 4] }, { round: 0, side: 'enemy', type: 'infantry', pos: [1, 3] },
+    { round: 0, side: 'enemy', type: 'armor', pos: [0, 5] }, { round: 0, side: 'enemy', type: 'mortar', pos: [0, 2] },
+  ],
+  placementZones: { ally: null, enemy: null },
+  zoneLabelKey: null,
+  river: null,
+  aiConstants: {},
+  aiProfiles: ['easy'],
+  objectiveCheckAfter: null,
+  activations: { def: 3, att: 3 },
+  fires: TUTORIAL_FIRES,
+  victory: {
+    ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
+    enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
+  },
+  terrainNames: { paddy: 'terrain.marsh' },
+  overlays: [],
+  art: TUTORIAL_ART,
+  arrivalRadius: 3,
+});
+</script>
 <script data-src="js/engine.js">
 'use strict';
 /* =====================================================================
@@ -2359,7 +2787,7 @@ function validateAllScenarios() {
 
 const findScenario = (id) => SCENARIOS.find((s) => s.id === id) || null;
 /** 시작 화면 등에서 쓰는 시나리오 목록 */
-function listScenarios() { return SCENARIOS.map((s) => ({ id: s.id, nameKey: s.nameKey, descKey: s.descKey, rounds: s.rounds, scaleMeters: s.scaleMeters, playerSide: s.playerSide, map: s.map })); }
+function listScenarios() { return SCENARIOS.filter((s) => !s.hidden).map((s) => ({ id: s.id, nameKey: s.nameKey, descKey: s.descKey, rounds: s.rounds, scaleMeters: s.scaleMeters, playerSide: s.playerSide, map: s.map })); }
 
 /**
  * 시나리오 값을 GAME_CONFIG 에 채움 (규칙 값은 건드리지 않음). overrides: 진단용 덮어쓰기.
@@ -2432,6 +2860,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   }
   _distCache.clear();
   _rushCache.clear();
+  if (typeof intelClearCaches === 'function') intelClearCaches();   // ai-intel.js 의 지도 크기에 묶인 캐시 (지도 크기가 다른 시나리오로 바꿀 때)
   return C;
 }
 
@@ -5286,6 +5715,8 @@ function threatScore(e, objCells, K) {
    ctx.v2 가 있을 때만 부른다 (기존 점수에 더하는 방식). 설정: AI_CONFIG.SYMMETRIC.INTEL / V2
    ===================================================================== */
 const _threatCache = new Map();   // 위험 지도 캐시 (키 = 진영·병종·기억 요약·포병 휴식·간접 화력 설정)
+/** 시나리오가 바뀔 때 비움 (loadScenario): 캐시 키에 지도 크기·지형이 없으므로 다른 지도의 값이 섞이지 않게. 결과 값은 같음 (메모일 뿐) */
+function intelClearCaches() { _threatCache.clear(); _reachCache.clear(); _objNear = null; }
 
 /**
  * 압박 0~1: 승리 조건(시나리오 데이터)에서 계산. 라운드가 갈수록, 점유 거점이 상대보다 적을수록 큼.
@@ -5619,6 +6050,188 @@ function turtleTakeTurn(state, side, rng, opts = {}) {
 
 if (typeof module !== 'undefined' && module.exports) {
   Object.assign(module.exports, { symUrgency, symV2FogTargets, turtleTakeTurn, intelInit, intelRecords, intelArtyResting, intelEnemyCount, threatMap, expectedLoss, threatScore, intelSetupOf });
+}
+</script>
+<script data-src="js/tutorial.js">
+'use strict';
+/* =====================================================================
+   튜토리얼 로직 (DOM 없음, Node 테스트와 화면이 같이 씀)
+   - 규칙 판정·주사위·안개는 엔진 함수(moveUnit, resolveAttack, endTurn, getVisibleTiles …)를 그대로 부른다.
+     튜토리얼만의 규칙 분기는 없다. 이 파일은 단계 시작 상태, 허용 입력, 목표 진행, 정해진 상대 행동만 다룬다.
+   - 단계 데이터: js/scenarios/tutorial.js 의 tutorialSteps
+   ===================================================================== */
+const TUTORIAL_ID = 'tutorial';
+const PRACTICE_ID = 'tutorialPractice';
+
+/** 단계 목록 (튜토리얼 시나리오 데이터) */
+function tutorialSteps() {
+  const s = findScenario(TUTORIAL_ID);
+  return (s && s.tutorialSteps) || [];
+}
+
+/**
+ * 단계 시작 상태. 호출 전에 loadScenario(TUTORIAL_ID) 가 되어 있어야 한다.
+ * 일반 게임과 같은 createInitialState → 유닛·라운드만 setup 으로 바꾸고 → startTurn (행동 한도·화력·시야 기억은 엔진 그대로)
+ */
+function tutorialState(step) {
+  const C = GAME_CONFIG, S = step.setup || {};
+  const st = createInitialState();
+  const n = {};
+  st.units = (S.units || []).map((u) => {
+    n[u.side] = (n[u.side] || 0) + 1;
+    const unit = { id: u.side[0].toUpperCase() + n[u.side], side: u.side, type: u.type, r: u.pos[0], c: u.pos[1], hp: u.hp ?? C.MAX_HP, moved: false, acted: false };
+    if (u.firedRound != null) unit.lastFiredRound = u.firedRound;
+    return unit;
+  });
+  st.pending = [];
+  st.round = S.round || 1;
+  st.turn = C.PLAYER_SIDE;
+  st.memory = Object.fromEntries(C.ROUND_ORDER.map((s) => [s, {}]));
+  for (const o of st.objectives) o.owner = null;
+  if (C.OBJECTIVE_CONTROL === 'presence') updateObjectiveControl(st);
+  startTurn(st);
+  if (S.actUsed && st.act) st.act.used = Math.max(0, Math.min(st.act.limit, S.actUsed < 0 ? st.act.limit + S.actUsed : S.actUsed));
+  return st;
+}
+
+/** 칸 목록 일치: 'any' · 'fog'(이 진영 시야 밖) · 'obj:<id>'(거점 칸) · [[r,c], …] */
+function tutorialCellMatch(list, at, st, side) {
+  if (list == null || !at) return false;
+  if (list === 'any') return true;
+  if (list === 'fog') return !getVisibleTiles(st, side).has(idx(at.r, at.c));
+  if (typeof list === 'string' && list.startsWith('obj:')) {
+    const o = st.objectives.find((x) => x.id === list.slice(4));
+    return !!o && objectiveCells(o).some((p) => samePos(p, at));
+  }
+  return Array.isArray(list) && list.some((p) => p[0] === at.r && p[1] === at.c);
+}
+
+/** 지금 진행할 목표 번호 (모두 끝났으면 goal.length) */
+function tutorialCurrent(step, log, st) {
+  const p = tutorialProgress(step, log, st);
+  const k = p.done.indexOf(false);
+  return k < 0 ? p.done.length : k;
+}
+
+/**
+ * 허용된 입력인가. action: { kind: 'select'|'move'|'attack'|'preview'|'endTurn'|'cell'|'wait', unit?, at?:{r,c} }
+ * ordered 단계는 지금 목표와 같은 종류의 입력만 (선택은 허용 목록이면 언제나)
+ */
+function tutorialAllows(step, action, st, log = []) {
+  const A = step.allowedActions || {}, side = GAME_CONFIG.PLAYER_SIDE;
+  const k = action.kind;
+  let ok = false;
+  if (k === 'select') ok = (A.select || []).includes(action.unit) || !!(A.move && A.move[action.unit]) || !!(A.attack && A.attack[action.unit]);
+  else if (k === 'move') ok = !!A.move && tutorialCellMatch(A.move[action.unit], action.at, st, side);
+  else if (k === 'attack' || k === 'preview') ok = !!A.attack && tutorialCellMatch(A.attack[action.unit], action.at, st, side);
+  else if (k === 'endTurn') ok = !!A.endTurn;
+  if (!ok || !step.ordered || k === 'select') return ok;
+  const g = step.goal[tutorialCurrent(step, log, st)];
+  if (!g) return k === 'preview';   // 끝난 뒤에는 상태를 더 바꾸지 않음 (확인 창 열기만)
+  const same = g.do === k || (k === 'attack' && g.do === 'preview') || (k === 'preview' && g.do === 'attack');
+  return same && (!g.unit || g.unit === action.unit);
+}
+
+/**
+ * 입력 기록 (화면과 테스트가 같은 방식으로 남김). events: 그 입력으로 엔진이 낸 이벤트.
+ * select 는 그 순간 행동 한도 소진·쿨다운 여부를 같이 남김. 이동으로 거점이 다툼이 되면 contested 를 남김
+ */
+function tutorialRecord(log, action, events, st) {
+  const e = { ...action };
+  if (action.kind === 'select') {
+    const u = getUnit(st, action.unit);
+    e.blocked = !!u && !u.acted && activationBlocked(st, u);
+    e.cooling = !!u && onCooldown(st, u);
+  }
+  if ((action.kind === 'preview' || action.kind === 'attack') && action.at) e.fog = !getVisibleTiles(st, GAME_CONFIG.PLAYER_SIDE).has(idx(action.at.r, action.at.c));
+  log.push(e);
+  for (const ev of events || []) if (ev.type === 'objectiveLost' && ev.contested) log.push({ kind: 'contested', obj: ev.objectiveId });
+  return log;
+}
+
+/** 목표별 완료 여부 { done:[bool], complete } (공격은 빗나가도 완료: 결과가 아니라 행동) */
+function tutorialProgress(step, log, st) {
+  const side = GAME_CONFIG.PLAYER_SIDE;
+  const done = step.goal.map((g) => {
+    switch (g.do) {
+      case 'select': return log.some((e) => e.kind === 'select' && e.unit === g.unit);
+      case 'selectBlocked': return log.some((e) => e.kind === 'select' && e.unit === g.unit && e.blocked);
+      case 'selectCooldown': return log.some((e) => e.kind === 'select' && e.unit === g.unit && e.cooling);
+      case 'move': return log.some((e) => e.kind === 'move' && e.unit === g.unit && (!g.at || tutorialCellMatch(g.at, e.at, st, side)));
+      case 'attack': return log.some((e) => e.kind === 'attack' && e.unit === g.unit);
+      case 'preview': return log.some((e) => (e.kind === 'preview' || e.kind === 'attack') && e.unit === g.unit && (!g.at ? true : g.at === 'fog' ? e.fog === true : tutorialCellMatch(g.at, e.at, st, side)));
+      case 'endTurn': return log.some((e) => e.kind === 'endTurn');
+      case 'contested': return log.some((e) => e.kind === 'contested' && e.obj === g.obj);
+      case 'own': { const o = st.objectives.find((x) => x.id === g.obj); return !!o && o.owner === side; }
+      default: return false;
+    }
+  });
+  // 순서가 있는 단계: 앞 목표가 끝나야 뒤 목표도 끝난 것으로 셈
+  if (step.ordered) for (let i = 1; i < done.length; i++) if (!done[i - 1]) done[i] = false;
+  return { done, complete: done.every(Boolean) };
+}
+
+/** 지금 깜빡일 칸: 지금 목표의 유닛이 선택되지 않았으면 그 유닛 칸, 아니면 목표의 hl (없으면 단계 highlight) */
+function tutorialHighlight(step, log, st, selectedId) {
+  const g = step.goal[tutorialCurrent(step, log, st)];
+  if (!g) return [];
+  if (g.unit && g.do !== 'selectBlocked' && g.do !== 'selectCooldown' && selectedId !== g.unit) {
+    const u = getUnit(st, g.unit);
+    if (u) return [[u.r, u.c]];
+  }
+  if (g.do === 'selectBlocked' || g.do === 'selectCooldown') { const u = getUnit(st, g.unit); return u ? [[u.r, u.c]] : []; }
+  return (g.hl || step.highlight || []).map((p) => [p[0], p[1]]);
+}
+
+/**
+ * 턴 종료: 엔진 endTurn → (상대 턴) 단계의 정해진 행동(enemyScript)만 실행, AI 는 움직이지 않음 → endTurn.
+ * 반환: 이벤트 목록 (화면은 일반 게임처럼 시야 기준으로 로그를 남김)
+ */
+function tutorialEndTurn(st, step, rng) {
+  const events = endTurn(st);
+  if (st.winner) return events;
+  for (const a of step.enemyScript || []) {
+    const u = getUnit(st, a.unit);
+    if (!u || u.side !== st.turn) continue;
+    const at = a.attack && { r: a.attack[0], c: a.attack[1] };
+    if (at && getAttackableTiles(st, a.unit).some((p) => samePos(p, at))) events.push(...resolveAttack(st, a.unit, at, rng));   // 규칙상 안 되는 행동(쿨다운 등)은 건너뜀
+    if (st.winner) return events;
+  }
+  events.push(...endTurn(st));
+  return events;
+}
+
+/**
+ * 코치 문구에 넣을 수치 (모두 규칙·시나리오 데이터에서 읽음). 규칙 값을 바꾸면 문구도 따라 바뀐다.
+ * 대칭 전장 점수 설명은 그 시나리오의 공개 데이터(objectivePoints, scoreTiming)
+ */
+function tutorialParams() {
+  const C = GAME_CONFIG, CB = C.COMBAT, F = C.FIRES || {}, UT = C.UNIT_TYPES;
+  const ter = (ch) => C.TERRAIN[ch] || TERRAIN_TYPES[ch];
+  const act = C.ACTIVATIONS ? C.ACTIVATIONS[roleOf(C.PLAYER_SIDE)] : null;
+  const sym = findScenario('symmetric');
+  const symPts = sym && sym.objectivePoints
+    ? sym.objectives.map((o) => ({ t: 'tut.ptItem', p: { obj: { t: o.shortNameKey }, n: sym.objectivePoints[o.id] } }))
+    : [];
+  const fire = (type, k, d) => (F[type] && F[type][k] != null ? F[type][k] : d);
+  return {
+    act: act ?? '-',
+    base: CB.baseHit, per: CB.perPoint, fog: Math.abs(CB.fogPenalty), mv: Math.abs(C.MOVE_ATTACK_PENALTY),
+    min: CB.minHitD10, max: CB.maxHitD10, dice: C.DICE_SIDES,
+    forest: ter('f').hitMod, plain: ter('.').hitMod, city: ter('#').hitMod,
+    marsh: { t: terrainNameKey('paddy') },
+    mMin: UT.mortar.rangeMin, mRange: fire('mortar', 'range', UT.mortar.rangeMax), mCd: fire('mortar', 'cooldown', 0), mDmg: UT.mortar.fixedDamage,
+    aMin: UT.artillery.rangeMin, aRange: fire('artillery', 'range', UT.artillery.rangeMax), aCd: fire('artillery', 'cooldown', 0), splash: CB.splashDamage,
+    pts: (C.OBJECTIVE_POINTS && C.OBJECTIVE_POINTS.T) ?? '-',
+    symPts, symWhen: { t: sym && sym.scoreTiming === 'roundEnd' ? 'tut.when.roundEnd' : 'tut.when.ownTurn' },
+  };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  Object.assign(module.exports, {
+    TUTORIAL_ID, PRACTICE_ID, tutorialSteps, tutorialState, tutorialAllows, tutorialRecord, tutorialProgress,
+    tutorialHighlight, tutorialEndTurn, tutorialParams, tutorialCurrent, tutorialCellMatch,
+  });
 }
 </script>
 <script data-src="js/rich-map.js">
@@ -6893,6 +7506,8 @@ const RICH_MAP = (() => {
     if (ui.touchArm >= 0 && sel && (ui.atkSet.has(ui.touchArm) || ui.dualSet.has(ui.touchArm))) renderHover(ui.touchArm); else ui.touchArm = -1;
     renderHeader();
     renderPanel();
+    renderTutMarks();
+    renderCoach();
   }
 
   /* =====================================================================
@@ -7821,6 +8436,7 @@ const RICH_MAP = (() => {
     ui.note = null;
     ui.inspectId = null;
     hideTip();
+    if (ui.tut) tutRecord({ kind: 'select', unit: id }, []);
     render();
     const u = getUnit(ui.state, id);
     if (u && !u.acted && activationBlocked(ui.state, u)) announce(t('live.actSpent'));   // 하이라이트 없음 + 카드에 '행동 한도 소진'
@@ -7848,6 +8464,15 @@ const RICH_MAP = (() => {
     const occ = getUnitAt(st, p.r, p.c);
     const occShown = occ && (occ.side === me || vis.has(i)) ? occ : null;
     const sel = ui.selectedId ? getUnit(st, ui.selectedId) : null;
+    if (ui.tut) {
+      const at = { r: p.r, c: p.c };
+      const act = sel && ui.atkSet.has(i) ? { kind: 'preview', unit: sel.id, at }
+        : sel && ui.dualSet.has(i) ? { kind: 'dual', unit: sel.id, at }
+        : sel && ui.moveSet.has(i) ? { kind: 'move', unit: sel.id, at }
+        : occShown && occShown.side === me ? (sel && occShown.id === sel.id ? null : { kind: 'select', unit: occShown.id })
+        : { kind: 'cell' };
+      if (act && !tutOk(act)) { tutBlocked(); return; }
+    }
 
     if (sel && ui.atkSet.has(i)) {
       // 터치: 첫 탭 = 명중률 배지(포병은 착탄 미리보기 포함), 같은 대상 두 번째 탭 = 공격 확인창
@@ -7915,6 +8540,7 @@ const RICH_MAP = (() => {
     }
     ui.view = st;
     logEvents(events);
+    if (ui.tut) tutRecord({ kind: 'move', unit: id, at: { r: dest.r, c: dest.c } }, events);
     if (st.winner) { render(); showResult(); return; }
     render();
   }
@@ -7926,7 +8552,7 @@ const RICH_MAP = (() => {
     hideTip();
     const before = cloneState(st);
     const visBefore = getVisibleTiles(st, ui.viewer);
-    const events = resolveAttack(st, id, target, Math.random);   // 상태는 여기서 확정
+    const events = resolveAttack(st, id, target, ui.tut ? ui.tut.rng : Math.random);   // 상태는 여기서 확정 (튜토리얼: 단계 시드)
     annotate(events, hotseat() ? visMapOf(before, st) : visMapOf(before));
     ui.turnEvents.push(...events);
     await playAttack(events, before, st, visBefore);
@@ -7934,8 +8560,10 @@ const RICH_MAP = (() => {
     ui.view = st;
     ui.busy = false;
     ui.selectedId = null;
+    if (ui.tut) tutorialRecord(ui.tut.log, { kind: 'attack', unit: id, at: { r: target.r, c: target.c } }, events, st);
     render();
     logEvents(events);
+    if (ui.tut) tutRecord(null, []);
     if (st.winner) showResult();
   }
 
@@ -8184,6 +8812,7 @@ const RICH_MAP = (() => {
     const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
     const hc = computeHitChance(st, id, target);
     const tu = getUnitAt(st, target.r, target.c);
+    if (ui.tut) tutRecord({ kind: 'preview', unit: id, at: { r: target.r, c: target.c } }, [], false);
     // 시야 밖 칸은 유닛 유무를 드러내지 않음
     const what = hc.fogged ? { t: 'confirm.whatFog', p: { pos: P(target) } }
       : tu ? { t: 'confirm.whatUnit', p: { who: REL(tu.side === me, tu.type), pos: P(target) } }
@@ -8305,6 +8934,7 @@ const RICH_MAP = (() => {
     hideOverlay();
     const k = idx(c.target.r, c.target.c);
     const ok = playerCanAct() && getUnit(ui.state, c.id) && ui.dualSet.has(k);
+    if (ok && ui.tut && what && !tutOk({ kind: what === 'move' ? 'move' : 'preview', unit: c.id, at: c.target })) { tutBlocked(); render(); return; }
     if (ok && what === 'move') { playerMove(c.id, c.target); return; }
     if (ok && what === 'fire') { if (ATTACK_CONFIRM) showAttackConfirm(c.id, c.target); else playerAttack(c.id, c.target); return; }
     render();   // 취소: 선택은 유지
@@ -8315,6 +8945,7 @@ const RICH_MAP = (() => {
     ui.confirm = null;
     hideOverlay();
     const k = idx(c.target.r, c.target.c);
+    if (ui.tut && !tutOk({ kind: 'attack', unit: c.id, at: c.target })) { tutBlocked(); render(); return; }
     if (playerCanAct() && getUnit(ui.state, c.id) && (ui.atkSet.has(k) || ui.dualSet.has(k))) playerAttack(c.id, c.target);
   }
   function cancelAttack() {
@@ -8383,12 +9014,14 @@ const RICH_MAP = (() => {
     if (ui.deploy) { onDeployDone(); return; }
     if (ui.state && ui.state.winner) { if (!$('#overlay').classList.contains('show')) showResult(); return; }
     if (!playerCanAct()) return;
+    if (ui.tut && !tutOk({ kind: 'endTurn' })) { tutBlocked(); return; }
     if (!ui.endArmed && endNeedsConfirm()) { armEnd(); return; }   // 첫 누름: 버튼만 확인 상태로
     disarmEnd(false);
     ui.selectedId = null;
     ui.inspectId = null;
     hideTip();
     resetAngles();
+    if (ui.tut) { tutEndTurn(); return; }
     const ended = ui.state.turn;
     const events = endTurn(ui.state);
     ui.view = ui.state;
@@ -8519,7 +9152,7 @@ const RICH_MAP = (() => {
     if (token !== ui.gameId) return;
     await playArrivals(arrivals);
     if (token !== ui.gameId) return;
-    const actions = aiTakeTurn(st, AI_SIDE, Math.random, ui.difficulty, { recordSnapshots: true });   // 상태는 여기서 확정
+    const actions = aiTakeTurn(st, AI_SIDE, Math.random, ui.practice ? 'easy' : ui.difficulty, { recordSnapshots: true });   // 상태는 여기서 확정 (연습 판은 쉬움)
     for (const a of actions) {
       if (token !== ui.gameId) return;
       const visPrev = getVisibleTiles(prev, PLAYER);
@@ -8862,7 +9495,7 @@ const RICH_MAP = (() => {
   }
 
   /* ---------- 오버레이 (공격 확인·시작·승패·가림막·요약). 열려 있는 동안 포커스를 안에 가둠 ---------- */
-  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain', 'sheet'];
+  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain', 'sheet', 'rules'];
   /** redraw: 언어를 바꿨을 때 이 창을 현재 언어로 다시 그리는 함수. kind: 배경 종류 */
   function showOverlay(html, redraw = null, kind = 'confirm') {
     const ov = $('#overlay');
@@ -8882,6 +9515,7 @@ const RICH_MAP = (() => {
     if (ui.state && ui.screen === 'game') renderControls();
   }
   function hideOverlay() {
+    ui.rulesBack = null;
     ui.confirm = null;
     ui.choice = null;
     ui.overlay = null;
@@ -8982,7 +9616,7 @@ const RICH_MAP = (() => {
         <div class="opt-list">${GAME_CONFIG.ROUND_ORDER.some((x) => GAME_CONFIG.DEPLOY_ZONES[x] && GAME_CONFIG.DEPLOYMENT[x].length) ? `<label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>` : ''}
           ${hs ? `<label class="opt"><input type="checkbox" id="opt-curtain"${ui.useCurtain ? ' checked' : ''}><span class="tx">${esc(t('start.optCurtain'))}</span></label>` : ''}</div>
         <button class="primary btn-go" id="btn-start">${esc(t('btn.startGo'))}</button>
-        <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button></div>
+        <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button><button class="link" id="btn-tutorial">${esc(t('btn.tutorial'))}</button></div>
       </div>`, () => draw(), 'start');
       const modal = $('#modal');
       modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
@@ -9004,6 +9638,7 @@ const RICH_MAP = (() => {
       if ($('#opt-deploy')) $('#opt-deploy').onchange = (e) => { ui.manualDeploy = e.target.checked; savePref(OPT_DEPLOY_KEY, ui.manualDeploy); };   // 배치 구역이 없는 시나리오(고정 배치)는 항목 없음
       if ($('#opt-curtain')) $('#opt-curtain').onchange = (e) => { ui.useCurtain = e.target.checked; savePref(OPT_CURTAIN_KEY, ui.useCurtain); };
       $('#btn-rules').onclick = () => showRules(() => draw('#btn-rules'));
+      $('#btn-tutorial').onclick = () => startTutorial(0);
       $('#btn-start').onclick = () => {
         ui.mode = sel.mode;
         ui.difficulty = sel.diff;
@@ -9038,19 +9673,16 @@ const RICH_MAP = (() => {
     if (F.mortar && scenarioHasType('mortar')) s += `<li>${esc(t('intro.mortar', { range: v('mortar', 'range'), cd: v('mortar', 'cooldown'), dmg: GAME_CONFIG.UNIT_TYPES.mortar.fixedDamage }))}</li>`;
     return s;
   }
-  function showRules(back) {
+  /** 현재 시나리오의 진행·승리 조건 (시나리오 데이터 = 공개 정보). 규칙 화면 1·7번 항목 */
+  function victoryLinesHtml() {
     const C = GAME_CONFIG;
-    const art = C.UNIT_TYPES.artillery;
     const when = C.OBJECTIVE_CHECK_AFTER ? { t: 'intro.when.side', p: { side: S(C.OBJECTIVE_CHECK_AFTER) } } : { t: 'intro.when.round' };
     // 배치 구역: 시작 유닛이 있는 진영만. 플레이어 진영이 아니면 '2인 대전의 …'
     const zoneOf = (s) => (C.ZONE_LABEL_KEY ? { t: C.ZONE_LABEL_KEY } : { t: 'intro.zoneRows', p: { rows: C.DEPLOY_ZONES[s].rows.join('~') } });
     const zones = C.ROUND_ORDER.filter((s) => C.DEPLOY_ZONES[s] && C.DEPLOYMENT[s].length)
       .map((s) => ({ t: s === PLAYER ? 'intro.deployItem' : 'intro.deployItemHs', p: { side: S(s), zone: zoneOf(s) } }));
     const hasHq = C.ROUND_ORDER.some((s) => C.HQ[s]);
-    showOverlay(`<h2>${esc(t('rules.title'))}</h2>
-      <div class="hint">${t(C.SYMMETRIC ? 'intro.whoAISym' : 'intro.whoAI', SP())} ${t(C.SYMMETRIC ? 'intro.whoHotseatSym' : 'intro.whoHotseat', SP())}</div>
-      <ul>
-        ${zones.length ? `<li>${t('intro.deploy', { list: zones })}</li>` : ''}
+    return `${zones.length ? `<li>${t('intro.deploy', { list: zones })}</li>` : ''}
         <li>${t(surviveSide() ? 'intro.round' : 'intro.roundSym', { order: C.ROUND_ORDER.map((s) => t('log.turn', { side: S(s) })).join(' → '), max: C.MAX_ROUNDS })}</li>
         ${roundLimitType() === 'roundLimitPoints'
     ? `<li>${t('intro.points', { max: C.MAX_ROUNDS, list: C.OBJECTIVES.map((o) => ({ t: 'intro.pointItem', p: { obj: OBS(o.id), n: C.OBJECTIVE_POINTS[o.id] } })) })} ${t(C.SCORE_TIMING === 'roundEnd' ? 'intro.pointsRoundEnd' : 'intro.pointsOwnTurn')}${C.SCORE_TARGET ? ' ' + t('intro.pointsTarget', { n: C.SCORE_TARGET }) : ''}</li>`
@@ -9059,19 +9691,265 @@ const RICH_MAP = (() => {
     : holdSide() ? `<li>${t('intro.objectives', { when, att: S(holdSide()), n: holdCount() })}</li>` : ''}
         ${C.OBJECTIVE_CONTROL === 'presence' ? `<li>${t('intro.presence')}</li>` : ''}
         <li>${t(hasHq ? 'intro.hqLoss' : 'intro.annihilation')}</li>
-        ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}
-        ${introMoveRuleHtml()}
-        ${introActRuleHtml()}
-        <li>${t('intro.pass')}</li>
-        <li>${t('intro.arty', { range: rangeText(art, { side: sideByRole('def'), type: 'artillery' }), splash: C.COMBAT.splashDamage })}</li>
-        ${introFireRuleHtml()}
-        ${introHitRuleHtml()}
-        <li>${t('intro.symbols', SP())}</li>
-        <li>${t('intro.fog')}</li>
-      </ul>
-      <div class="btn-row"><button class="primary" id="btn-rules-back">${esc(t('btn.back'))}</button></div>`, () => showRules(back), 'start');
-    $('#btn-rules-back').onclick = back;
-    $('#btn-rules-back').focus();
+        ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
+  }
+  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'terms'];
+  /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
+  function ruleSectionHtml(id) {
+    const C = GAME_CONFIG, CB = C.COMBAT;
+    const li = (s) => `<li>${s}</li>`;
+    const pct = (v) => `${v > 0 ? '+' : ''}${v}%`;
+    switch (id) {
+      case 'goal':
+        return `<div class="hint">${t(C.SYMMETRIC ? 'intro.whoAISym' : 'intro.whoAI', SP())}</div><ul>${li(esc(t('rules.flow')))}${victoryLinesHtml()}</ul>`;
+      case 'move':
+        return `<ul>${introMoveRuleHtml()}${li(t('intro.pass'))}${introActRuleHtml()}${actLimitsOf(ui.act) ? li(esc(t('rules.actShown'))) : ''}</ul>`;
+      case 'hit':
+        return `<ul>${introHitRuleHtml()}${li(esc(t('rules.dmg', { min: CB.minDamage, pen: CB.hpPenaltyPerLoss })))}</ul>`;
+      case 'terrain': {
+        const chars = [...new Set(C.MAP.join(''))].filter((ch) => C.TERRAIN[ch]);
+        const rows = chars.map((ch) => {
+          const ter = C.TERRAIN[ch];
+          const notes = [];
+          if (ter.impassableFor && ter.impassableFor.length) notes.push(t('rules.ter.blocked', { units: ter.impassableFor.map((k) => U(k)) }));
+          if (ter.consumesAll) notes.push(t('rules.ter.endMove'));
+          if (ter.partialEntry) notes.push(t('rules.ter.partial'));
+          return `<tr><td>${esc(t(terrainNameKey(ter.key)))}</td><td>${ter.moveCost}</td><td>${pct(ter.hitMod)}</td><td>${esc(notes.join(' · '))}</td></tr>`;
+        }).join('');
+        return `<table class="rules-table"><thead><tr><th>${esc(t('rules.th.terrain'))}</th><th>${esc(t('rules.th.cost'))}</th><th>${esc(t('rules.th.hit'))}</th><th class="wrap">${esc(t('rules.th.note'))}</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+      case 'fog':
+        return `<ul>${li(esc(t('rules.fog1')))}${li(esc(t('rules.fog2', { fog: Math.abs(CB.fogPenalty) })))}${li(t('intro.fog'))}</ul>`;
+      case 'units': {
+        const types = Object.keys(C.UNIT_TYPES).filter(scenarioHasType);
+        const rows = types.map((k) => {
+          const ty = C.UNIT_TYPES[k];
+          return `<tr><td class="ru-name">${symHtml(PLAYER, k)}<span>${esc(t(ty.nameKey))}</span></td><td>${ty.move}</td><td>${ty.vision}</td><td>${ty.canAttack ? `${ty.atkSoft}/${ty.atkArmor}` : '-'}</td><td>${ty.def}</td><td>${esc(rangeText(ty, { side: PLAYER, type: k }))}</td></tr>`
+            + `<tr class="ru-desc"><td colspan="6">${esc(t('unitDesc.' + k))}</td></tr>`;
+        }).join('');
+        return `<table class="rules-table units"><thead><tr><th>${esc(t('rules.th.unit'))}</th><th>${esc(t('rules.th.mv'))}</th><th>${esc(t('rules.th.vis'))}</th><th class="wrap">${esc(t('rules.th.atk'))}</th><th>${esc(t('rules.th.def'))}</th><th>${esc(t('rules.th.rng'))}</th></tr></thead><tbody>${rows}</tbody></table>
+          <ul>${li(t('intro.symbols', SP()))}</ul>`;
+      }
+      case 'obj': {
+        const general = C.OBJECTIVE_CONTROL === 'presence' ? li(esc(t('intro.presence'))) + li(esc(t('rules.contest'))) : li(esc(t('rules.sticky')));
+        return `<div class="rules-victory"><ul>${victoryLinesHtml()}</ul></div><ul>${general}</ul>`;
+      }
+      case 'fires': {
+        const art = C.UNIT_TYPES.artillery;
+        return `<ul>${li(t('intro.arty', { range: rangeText(art, { side: PLAYER, type: 'artillery' }), splash: CB.splashDamage }))}${introFireRuleHtml()}${C.FIRES ? li(esc(t('rules.enemyCd'))) : ''}</ul>`;
+      }
+      case 'terms':
+        return `<ul>${['range', 'cooldown', 'contest', 'fog', 'action', 'moveAttack', 'splash'].map((k) => li(esc(t('rules.term.' + k)))).join('')}</ul>`;
+      default: return '';
+    }
+  }
+  /**
+   * 규칙 화면 (시작 화면 '규칙 보기', 게임 중 설정의 '규칙', 연습 판의 '?'). 한 번에 한 항목만 펼침.
+   * kind 'rules' = 게임 중 (닫으면 같은 화면, 게임 상태는 그대로). 좁은 화면은 전체 화면 시트
+   */
+  function showRules(back, kind = 'rules') {
+    const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
+    const open = RULE_SECS.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
+    showOverlay(`<div class="rules-sheet">
+      <div class="rules-head"><h2>${esc(t('rules.title'))}</h2><button class="x-btn rules-x" id="btn-rules-x" aria-label="${esc(t('aria.close'))}">×</button></div>
+      <div class="rules-now hint">${esc(t('rules.now', { name: { t: sc.nameKey } }))}</div>
+      <div class="rules-list">${RULE_SECS.map((id) => `<details class="rule-sec" data-sec="${id}"${id === open ? ' open' : ''}><summary>${esc(t('rules.sec.' + id))}</summary><div class="rule-body">${ruleSectionHtml(id)}</div></details>`).join('')}</div>
+      <div class="btn-row"><button class="primary" id="btn-rules-back">${esc(t('btn.back'))}</button></div>
+    </div>`, () => showRules(back, kind), kind);
+    const close = () => { ui.rulesBack = null; back(); };
+    ui.rulesBack = close;
+    const modal = $('#modal');
+    modal.querySelectorAll('details.rule-sec').forEach((d) => d.addEventListener('toggle', () => {
+      if (!d.open) return;
+      ui.rulesOpen = d.dataset.sec;
+      modal.querySelectorAll('details.rule-sec').forEach((o) => { if (o !== d) o.open = false; });
+    }));
+    $('#btn-rules-back').onclick = close;
+    $('#btn-rules-x').onclick = close;
+    $('#btn-rules-x').focus();
+  }
+  /** 게임 중 규칙 창: 가림막 중에는 열지 않음 (2인 대전 정보 보호). 닫으면 열기 전 화면으로 */
+  function openRulesInGame() {
+    if (ui.screen !== 'game' || !ui.viewer) return;
+    closePop(false);
+    const resultOpen = !!(ui.state && ui.state.winner && $('#overlay').classList.contains('show'));
+    showRules(resultOpen ? showResult : hideOverlay, 'rules');
+  }
+
+  /* =====================================================================
+     튜토리얼 (8단계 실습 + 연습 판). 판정·주사위·안개는 일반 게임과 같은 엔진 호출이고,
+     이 코드는 허용 입력 관문, 코치 창, 깜빡이는 표시, 단계 이동만 맡는다. 정답·추천은 보여 주지 않는다
+     ===================================================================== */
+  const TUT_KEY = 'chuncheon1950.tutorial';   // { seen, done:[단계 id] } — 저장이 안 돼도 동작
+  function tutLoad() { try { const v = JSON.parse(localStorage.getItem(TUT_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
+  function tutMark(patch) { try { localStorage.setItem(TUT_KEY, JSON.stringify({ ...tutLoad(), ...patch })); } catch (e) { /* 저장 불가 환경 */ } }
+  const tutOk = (act) => (act.kind === 'dual'
+    ? tutorialAllows(ui.tut.step, { ...act, kind: 'move' }, ui.state, ui.tut.log) || tutorialAllows(ui.tut.step, { ...act, kind: 'preview' }, ui.state, ui.tut.log)
+    : tutorialAllows(ui.tut.step, act, ui.state, ui.tut.log));
+  /** 지금 목표에 맞는 안내 한 줄 (대상 위치는 이미 보이는 깜빡임으로만 가리킴) */
+  function tutHintText() {
+    const { step, log } = ui.tut;
+    const g = step.goal[tutorialCurrent(step, log, ui.state)];
+    if (!g) return t('tut.hintDone');
+    const pick = g.unit && ui.selectedId !== g.unit && !['selectBlocked', 'selectCooldown'].includes(g.do);
+    const key = pick ? 'select' : ['contested', 'own'].includes(g.do) ? 'attack' : g.do;
+    return t('tut.hint', { what: { t: 'tut.what.' + key } });
+  }
+  function tutBlocked() {
+    if (!ui.tut) return;
+    ui.tut.hint = tutHintText();
+    renderCoach();
+    announce(ui.tut.hint);
+  }
+  /** 입력 기록 → 목표 진행. action 이 null 이면 진행만 다시 셈 */
+  function tutRecord(action, events, clearHint = true) {
+    if (!ui.tut) return;
+    if (action) tutorialRecord(ui.tut.log, action, events, ui.state);
+    if (clearHint) ui.tut.hint = null;
+    const prog = tutorialProgress(ui.tut.step, ui.tut.log, ui.state);
+    if (prog.complete && !ui.tut.complete) {
+      ui.tut.complete = true;
+      const done = new Set(tutLoad().done || []);
+      done.add(ui.tut.step.id);
+      tutMark({ done: [...done] });
+      announce(t(ui.tut.step.doneKey, tutorialParams()));
+    }
+    renderCoach();
+  }
+  /** 턴 종료: 엔진 endTurn + 단계의 정해진 상대 행동 (AI 없음). 로그는 일반 게임처럼 내 시야 기준 */
+  function tutEndTurn() {
+    const st = ui.state;
+    const before = cloneState(st);
+    const events = tutorialEndTurn(st, ui.tut.step, ui.tut.rng);
+    ui.view = st;
+    annotate(events, visMapOf(before, st));
+    ui.turnEvents.push(...events);
+    logEvents(events);
+    tutRecord({ kind: 'endTurn' }, events);
+    render();
+  }
+  /** 튜토리얼 시작 (k 단계). 원래 시나리오·모드는 기억했다가 종료할 때 되돌림 (저장된 시나리오 선택은 건드리지 않음) */
+  function startTutorial(k = 0) {
+    if (!ui.tut && !ui.practice) { ui.tutBack = GAME_CONFIG.SCENARIO_ID; ui.tutMode = ui.mode; }
+    ui.practice = false;
+    ui.mode = 'ai';
+    tutMark({ seen: true });
+    if (GAME_CONFIG.SCENARIO_ID !== TUTORIAL_ID) applyScenario(TUTORIAL_ID, false);
+    loadTutStep(k);
+  }
+  /** 단계 불러오기 (이전·다음·다시 해 보기 모두 여기서 시작 상태로) */
+  function loadTutStep(k) {
+    const steps = tutorialSteps();
+    k = Math.max(0, Math.min(steps.length - 1, k));
+    const step = steps[k];
+    ui.gameId++;
+    ui.busy = false;
+    clearFx();
+    diceEl.classList.remove('show');
+    hideOverlay();
+    closePop(false);
+    ui.deploy = null;
+    ui.tut = { k, step, log: [], rng: createSeededRng(step.seed), hint: null, complete: false };
+    ui.state = tutorialState(step);
+    ui.view = ui.state;
+    ui.viewer = PLAYER;
+    ui.selectedId = null;
+    ui.inspectId = null;
+    ui.actingId = null;
+    ui.logs = emptyLogs();
+    ui.history = [];
+    ui.turnEvents = [];
+    ui.flash = new Set();
+    ui.unread = 0;
+    ui.touchArm = -1;
+    ui.coachHtml = '';
+    $('#log').innerHTML = '';
+    if (ui.endArmed) disarmEnd(false);
+    applyModeUi();
+    setScreen('game');
+    renderLog();
+    render();
+    fitLayout();
+  }
+  /** 마지막 단계 뒤: 연습 판 제안 */
+  function showPracticeOffer() {
+    const sc = findScenario(PRACTICE_ID);
+    const n = sc.deployments.filter((d) => d.side === sc.playerSide && !d.round).length;
+    showOverlay(`<h2>${esc(t('tut.practice.title'))}</h2><p>${esc(t('tut.practice.body', { n, max: sc.rounds }))}</p>
+      <div class="btn-row"><button class="primary" id="btn-practice-go">${esc(t('btn.practiceGo'))}</button><button id="btn-practice-main">${esc(t('btn.toMain'))}</button></div>`, showPracticeOffer, 'confirm');
+    $('#btn-practice-go').onclick = startPractice;
+    $('#btn-practice-main').onclick = goMenu;
+    $('#btn-practice-go').focus();
+  }
+  /** 연습 판: 일반 규칙·AI 그대로 (중립 AI 쉬움). 코치 창 없음, 위쪽 '?' 로 규칙 */
+  function startPractice() {
+    if (!ui.tut && !ui.practice) { ui.tutBack = GAME_CONFIG.SCENARIO_ID; ui.tutMode = ui.mode; }
+    ui.tut = null;
+    ui.practice = true;
+    ui.mode = 'ai';
+    applyScenario(PRACTICE_ID, false);
+    newGame();
+  }
+  /** 튜토리얼·연습 판을 떠날 때: 원래 시나리오와 모드로 */
+  function tutCleanup() {
+    const back = ui.tutBack;
+    ui.tut = null;
+    ui.practice = false;
+    if (ui.tutMode) ui.mode = ui.tutMode;
+    ui.tutBack = null;
+    ui.tutMode = null;
+    renderCoach();
+    if (back && GAME_CONFIG.SCENARIO_ID !== back) applyScenario(back, false);
+  }
+  /** 처음 실행할 때 한 번: 튜토리얼을 해 볼까요? */
+  function showTutAsk() {
+    if (ui.screen !== 'start') setScreen('start');
+    render();
+    showOverlay(`<div class="start-card tut-ask"><h2>${esc(t('tut.ask.title'))}</h2><p>${esc(t('tut.ask.body'))}</p>
+      <div class="btn-row"><button class="primary" id="btn-tut-yes">${esc(t('btn.tutStart'))}</button><button id="btn-tut-later">${esc(t('btn.tutLater'))}</button></div></div>`, showTutAsk, 'start');
+    $('#btn-tut-yes').onclick = () => startTutorial(0);
+    $('#btn-tut-later').onclick = () => { tutMark({ seen: true }); showIntro(); };
+    $('#btn-tut-yes').focus();
+  }
+  /** 깜빡이는 표시 (눌러 볼 곳만. 좋고 나쁨의 표시가 아님) + 턴 종료 버튼 표시 + 연습 판의 '?' */
+  function renderTutMarks() {
+    $('#btn-help').hidden = !((ui.tut || ui.practice) && ui.screen === 'game');
+    let layer = boardEl.querySelector('.tut-layer');
+    const cellsHl = ui.tut && ui.screen === 'game' && !ui.busy ? tutorialHighlight(ui.tut.step, ui.tut.log, ui.state, ui.selectedId) : [];
+    const g = ui.tut ? ui.tut.step.goal[tutorialCurrent(ui.tut.step, ui.tut.log, ui.state)] : null;
+    $('#btn-end-turn').classList.toggle('tut-pulse-btn', !!g && g.do === 'endTurn');
+    if (!cellsHl.length) { if (layer) layer.innerHTML = ''; return; }
+    if (!layer) { layer = document.createElement('div'); layer.className = 'tut-layer'; layer.setAttribute('aria-hidden', 'true'); boardEl.appendChild(layer); }
+    layer.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+    layer.style.gridTemplateRows = `repeat(${N}, 1fr)`;
+    layer.innerHTML = cellsHl.map(([r, c]) => `<div class="tut-pulse" style="grid-row:${r + 1};grid-column:${c + 1}"></div>`).join('');
+  }
+  /** 코치 창: 진행 점, n/8, 제목, 문구(넘치면 문구만 스크롤), 안내 한 줄, 이전·다시 해 보기·다음·종료 */
+  function renderCoach() {
+    const el = $('#coach');
+    if (!ui.tut || ui.screen !== 'game') { if (!el.hidden) { el.hidden = true; el.innerHTML = ''; ui.coachHtml = ''; } return; }
+    const steps = tutorialSteps(), { k, step } = ui.tut, max = steps.length;
+    const prog = tutorialProgress(step, ui.tut.log, ui.state);
+    const P = tutorialParams();
+    const doneIds = new Set(tutLoad().done || []);
+    if (prog.complete) doneIds.add(step.id);
+    const dots = steps.map((s, i) => `<span class="cdot${i === k ? ' cur' : ''}${doneIds.has(s.id) ? ' done' : ''}"></span>`).join('');
+    const html = `<div class="coach-head"><span class="coach-dots" aria-hidden="true">${dots}</span><span class="coach-n" aria-label="${esc(t('aria.tutProgress', { n: k + 1, max }))}">${esc(t('tut.progress', { n: k + 1, max }))}</span>`
+      + `<span class="coach-title tx">${esc(t(step.titleKey))}</span>${prog.complete ? `<span class="chip green sm">${esc(t('tut.doneChip'))}</span>` : ''}</div>`
+      + `<div class="coach-text">${esc(t(step.textKey, P))}${prog.complete ? `<div class="coach-done">${esc(t(step.doneKey, P))}</div>` : ''}</div>`
+      + `<div class="coach-hint" role="status">${ui.tut.hint ? esc(ui.tut.hint) : ''}</div>`
+      + `<div class="coach-btns"><button id="tut-prev"${k === 0 ? ' disabled' : ''}>${esc(t('btn.tutPrev'))}</button><button id="tut-retry">${esc(t('btn.tutRetry'))}</button>`
+      + `<button id="tut-next"${prog.complete ? ' class="primary"' : ''}>${esc(t('btn.tutNext'))}</button><button id="tut-exit">${esc(t('btn.tutExit'))}</button></div>`;
+    el.hidden = false;
+    if (html === ui.coachHtml) return;   // 같은 내용이면 다시 그리지 않음 (버튼 초점 유지)
+    const focusId = document.activeElement && el.contains(document.activeElement) ? document.activeElement.id : null;
+    ui.coachHtml = html;
+    el.innerHTML = html;
+    $('#tut-prev').onclick = () => loadTutStep(k - 1);
+    $('#tut-retry').onclick = () => loadTutStep(k);
+    $('#tut-next').onclick = () => (k + 1 < max ? loadTutStep(k + 1) : showPracticeOffer());
+    $('#tut-exit').onclick = goMenu;
+    if (focusId && $('#' + focusId)) $('#' + focusId).focus();
   }
 
   /* ---------- 게임 기록 (묶음별 누적, localStorage). 값은 언어와 무관한 코드값 ---------- */
@@ -9120,7 +9998,7 @@ const RICH_MAP = (() => {
       addLog(m);
       if (!ui.history.some((h) => h.final)) ui.history.push({ ...m, final: true });
     }
-    saveGameRecord(st);
+    if (!ui.practice) saveGameRecord(st);   // 연습 판은 게임 기록에 넣지 않음
     if (ui.viewer !== 'all') {
       ui.viewer = 'all';
       ui.selectedId = null;
@@ -9152,19 +10030,22 @@ const RICH_MAP = (() => {
         + (scoreBox ? scoreBox() : box(`${held}/${C.OBJECTIVES.length}`, t('result.box.objSide', { side: S(PLAYER) })))
       : round + box(`${alive[PLAYER]}/${startN(PLAYER)}`, t('result.box.alive')) + box(t('result.kills', { n: rec[AI_SIDE + 'Losses'] }), t('result.box.kills'))
         + (scoreBox ? scoreBox() : box(`${held}/${C.OBJECTIVES.length}`, t('result.box.obj')));
-    const chips = `<span class="chip">${esc(t(hs ? 'mode.hotseatShort' : 'mode.ai'))}</span>${hs ? '' : `<span class="chip">${esc(resolveProfile(ui.difficulty).name)}</span>`}`;
+    const chips = ui.practice ? `<span class="chip">${esc(t('scen.practice.name'))}</span>`
+      : `<span class="chip">${esc(t(hs ? 'mode.hotseatShort' : 'mode.ai'))}</span>${hs ? '' : `<span class="chip">${esc(resolveProfile(ui.difficulty).name)}</span>`}`;
     showOverlay(`<span class="chip blue reveal-chip"><span class="tx">${esc(t('result.revealChip'))}</span></span>
       <div class="result-card"><h2 class="result-title ${cls}">${esc(title)}</h2>
         <div class="result-reason">${esc(reason)}</div>
         <div class="chips-c">${chips}</div>
         <div class="num-grid">${boxes}</div>
-        <div class="btn-row"><button class="primary" id="btn-again">${esc(t('btn.again'))}</button><button id="btn-menu2">${esc(t('btn.menu'))}</button>`
+        <div class="btn-row"><button class="primary" id="btn-again">${esc(t('btn.again'))}</button><button id="btn-menu2">${esc(t(ui.practice ? 'btn.toMain' : 'btn.menu'))}</button>`
+      + (ui.practice ? `<button id="btn-rules-res">${esc(t('btn.rulesView'))}</button>` : '')
       + `<button id="btn-close">${esc(t('btn.viewMap'))}</button><button id="btn-replay">${esc(t('btn.replay'))}</button></div></div>`, showResult, 'result');
     announce(`${title}. ${reason}`);
     $('#btn-again').onclick = newGame;
     $('#btn-close').onclick = hideOverlay;
     $('#btn-menu2').onclick = goMenu;
     $('#btn-replay').onclick = showReplay;
+    if ($('#btn-rules-res')) $('#btn-rules-res').onclick = () => showRules(showResult, 'rules');
     $('#btn-again').focus();
   }
 
@@ -9182,6 +10063,7 @@ const RICH_MAP = (() => {
 
   /** 처음 화면(모드 선택)으로. 진행 중이던 게임·연출은 버리고, 화면 정보도 지움 */
   function goMenu() {
+    if (ui.tut || ui.practice) tutCleanup();
     ui.gameId++;
     ui.busy = false;
     clearFx();
@@ -9613,6 +10495,7 @@ const RICH_MAP = (() => {
   $('#btn-end-turn').onclick = onEndTurn;
   $('#btn-wait').onclick = () => {
     if (!playerCanAct() || !ui.selectedId) return;
+    if (ui.tut) { tutBlocked(); return; }   // 튜토리얼: 행동 끝내기는 단계 입력이 아님
     finishUnit(ui.state, ui.selectedId);
     ui.selectedId = null;
     hideTip();
@@ -9620,7 +10503,9 @@ const RICH_MAP = (() => {
     render();
   };
   $('#btn-deselect').onclick = () => { ui.selectedId = null; hideTip(); closePop(false); render(); };
-  $('#btn-restart').onclick = () => { closePop(false); newGame(); };
+  $('#btn-restart').onclick = () => { closePop(false); if (ui.tut) loadTutStep(ui.tut.k); else newGame(); };
+  $('#btn-rules-game').onclick = openRulesInGame;
+  $('#btn-help').onclick = openRulesInGame;
   $('#btn-menu').onclick = () => { closePop(false); goMenu(); };
   $('#difficulty-select').onchange = (e) => { ui.difficulty = e.target.value; e.target.title = resolveProfile(ui.difficulty).description; };
   document.querySelectorAll('#lang-seg [data-lang], #seg-lang [data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
@@ -9677,6 +10562,7 @@ const RICH_MAP = (() => {
       else if (e.key === 'Enter') { e.preventDefault(); confirmAttack(); }
       return;
     }
+    if (ui.rulesBack && e.key === 'Escape') { e.preventDefault(); ui.rulesBack(); return; }
     if ($('#overlay').classList.contains('show')) return;   // 시작·승패·가림막·요약 창이 떠 있을 때는 단축키 없음
     if (ui.screen !== 'game' && ui.screen !== 'deploy') return;
     const tag = (e.target && e.target.tagName || '').toLowerCase();
@@ -9713,7 +10599,7 @@ const RICH_MAP = (() => {
   setReduceMotion(initialReduceMotion(), false);
   applyTheme();    // 그림 세트가 있으면 불러오기 시작 (끝날 때까지 기본 테마)
   setLanguage(initialLang());   // 정적 문구·범례·난이도 목록·화면을 현재 언어로
-  showIntro();
+  if (tutLoad().seen) showIntro(); else showTutAsk();   // 처음 실행: 튜토리얼을 한 번 물어봄 (저장이 안 되면 매번 물어봄)
 })();
 </script>
 </body>

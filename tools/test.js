@@ -14,6 +14,8 @@ const loadEngine = require('./load-engine');
 const { E, run, ROOT } = loadEngine({ quiet: true });
 const C = () => E.GAME_CONFIG;
 const SCEN_IDS = E.SCENARIOS.map((s) => s.id);
+/** AI 가 실제로 두는 시나리오 (튜토리얼 실습판은 AI 가 움직이지 않으므로 AI 안개 시험에서 뺌. 연습 판은 포함) */
+const AI_SCEN_IDS = E.SCENARIOS.filter((s) => !s.tutorialSteps).map((s) => s.id);
 const other = (side) => C().ROUND_ORDER.find((s) => s !== side);
 const cond = (side, type) => run(`victoryCond(${JSON.stringify(side)}, ${JSON.stringify(type)})`);
 const fresh = (id) => { E.loadScenario(id); return E.createInitialState(); };
@@ -170,7 +172,7 @@ const seenBy = (st, side) => {
   return (u) => vis.has(u.r * N + u.c) || (st.memory[side] && st.memory[side][u.id]);
 };
 
-for (const id of SCEN_IDS) {
+for (const id of AI_SCEN_IDS) {
   test(`[${id}] 상대의 증원 일정을 바꿔도 AI 행동이 같음`, () => {
     let checked = 0;
     for (const st of midStates(id)) {
@@ -961,4 +963,137 @@ test('대칭 AI: 같은 시드면 모든 행동이 같고(새 AI·기존 AI·tur
     assert.ok(!('aiIntel' in st), id);
   }
   assert.ok('aiIntel' in fresh('symmetric'));
+});
+
+/* ---------------- 튜토리얼 (js/tutorial.js, scenarios/tutorial.js 의 tutorialSteps) ---------------- */
+const TP = (r, c) => ({ r, c });
+/** 단계별 풀이 (허용된 입력만으로 목표 도달) */
+const TUT_SOLUTION = {
+  select: [['select', 'A1'], ['move', 'A1', TP(5, 3)]],
+  attack: [['select', 'A1'], ['preview', 'A1', TP(3, 3)], ['attack', 'A1', TP(3, 3)]],
+  terrain: [['select', 'A1'], ['preview', 'A1', TP(2, 1)], ['preview', 'A1', TP(1, 2)]],
+  fog: [['select', 'A1'], ['move', 'A1', TP(4, 3)], ['select', 'A2'], ['preview', 'A2', TP(4, 6)]],
+  activation: [['select', 'A1'], ['move', 'A1', TP(5, 2)], ['select', 'A2'], ['endTurn']],
+  objective: [['select', 'A1'], ['move', 'A1', TP(2, 4)], ['select', 'A2'], ['attack', 'A2', TP(1, 5)]],
+  mortar: [['select', 'A1'], ['attack', 'A1', TP(3, 4)]],
+  artillery: [['select', 'A1'], ['attack', 'A1', TP(3, 3)], ['endTurn'], ['select', 'A1']],
+};
+/** 화면과 같은 순서로 입력을 엔진에 적용 (허용되지 않은 입력은 아무것도 하지 않음) */
+function tutPlay(step, actions, seed = step.seed) {
+  const st = E.tutorialState(step), rng = E.createSeededRng(seed), log = [], events = [], refused = [];
+  for (const [kind, unit, at] of actions) {
+    const a = { kind, unit, at };
+    if (!E.tutorialAllows(step, a, st, log)) { refused.push(kind); continue; }
+    let ev = [];
+    if (kind === 'move') ev = E.moveUnit(st, unit, at);
+    else if (kind === 'attack') ev = E.resolveAttack(st, unit, at, rng);
+    else if (kind === 'endTurn') ev = E.tutorialEndTurn(st, step, rng);
+    events.push(...ev);
+    E.tutorialRecord(log, a, ev, st);
+  }
+  return { st, log, events, refused, prog: E.tutorialProgress(step, log, st) };
+}
+const tutSteps = () => { E.loadScenario('tutorial'); return E.tutorialSteps(); };
+
+test('튜토리얼 데이터: 8단계, 유닛·깜빡임 칸이 지도 안·지나갈 수 있는 칸, 유닛 칸 겹침 없음, 튜토리얼 시나리오는 시작 화면 목록에 없음', () => {
+  const steps = tutSteps(), n = C().MAP.length;
+  assert.equal(steps.length, 8);
+  assert.equal(new Set(steps.map((s) => s.id)).size, 8);
+  const inMap = (p) => p[0] >= 0 && p[0] < n && p[1] >= 0 && p[1] < n;
+  for (const s of steps) {
+    const seen = new Set();
+    for (const u of s.setup.units) {
+      assert.ok(inMap(u.pos), `${s.id} ${u.type}`);
+      const ter = C().TERRAIN[C().MAP[u.pos[0]][u.pos[1]]];
+      assert.ok(!(ter.impassableFor || []).includes(u.type), `${s.id} ${u.type} 지형`);
+      assert.ok(!seen.has(u.pos.join(',')), `${s.id} 겹침`);
+      seen.add(u.pos.join(','));
+    }
+    for (const p of [...(s.highlight || []), ...s.goal.flatMap((g) => g.hl || [])]) assert.ok(inMap(p), `${s.id} hl ${p}`);
+    for (const g of s.goal) assert.ok(['select', 'move', 'attack', 'preview', 'selectBlocked', 'selectCooldown', 'endTurn', 'contested', 'own'].includes(g.do), g.do);
+    for (const k of [s.titleKey, s.textKey, s.doneKey]) for (const lang of ['ko', 'en']) assert.ok(k in run('STRINGS')[lang], `${lang} ${k}`);
+  }
+  assert.ok(!E.listScenarios().some((s) => s.id === 'tutorial' || s.id === 'tutorialPractice'));
+  assert.deepEqual([...E.validateScenario(E.SCENARIOS.find((s) => s.id === 'tutorialPractice'))], []);
+});
+
+test('튜토리얼: 허용된 입력만으로 8단계를 모두 끝까지 진행 (엔진을 실제로 돌림), 게임이 끝나지 않음', () => {
+  for (const step of tutSteps()) {
+    const r = tutPlay(step, TUT_SOLUTION[step.id]);
+    assert.deepEqual(r.refused, [], `${step.id} 거부된 입력`);
+    assert.ok(r.prog.complete, `${step.id} 완료 ${JSON.stringify(r.prog.done)}`);
+    assert.equal(r.st.winner, null, step.id);
+  }
+});
+
+test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중으로 점유, 8단계 아군도 포병 파편에 맞음·다음 턴 쿨다운)', () => {
+  const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
+  const rolls = (r) => r.events.filter((e) => e.type === 'diceRoll');
+  assert.equal(rolls(tutPlay(by.attack, TUT_SOLUTION.attack))[0].hit, false);
+  const six = tutPlay(by.objective, TUT_SOLUTION.objective);
+  assert.ok(six.log.some((e) => e.kind === 'contested'));
+  assert.equal(six.st.objectives[0].owner, 'ally');
+  const eight = tutPlay(by.artillery, TUT_SOLUTION.artillery);
+  assert.ok(rolls(eight)[0].hit);
+  assert.ok(eight.events.some((e) => e.type === 'splashDamage' && e.unitId === 'A2'), '아군 파편 피해');
+  assert.ok(eight.log.at(-1).cooling, '다음 턴 포병은 쿨다운');
+  assert.ok(run('onCooldown')(eight.st, eight.st.units.find((u) => u.id === 'A1')));
+});
+
+test('튜토리얼: 허용되지 않은 입력은 거부되고 상태가 그대로 (순서가 있는 단계는 앞 목표 먼저)', () => {
+  const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
+  const bad = [
+    [by.select, ['select', 'A2']], [by.select, ['move', 'A2', TP(5, 6)]], [by.select, ['endTurn']], [by.select, ['cell']],
+    [by.attack, ['move', 'A1', TP(5, 3)]], [by.terrain, ['attack', 'A1', TP(3, 2)]],
+    [by.fog, ['move', 'A1', TP(5, 3)]], [by.fog, ['preview', 'A2', TP(4, 6)]],     // 순서: 보병 이동 전에는 박격포 확인 불가
+    [by.activation, ['move', 'A2', TP(5, 5)]], [by.objective, ['attack', 'A2', TP(1, 5)]],   // 순서: 거점 진입 전 공격 불가
+    [by.artillery, ['endTurn']],                                                     // 순서: 사격 전 턴 종료 불가
+  ];
+  for (const [step, [kind, unit, at]] of bad) {
+    const st = E.tutorialState(step), before = JSON.stringify(st);
+    assert.equal(E.tutorialAllows(step, { kind, unit, at }, st, []), false, `${step.id} ${kind} ${unit || ''}`);
+    const r = tutPlay(step, [[kind, unit, at]]);
+    assert.deepEqual(r.refused, [kind]);
+    assert.equal(JSON.stringify(r.st), before, `${step.id} 상태 변화 없음`);
+  }
+  // 단계가 끝난 뒤에는 상태를 바꾸는 입력을 더 받지 않음 (순서가 있는 단계)
+  const done = tutPlay(by.artillery, TUT_SOLUTION.artillery);
+  assert.equal(E.tutorialAllows(by.artillery, { kind: 'endTurn' }, done.st, done.log), false);
+});
+
+test('튜토리얼: 다시 해 보기 = 같은 시드로 같은 결과', () => {
+  for (const step of tutSteps()) {
+    const a = tutPlay(step, TUT_SOLUTION[step.id]), b = tutPlay(step, TUT_SOLUTION[step.id]);
+    assert.equal(JSON.stringify(b.st), JSON.stringify(a.st), step.id);
+    assert.equal(JSON.stringify(b.events), JSON.stringify(a.events), step.id);
+  }
+});
+
+test('튜토리얼 문구의 수치는 데이터에서 읽음 (사거리·쿨다운·행동 수를 바꾸면 문구가 바뀜)', () => {
+  const t = run('t');
+  const s = tutSteps();
+  const text = (id) => { const st = s.find((x) => x.id === id); return t(st.textKey, E.tutorialParams()) + ' ' + t(st.doneKey, E.tutorialParams()); };
+  assert.ok(text('mortar').includes('2~4'));
+  assert.ok(text('artillery').includes('2~5'));
+  assert.ok(text('select').includes('3'));
+  E.loadScenario('tutorial', { fires: { mortar: { range: 3 }, artillery: { range: 6, cooldown: 2 } }, activations: { def: 4, att: 4 } });
+  assert.ok(text('mortar').includes('2~3'), text('mortar'));
+  assert.ok(text('artillery').includes('2~6') && text('artillery').includes('2번'), text('artillery'));
+  assert.ok(text('activation').includes('4기'), text('activation'));
+  // 대칭 전장 점수 설명도 그 시나리오 데이터 (공개 값)
+  assert.ok(text('objective').includes('중앙 2'));
+  E.loadScenario('tutorial');
+});
+
+test('튜토리얼 상태는 엔진의 일반 상태와 같은 형식이고, 다른 시나리오·결과에는 영향 없음', () => {
+  const step = tutSteps()[0];
+  const st = E.tutorialState(step);
+  assert.equal(st.turn, 'ally');
+  assert.equal(st.act.limit, C().ACTIVATIONS.def);
+  assert.ok(Array.isArray(st.units) && st.units.every((u) => /^[AE]\d+$/.test(u.id)));
+  // 시나리오를 오가도 AI 캐시가 섞이지 않음: 대칭 전장 결과가 튜토리얼·연습 판을 거친 뒤에도 같음
+  const a = JSON.stringify(E.simulateGames(2, { scenario: 'symmetric', quiet: true }));
+  E.simulateGames(1, { scenario: 'tutorialPractice', quiet: true });
+  const b = JSON.stringify(E.simulateGames(2, { scenario: 'symmetric', quiet: true }));
+  assert.equal(b, a);
 });

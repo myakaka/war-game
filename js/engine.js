@@ -312,7 +312,7 @@ function validateAllScenarios() {
 
 const findScenario = (id) => SCENARIOS.find((s) => s.id === id) || null;
 /** 시작 화면 등에서 쓰는 시나리오 목록 */
-function listScenarios() { return SCENARIOS.map((s) => ({ id: s.id, nameKey: s.nameKey, descKey: s.descKey, rounds: s.rounds, scaleMeters: s.scaleMeters, playerSide: s.playerSide, map: s.map })); }
+function listScenarios() { return SCENARIOS.filter((s) => !s.hidden).map((s) => ({ id: s.id, nameKey: s.nameKey, descKey: s.descKey, rounds: s.rounds, scaleMeters: s.scaleMeters, playerSide: s.playerSide, map: s.map })); }
 
 /**
  * 시나리오 값을 GAME_CONFIG 에 채움 (규칙 값은 건드리지 않음). overrides: 진단용 덮어쓰기.
@@ -385,6 +385,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   }
   _distCache.clear();
   _rushCache.clear();
+  if (typeof intelClearCaches === 'function') intelClearCaches();   // ai-intel.js 의 지도 크기에 묶인 캐시 (지도 크기가 다른 시나리오로 바꿀 때)
   return C;
 }
 

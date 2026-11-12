@@ -14,6 +14,7 @@
       <span class="chip" id="hud-round"></span>
       <span class="chip blue" id="hud-turn"></span>
       <span class="chip" id="hud-act" hidden></span>
+      <button class="hud-help" id="btn-help" hidden data-i18n-aria="aria.rules">?</button>
       <div class="seg lang-seg" id="lang-seg" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div>
     </div>
     <div class="hud-row" id="hud-r2">
@@ -56,6 +57,7 @@
         </div>
       </section>
       <section id="tray" class="tray" hidden></section>
+      <section id="coach" class="coach" hidden aria-live="polite"></section>
 
       <div class="controls" id="controls">
         <button id="btn-end-turn" class="primary"><span class="tx" id="end-label"></span><span class="cnt" id="end-cnt"></span></button>
@@ -101,7 +103,7 @@
           <div class="set-row"><span class="set-lbl tx" data-i18n="lang.label"></span>
             <div class="seg" id="seg-lang" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div></div>
           <div class="set-row" id="diff-wrap"><span class="set-lbl tx" data-i18n="lbl.aiDifficulty"></span><select id="difficulty-select"></select></div>
-          <div class="set-btns"><button id="btn-restart" data-i18n="btn.restart"></button><button id="btn-menu" data-i18n="btn.menu"></button></div>
+          <div class="set-btns"><button id="btn-restart" data-i18n="btn.restart"></button><button id="btn-rules-game" data-i18n="btn.rulesGame"></button><button id="btn-menu" data-i18n="btn.menu"></button></div>
         </div>
       </div>
     </aside>
@@ -125,8 +127,10 @@
 <script src="js/scenarios/chuncheon.js"></script>
 <script src="js/scenarios/hostomel.js"></script>
 <script src="js/scenarios/symmetric.js"></script>
+<script src="js/scenarios/tutorial.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/ai-intel.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/rich-map.js"></script>
 <script src="js/ui.js"></script>
 </body>

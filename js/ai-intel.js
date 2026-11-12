@@ -266,6 +266,8 @@ function threatScore(e, objCells, K) {
    ctx.v2 가 있을 때만 부른다 (기존 점수에 더하는 방식). 설정: AI_CONFIG.SYMMETRIC.INTEL / V2
    ===================================================================== */
 const _threatCache = new Map();   // 위험 지도 캐시 (키 = 진영·병종·기억 요약·포병 휴식·간접 화력 설정)
+/** 시나리오가 바뀔 때 비움 (loadScenario): 캐시 키에 지도 크기·지형이 없으므로 다른 지도의 값이 섞이지 않게. 결과 값은 같음 (메모일 뿐) */
+function intelClearCaches() { _threatCache.clear(); _reachCache.clear(); _objNear = null; }
 
 /**
  * 압박 0~1: 승리 조건(시나리오 데이터)에서 계산. 라운드가 갈수록, 점유 거점이 상대보다 적을수록 큼.
