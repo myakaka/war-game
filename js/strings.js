@@ -395,6 +395,8 @@ const STRINGS = {
     'tut.ask.title': '튜토리얼을 해 볼까요?', 'tut.ask.body': '작은 판에서 8단계로 규칙을 직접 해 보며 배웁니다. 언제든 종료할 수 있습니다.',
     'tut.practice.title': '연습 판', 'tut.practice.body': '작은 지도에서 양쪽 {n}기, 거점 1개, {max}라운드짜리 판을 쉬운 AI와 한 번 해 봅니다.',
     'btn.practiceGo': '연습 판 시작', 'btn.toMain': '메인으로', 'btn.rulesView': '규칙 보기', 'btn.rulesGame': '규칙', 'aria.rules': '규칙 보기',
+    'aria.logFold': '전투 로그 접기/펴기 (L)', 'aria.zoom': '지도 확대', 'aria.zoomIn': '확대 (+)', 'aria.zoomOut': '축소 (−)', 'aria.zoomFit': '전체 보기 (0)', 'aria.minimap': '전체 지도: 누르거나 끌면 그 위치로 이동',
+    'rules.sec.zoom': '확대/이동', 'rules.zoom.pc': 'PC: 마우스 휠로 확대·축소(마우스 위치 기준), 왼쪽 버튼을 누른 채 끌어서 이동. 키 + / − / 0.', 'rules.zoom.touch': '휴대폰: 두 손가락으로 벌리거나 오므려 확대·축소, 한 손가락으로 끌어서 이동.', 'rules.zoom.tap': '짧게 누르면 지금처럼 선택·이동·공격, {px}px 이상 끌면 지도만 움직입니다. 배율 {min}~{max}배.', 'rules.zoom.fit': '오른쪽 아래 + / − / 전체 보기 버튼. 확대 중에는 오른쪽 위 작은 지도를 눌러 그 위치로 갈 수 있습니다.',
     // 규칙 화면 (항목별, 수치는 데이터에서)
     'rules.sec.goal': '게임의 목적과 한 라운드', 'rules.sec.move': '이동과 행동 제한', 'rules.sec.hit': '공격과 명중률', 'rules.sec.terrain': '지형',
     'rules.sec.fog': '안개와 시야', 'rules.sec.units': '병종', 'rules.sec.obj': '거점과 점수', 'rules.sec.fires': '박격포와 포병', 'rules.sec.terms': '용어',
@@ -821,6 +823,8 @@ const STRINGS = {
     'tut.ask.title': 'Try the tutorial?', 'tut.ask.body': 'Learn the rules hands-on in 8 short steps on a small board. You can exit any time.',
     'tut.practice.title': 'Practice game', 'tut.practice.body': 'Play one short game against an easy AI: a small map, {n} units a side, one objective, {max} rounds.',
     'btn.practiceGo': 'Start practice', 'btn.toMain': 'Main menu', 'btn.rulesView': 'Rules', 'btn.rulesGame': 'Rules', 'aria.rules': 'View rules',
+    'aria.logFold': 'Collapse/expand combat log (L)', 'aria.zoom': 'Map zoom', 'aria.zoomIn': 'Zoom in (+)', 'aria.zoomOut': 'Zoom out (−)', 'aria.zoomFit': 'Fit whole map (0)', 'aria.minimap': 'Overview map: tap or drag to move there',
+    'rules.sec.zoom': 'Zoom & pan', 'rules.zoom.pc': 'PC: mouse wheel zooms around the pointer; drag with the left button to pan. Keys + / − / 0.', 'rules.zoom.touch': 'Phone: pinch to zoom, drag with one finger to pan.', 'rules.zoom.tap': 'A short tap still selects, moves and attacks; dragging {px}px or more only moves the map. Zoom {min}x to {max}x.', 'rules.zoom.fit': 'Use + / − / fit buttons at the lower right. While zoomed, tap the small map at the upper right to jump there.',
     'rules.sec.goal': 'Goal and the round', 'rules.sec.move': 'Movement and activation limit', 'rules.sec.hit': 'Attacks and hit chance', 'rules.sec.terrain': 'Terrain',
     'rules.sec.fog': 'Fog and sight', 'rules.sec.units': 'Unit types', 'rules.sec.obj': 'Objectives and score', 'rules.sec.fires': 'Mortars and artillery', 'rules.sec.terms': 'Terms',
     'rules.now': 'Current scenario: {name}',

@@ -1097,3 +1097,59 @@ test('튜토리얼 상태는 엔진의 일반 상태와 같은 형식이고, 다
   const b = JSON.stringify(E.simulateGames(2, { scenario: 'symmetric', quiet: true }));
   assert.equal(b, a);
 });
+
+/* ---------------- 지도 확대/이동 (js/zoom.js, 보기 전용 계산) ---------------- */
+test('확대: 화면 좌표 → 칸 → 화면 좌표 왕복 (배율 1 / 1.5 / 2.5, 여러 이동값, 가장자리·모서리 칸)', () => {
+  const geo = { ox: 18, oy: 18, cell: 40, n: 16 }, w = geo.ox + geo.n * geo.cell + 2, h = w;
+  const pans = [[0, 0], [-1e4, -1e4], [-123.4, -77.7], [50, 50], [-300, 0]];
+  const edge = [];
+  for (let k = 0; k < geo.n; k++) edge.push([0, k], [geo.n - 1, k], [k, 0], [k, geo.n - 1]);
+  for (const z of [1, 1.5, 2.5]) for (const [tx, ty] of pans) {
+    const v = E.clampPan({ z, tx, ty }, w, h);
+    for (const [r, c] of [...edge, [7, 9], [3, 12]]) {
+      const p = E.cellToPoint(v, r, c, geo);
+      if (p.x < 0 || p.y < 0 || p.x > w || p.y > h) continue;   // 화면 밖 칸
+      assert.deepEqual(JSON.parse(JSON.stringify(E.pointToCell(v, p.x, p.y, geo))), { r, c }, `z${z} ${r},${c}`);
+    }
+    for (let i = 0; i < 400; i++) {   // 임의의 점: 고른 칸의 화면 사각형 안에 그 점이 있음
+      const x = (i * 37.3) % w, y = (i * 53.9) % h, cell = E.pointToCell(v, x, y, geo);
+      if (!cell) continue;
+      const a = E.frameToScreen(v, geo.ox + cell.c * geo.cell, geo.oy + cell.r * geo.cell);
+      assert.ok(x >= a.x - 1e-9 && x < a.x + geo.cell * v.z + 1e-9 && y >= a.y - 1e-9 && y < a.y + geo.cell * v.z + 1e-9, `z${z} (${x},${y})`);
+    }
+  }
+});
+
+test('확대: 이동 제한 (어떤 배율·이동에서도 지도가 뷰포트를 덮음, 배율 1~2.5, 배율 1 은 이동 없음)', () => {
+  const w = 700, h = 700;
+  for (const z of [0.5, 1, 1.3, 2.5, 4]) for (const t of [-1e5, -500, -1, 0, 1, 500, 1e5]) {
+    const v = E.clampPan({ z, tx: t, ty: -t }, w, h);
+    assert.ok(v.z >= E.ZOOM.minZoom && v.z <= E.ZOOM.maxZoom);
+    assert.ok(v.tx <= 0 && v.tx + w * v.z >= w - 1e-9 && v.ty <= 0 && v.ty + h * v.z >= h - 1e-9, `z${z} t${t}`);
+    if (v.z === 1) assert.ok(v.tx === 0 && v.ty === 0);
+  }
+  // 마우스 위치 기준 확대: 그 점이 가리키는 지도 지점이 그대로
+  const v = E.zoomAt({ z: 1, tx: 0, ty: 0 }, 2, 200, 300, w, h), p = E.screenToFrame(v, 200, 300);
+  assert.ok(Math.abs(p.x - 200) < 1e-9 && Math.abs(p.y - 300) < 1e-9);
+});
+
+test('확대: 끌기/누르기 구분 (8px 미만 = 누르기, 이상 = 끌기)', () => {
+  assert.equal(E.ZOOM.dragPx, 8);
+  assert.equal(E.isDrag(0, 0), false);
+  assert.equal(E.isDrag(7.9, 0), false);
+  assert.equal(E.isDrag(5, 6), false);
+  assert.equal(E.isDrag(8, 0), true);
+  assert.equal(E.isDrag(6, 6), true);
+});
+
+test('확대: 두 칸이 모두 보이게 조정 (들어가면 배율 유지, 안 들어가면 필요한 만큼만 축소)', () => {
+  const geo = { ox: 18, oy: 18, cell: 40, n: 16 }, w = 700, h = 700;
+  const box = (r, c) => ({ x0: geo.ox + c * geo.cell, y0: geo.oy + r * geo.cell, x1: geo.ox + (c + 1) * geo.cell, y1: geo.oy + (r + 1) * geo.cell });
+  const inView = (v, b) => { const a = E.frameToScreen(v, b.x0, b.y0), z = E.frameToScreen(v, b.x1, b.y1); return a.x >= -1e-9 && a.y >= -1e-9 && z.x <= w + 1e-9 && z.y <= h + 1e-9; };
+  const near = E.fitBoxes({ z: 2.5, tx: 0, ty: 0 }, [box(10, 10), box(11, 12)], w, h, 10);
+  assert.equal(near.z, 2.5);
+  assert.ok(inView(near, box(10, 10)) && inView(near, box(11, 12)));
+  const far = E.fitBoxes({ z: 2.5, tx: 0, ty: 0 }, [box(0, 0), box(15, 15)], w, h, 10);
+  assert.ok(far.z < 2.5 && far.z >= 1);
+  assert.ok(inView(far, box(0, 0)) && inView(far, box(15, 15)));
+});

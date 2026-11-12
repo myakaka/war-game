@@ -97,9 +97,13 @@
     deployZone: { fill: 'rgba(46,158,91,0.20)', line: '#2E9E5B', w: 2.4, dash: '6 4' },
     /* 시나리오 장식 표식 (규칙 영향 없음): 활주로 = 회색 띠 + 흰 점선 중심선 */
     overlay: { runway: { fill: '#9C9A92', edge: '#7E7C75', line: '#FFFFFF', lineW: 1.6, dash: '5 4', halfW: 11 } },
+    /* 확대 중 미니맵: 지도 짧은 변 대비 크기, 지형 색(윤곽용), 중립 거점, 보이는 영역 사각형 */
+    minimap: { frac: 0.2, neutral: '#8a8f99', view: '#ffd34d',
+      terrain: { plain: '#e3dcbd', city: '#a39886', mountain: '#8d826c', river: '#7fa6c4', forest: '#88a46a', paddy: '#b3c79e' } },
     scenMap: 76,   // 시나리오 카드의 지도 미리보기 크기 (px)
     /* PC 리치 테마 (그림 세트가 있는 시나리오, 넓은 화면만). 길이 단위: 칸 */
     rich: {
+      maxBgPx: 4096,   // 지도 바탕 canvas 한 변 상한 (확대 배율 × dpr 반영)
       // by: 'h' 높이 / 'w' 폭 기준으로 size 칸 (비율 유지). ring: 링 반지름
       units: {
         armor: { img: 'armor', by: 'h', size: 1.19, ring: 0.61 },
@@ -550,7 +554,7 @@
   function paintRichBg() {
     if (!rich.on || !rich.canvas) return;
     const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-    const size = Math.round(N * (ui.cellSize || cellPx()) * dpr);
+    const size = Math.min(DESIGN.rich.maxBgPx, Math.round(N * (ui.cellSize || cellPx()) * dpr * (ui.zoom ? ui.zoom.z : 1)));
     const key = `${GAME_CONFIG.SCENARIO_ID}:${size}`;
     if (key === rich.bgKey || size <= 0) return;
     rich.bgKey = key;
@@ -726,6 +730,151 @@
     ui.mouse = { x: e.clientX, y: e.clientY };
     if ($('#tooltip').style.display === 'block') placeTip();
   });
+
+  /* ---------- 지도 확대/이동 (보기 전용: 게임 상태·안개 계산과 무관, 저장하지 않음. 계산은 js/zoom.js) ----------
+     지도 틀(라벨·칸·하이라이트·연출 층)에 변환 하나만 걸어서 모든 그림이 같은 변환을 따름. 칸 누르기는 브라우저가 변환을 반영해 판정 */
+  const vpEl = $('#zoom-vp'), frameEl = $('#board-frame'), miniEl = $('#minimap');
+  const zInBtn = $('#zoom-in'), zOutBtn = $('#zoom-out'), zFitBtn = $('#zoom-fit');   // 가림막 중에는 문서에서 떨어지므로 참조를 보관
+  ui.zoom = zoomIdentity();
+  ui.zoomW = 0;
+  const vpSize = () => ({ w: frameEl.offsetWidth, h: frameEl.offsetHeight });
+  const zoomable = () => ui.screen === 'game' || ui.screen === 'deploy';
+  /** 틀 안에서 첫 칸의 위치 (라벨 + 지도 테두리 2px) */
+  const boardGeo = () => ({ ox: boardEl.offsetLeft + 2, oy: boardEl.offsetTop + 2, cell: ui.cellSize || cellPx(), n: N });
+  function applyZoom(v, animate = false) {
+    const { w, h } = vpSize();
+    const prevZ = ui.zoom.z;
+    ui.zoom = clampPan(v, w, h);
+    ui.zoomW = w;
+    const Z = ui.zoom, zoomed = Z.z > 1;
+    frameEl.classList.toggle('zoom-anim', animate && !ui.reduceMotion);
+    frameEl.style.transform = zoomed ? `translate(${Z.tx}px, ${Z.ty}px) scale(${Z.z})` : '';   // 전체 보기 = 변환 없음 (이전 화면과 같음)
+    vpEl.classList.toggle('zoomed', zoomed);
+    zFitBtn.classList.toggle('active', zoomed);   // 확대 중에만 '전체 보기' 강조
+    zInBtn.disabled = Z.z >= ZOOM.maxZoom - 1e-6;
+    zOutBtn.disabled = !zoomed;
+    drawMinimap();
+    if (rich.on && Z.z !== prevZ) { clearTimeout(rich.timer); rich.timer = setTimeout(paintRichBg, DESIGN.rich.resizeMs); }   // 확대 배율만큼 선명하게 다시 그림
+  }
+  const resetZoom = () => applyZoom(zoomIdentity());
+  function zoomBy(f) {
+    if (!zoomable()) return;
+    const { w, h } = vpSize();
+    applyZoom(zoomAt(ui.zoom, ui.zoom.z * f, w / 2, h / 2, w, h), true);
+  }
+  /** 창 크기·칸 크기가 바뀌면 같은 지점을 보도록 이동값을 비율로 맞춤 */
+  function zoomOnLayout() {
+    if (ui.zoom.z <= 1) return;
+    const { w } = vpSize(), k = ui.zoomW ? w / ui.zoomW : 1;
+    applyZoom({ z: ui.zoom.z, tx: ui.zoom.tx * k, ty: ui.zoom.ty * k });
+  }
+  /** 확인 창·시트가 열릴 때: 확대 중이면 주어진 칸들이 모두 보이게 (배율 유지, 안 들어가면 필요한 만큼만 축소). 닫힌 뒤에는 그대로 둠 */
+  function zoomShow(list) {
+    if (ui.zoom.z <= 1) return;
+    const { w, h } = vpSize(), g = boardGeo();
+    const boxes = list.map(({ r, c }) => ({ x0: g.ox + c * g.cell, y0: g.oy + r * g.cell, x1: g.ox + (c + 1) * g.cell, y1: g.oy + (r + 1) * g.cell }));
+    applyZoom(fitBoxes(ui.zoom, boxes, w, h, g.cell * 0.25));
+  }
+  // 누르기 = 칸 선택(기존 click), 끌기(확대 중 ZOOM.dragPx 이상) = 이동, 두 손가락 = 확대/축소
+  const ptrs = new Map();
+  let gesture = null;
+  const vpPoint = (x, y) => { const r = vpEl.getBoundingClientRect(); return { x: x - r.left, y: y - r.top }; };
+  vpEl.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (ptrs.size === 0) ui.dragClick = false;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!zoomable()) return;
+    if (ptrs.size === 1) gesture = { kind: 'tap', x0: e.clientX, y0: e.clientY, v0: { ...ui.zoom } };
+    else if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      gesture = { kind: 'pinch', d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), v0: { ...ui.zoom }, m0: vpPoint((a.x + b.x) / 2, (a.y + b.y) / 2) };
+      for (const id of ptrs.keys()) { try { vpEl.setPointerCapture(id); } catch (err) { /* 이미 놓은 손가락 */ } }
+      hideTip(); hideBalloon();
+    }
+  });
+  vpEl.addEventListener('pointermove', (e) => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!gesture) return;
+    const { w, h } = vpSize();
+    if (gesture.kind === 'pinch') {
+      if (ptrs.size < 2) return;
+      const [a, b] = [...ptrs.values()];
+      const m = vpPoint((a.x + b.x) / 2, (a.y + b.y) / 2);
+      const v = zoomAt(gesture.v0, gesture.v0.z * Math.hypot(a.x - b.x, a.y - b.y) / gesture.d0, gesture.m0.x, gesture.m0.y, w, h);
+      applyZoom({ z: v.z, tx: v.tx + m.x - gesture.m0.x, ty: v.ty + m.y - gesture.m0.y });
+      return;
+    }
+    const dx = e.clientX - gesture.x0, dy = e.clientY - gesture.y0;
+    if (gesture.kind === 'tap' && ui.zoom.z > 1 && isDrag(dx, dy)) {   // 전체 보기에서는 끌기 없음 (지금과 같음)
+      gesture.kind = 'drag';
+      try { vpEl.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
+      vpEl.classList.add('dragging');
+      hideTip(); hideBalloon();
+    }
+    if (gesture.kind === 'drag') applyZoom({ z: gesture.v0.z, tx: gesture.v0.tx + dx, ty: gesture.v0.ty + dy });
+  });
+  const endPtr = (e) => {
+    if (!ptrs.delete(e.pointerId)) return;
+    if (gesture && gesture.kind !== 'tap') {   // 이어서 오는 click 은 칸 선택이 아님 (click 이 안 오는 기기도 있어 잠시 뒤 해제)
+      ui.dragClick = true;
+      clearTimeout(ui.dragClickTimer);
+      ui.dragClickTimer = setTimeout(() => { ui.dragClick = false; }, 350);
+    }
+    if (!ptrs.size || (gesture && gesture.kind === 'pinch')) { gesture = null; vpEl.classList.remove('dragging'); }
+  };
+  vpEl.addEventListener('pointerup', endPtr);
+  vpEl.addEventListener('pointercancel', endPtr);
+  vpEl.addEventListener('click', (e) => { if (ui.dragClick) { e.stopPropagation(); e.preventDefault(); ui.dragClick = false; } }, true);
+  vpEl.addEventListener('wheel', (e) => {
+    if (!zoomable()) return;
+    e.preventDefault();
+    const p = vpPoint(e.clientX, e.clientY), { w, h } = vpSize();
+    applyZoom(zoomAt(ui.zoom, ui.zoom.z * Math.exp(-e.deltaY * ZOOM.wheelK), p.x, p.y, w, h));
+  }, { passive: false });
+  zInBtn.onclick = () => zoomBy(ZOOM.step);
+  zOutBtn.onclick = () => zoomBy(1 / ZOOM.step);
+  zFitBtn.onclick = () => { if (zoomable()) applyZoom(zoomIdentity(), true); };
+
+  /** 미니맵 (확대 중에만): 지형, 거점, 지도에 그려지는 유닛만(내 유닛 + 시야 안 적, 지도와 같은 규칙), 보이는 영역 사각형 */
+  function drawMinimap() {
+    const show = ui.zoom.z > 1 && zoomable() && !!ui.view;
+    miniEl.hidden = !show;
+    if (!show) return;
+    const M = DESIGN.minimap, { w, h } = vpSize();
+    const size = Math.round(Math.min(w, h) * M.frac), dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    miniEl.style.width = miniEl.style.height = size + 'px';
+    if (miniEl.width !== Math.round(size * dpr)) miniEl.width = miniEl.height = Math.round(size * dpr);
+    const g = miniEl.getContext('2d'), k = size / N;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, size, size);
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { g.fillStyle = M.terrain[terrainAt(r, c).key] || M.terrain.plain; g.fillRect(c * k, r * k, k + 0.5, k + 0.5); }
+    const st = ui.view, me = ui.viewer;
+    g.lineWidth = Math.max(1, k * 0.18);
+    for (const o of st.objectives) { g.strokeStyle = GAME_CONFIG.SIDES[o.owner] ? sideColor(o.owner) : M.neutral; g.strokeRect(o.c * k + 1, o.r * k + 1, k - 2, k - 2); }
+    if (!ui.deploy && me) {
+      const vis = visOf(st, me);
+      for (const u of st.units) {
+        if (!(me === 'all' || u.side === me || vis.has(idx(u.r, u.c)))) continue;   // 지도에 그리는 것과 같은 규칙 (시야 밖 적은 없음)
+        g.fillStyle = sideColor(u.side);
+        g.beginPath(); g.arc((u.c + 0.5) * k, (u.r + 0.5) * k, Math.max(1.5, k * 0.32), 0, Math.PI * 2); g.fill();
+      }
+    }
+    const geo = boardGeo(), a = screenToFrame(ui.zoom, 0, 0), b = screenToFrame(ui.zoom, w, h);
+    const fx = (x) => (x - geo.ox) / geo.cell * k, fy = (y) => (y - geo.oy) / geo.cell * k;
+    g.strokeStyle = M.view; g.lineWidth = 1.5;
+    g.strokeRect(fx(a.x), fy(a.y), fx(b.x) - fx(a.x), fy(b.y) - fy(a.y));
+  }
+  /** 미니맵을 누르거나 끌면 그 지점이 화면 가운데로 */
+  function miniJump(e) {
+    const r = miniEl.getBoundingClientRect(), geo = boardGeo(), { w, h } = vpSize();
+    const cx = (e.clientX - r.left) / r.width * N, cy = (e.clientY - r.top) / r.height * N;
+    const z = ui.zoom.z;
+    applyZoom({ z, tx: w / 2 - (geo.ox + cx * geo.cell) * z, ty: h / 2 - (geo.oy + cy * geo.cell) * z });
+  }
+  miniEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); try { miniEl.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ } miniEl.dataset.drag = '1'; miniJump(e); });
+  miniEl.addEventListener('pointermove', (e) => { if (miniEl.dataset.drag) miniJump(e); });
+  for (const ty of ['pointerup', 'pointercancel']) miniEl.addEventListener(ty, () => { delete miniEl.dataset.drag; });
 
   /* ---------- 렌더링 ---------- */
   function unitHtml(u, selected) {
@@ -930,6 +1079,7 @@
     renderPanel();
     renderTutMarks();
     renderCoach();
+    drawMinimap();
   }
 
   /* =====================================================================
@@ -2248,6 +2398,7 @@
     const hc = computeHitChance(st, id, target);
     const tu = getUnitAt(st, target.r, target.c);
     if (ui.tut) tutRecord({ kind: 'preview', unit: id, at: { r: target.r, c: target.c } }, [], false);
+    zoomShow([sel, target]);   // 확대 중이면 공격자·대상이 둘 다 보이게
     // 시야 밖 칸은 유닛 유무를 드러내지 않음
     const what = hc.fogged ? { t: 'confirm.whatFog', p: { pos: P(target) } }
       : tu ? { t: 'confirm.whatUnit', p: { who: REL(tu.side === me, tu.type), pos: P(target) } }
@@ -2256,15 +2407,29 @@
     const pct = hc.fogged ? '' : `<div class="confirm-pct ${hc.chance >= 50 ? 'good' : 'bad'}">${hc.chance}%</div>`;
     hideTip();
     if (!ui.wide) { showAttackSheet(id, target, sel, hc, tu, what, kind, pct); return; }
-    showOverlay(`<div class="atk-confirm">
+    // 작은 창: 제목 · 한 줄 · 명중률(시야 밖은 '?') · 버튼. 보정 내역·지형은 '자세히'에 접어 둠 (펼침 상태는 좁은 화면 시트와 같이 기억)
+    const open = !!ui.sheetOpen;
+    const pctC = pct || '<div class="confirm-pct unk">?</div>';
+    showOverlay(`<div class="atk-confirm compact">
       <h2>${esc(t('confirm.title.' + kind))}</h2>
-      <div style="margin-bottom:8px">${esc(t('confirm.line', { unit: U(sel.type), from: P(sel), what }))}</div>
-      ${pct}
-      ${attackPreviewHtml(st, sel, target, me)}
-      <div class="hint" style="margin-top:6px">${esc(t('confirm.terrain', { terrain: TR(terrainAt(target.r, target.c).key) }))}</div>
-      <div class="btn-row" style="margin-top:14px"><button class="primary" id="btn-atk-yes">${esc(t('confirm.yes.' + kind))}</button><button id="btn-atk-no">${esc(t('confirm.no'))}</button></div>
+      <div class="ac-line">${esc(t('confirm.line', { unit: U(sel.type), from: P(sel), what }))}</div>
+      ${pctC}
+      <button class="sh-more" id="ac-more" aria-expanded="${open}" aria-controls="ac-detail">${esc(t(open ? 'sheet.less' : 'sheet.more'))}</button>
+      <div class="ac-detail" id="ac-detail"${open ? '' : ' hidden'}>
+        ${attackPreviewHtml(st, sel, target, me)}
+        <div class="hint" style="margin-top:6px">${esc(t('confirm.terrain', { terrain: TR(terrainAt(target.r, target.c).key) }))}</div>
+      </div>
+      <div class="btn-row" style="margin-top:10px"><button class="primary" id="btn-atk-yes">${esc(t('confirm.yes.' + kind))}</button><button id="btn-atk-no">${esc(t('confirm.no'))}</button></div>
     </div>`, () => showAttackConfirm(id, target));
-    overlayOnMap([sel, target]);   // PC: 지도 위, 공격자·대상 칸을 피해서
+    $('#ac-more').onclick = () => {
+      const o = $('#ac-detail').hidden;
+      ui.sheetOpen = o;
+      $('#ac-detail').hidden = !o;
+      $('#ac-more').setAttribute('aria-expanded', String(o));
+      $('#ac-more').textContent = t(o ? 'sheet.less' : 'sheet.more');
+      overlayCenter();   // 높이가 바뀌어도 가운데 유지
+    };
+    overlayCenter();   // PC: 지도 가운데
     ui.confirm = { id, target };
     $('#btn-atk-yes').onclick = confirmAttack;
     $('#btn-atk-no').onclick = cancelAttack;
@@ -2351,13 +2516,14 @@
   function showMoveFireChoice(id, target) {
     const sel = getUnit(ui.state, id);
     if (!sel) return;
+    zoomShow([sel, target]);
     hideTip();
     showOverlay(`<div class="atk-confirm move-fire-choice">
       <h2>${esc(t('choice.title'))}</h2>
       <div style="margin-bottom:8px">${esc(t('choice.line', { unit: U(sel.type), from: P(sel), pos: P(target) }))}</div>
       <div class="btn-row" style="margin-top:14px"><button class="primary" id="btn-ch-move">${esc(t('choice.move'))}</button><button id="btn-ch-fire">${esc(t('choice.fire'))}</button><button id="btn-ch-no">${esc(t('confirm.no'))}</button></div>
     </div>`, () => showMoveFireChoice(id, target));
-    overlayOnMap([sel, target]);   // PC: 지도 위, 공격자·대상 칸을 피해서
+    overlayCenter();   // PC: 지도 가운데
     ui.choice = { id, target };
     $('#btn-ch-move').onclick = () => choiceDo('move');
     $('#btn-ch-fire').onclick = () => choiceDo('fire');
@@ -2944,7 +3110,7 @@
     ov.classList.remove(...OVERLAY_KINDS);
     ov.classList.add(kind, 'show');
     const modal = $('#modal');
-    modal.style.left = modal.style.top = '';   // 지도 위 배치(overlayOnMap)에서 남은 위치
+    modal.style.left = modal.style.top = '';   // 지도 가운데 배치(overlayCenter)에서 남은 위치
     modal.innerHTML = html;
     const h = modal.querySelector('h1, h2');
     modal.setAttribute('aria-label', h ? h.textContent : t('app.docTitle'));
@@ -2999,6 +3165,7 @@
     ui.logs = emptyLogs();
     ui.viewer = PLAYER;
     buildBoard();
+    resetZoom();
     ui.state = createInitialState();
     ui.view = ui.state;
     loadActPref();
@@ -3132,13 +3299,15 @@
         <li>${t(hasHq ? 'intro.hqLoss' : 'intro.annihilation')}</li>
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
   }
-  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'terms'];
+  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'zoom', 'terms'];
   /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
   function ruleSectionHtml(id) {
     const C = GAME_CONFIG, CB = C.COMBAT;
     const li = (s) => `<li>${s}</li>`;
     const pct = (v) => `${v > 0 ? '+' : ''}${v}%`;
     switch (id) {
+      case 'zoom':
+        return `<ul>${['pc', 'touch', 'tap', 'fit'].map((k) => li(esc(t('rules.zoom.' + k, { px: ZOOM.dragPx, min: ZOOM.minZoom, max: ZOOM.maxZoom })))).join('')}</ul>`;
       case 'goal':
         return `<div class="hint">${t(C.SYMMETRIC ? 'intro.whoAISym' : 'intro.whoAI', SP())}</div><ul>${li(esc(t('rules.flow')))}${victoryLinesHtml()}</ul>`;
       case 'move':
@@ -3526,6 +3695,7 @@
   function setScreen(name) {
     ui.screen = name;
     document.body.dataset.screen = name;
+    if (name === 'curtain' || name === 'start') resetZoom();   // 이전 사람이 보던 위치가 남지 않게
     if (name === 'curtain') { if (boardWrapEl.isConnected) boardWrapEl.remove(); }
     else if (!boardWrapEl.isConnected) $('#map-host').appendChild(boardWrapEl);
     if (name !== 'game' && name !== 'deploy') { closePop(false); if (ui.drawerOpen) setDrawer(false); }
@@ -3533,33 +3703,14 @@
     $('#logbar').hidden = name === 'deploy' && !ui.wide;   // 좁은 배치 화면: 로그 바 대신 지도·트레이를 크게
     fitLayout();
   }
-  /**
-   * PC: 공격 확인·이동/사격 선택 창을 지도 위에 띄움. 화면 안 후보 자리(8px 간격) 중 공격자·대상 칸과
-   * 겹치지 않으면서 지도와 가장 많이 겹치는 자리 (같으면 두 칸에서 먼 쪽). 모두 겹치면 겹침이 가장 적은 자리. 상태 변화 없음
-   */
-  function overlayOnMap(cellsToAvoid) {
+  /** PC: 공격 확인·이동/사격 선택 창을 지도(보이는 영역) 가운데에. 유닛을 가려도 됨 (창을 작게 해서 덜 가림). 상태 변화 없음 */
+  function overlayCenter() {
     if (!ui.pc) return;
-    const ov = $('#overlay'), m = $('#modal');
-    ov.classList.add('at-map');
-    if (cellsToAvoid) ui.mapAvoid = cellsToAvoid;
-    const B = $('#board').getBoundingClientRect(), pad = DESIGN.layout.pc.dialogPad;
-    m.style.left = '0px'; m.style.top = '0px';
+    const m = $('#modal'), V = vpEl.getBoundingClientRect(), pad = DESIGN.layout.pc.dialogPad;
+    $('#overlay').classList.add('at-map');
     const w = m.offsetWidth, h = m.offsetHeight;
-    const avoid = (ui.mapAvoid || []).map(({ r, c }) => cells[idx(r, c)].el.getBoundingClientRect());
-    const inter = (x0, y0, x1, y1, a) => Math.max(0, Math.min(x1, a.right) - Math.max(x0, a.left)) * Math.max(0, Math.min(y1, a.bottom) - Math.max(y0, a.top));
-    const hit = (s) => avoid.reduce((sum, a) => sum + inter(s.x - pad, s.y - pad, s.x + w + pad, s.y + h + pad, a), 0);
-    const onMap = (s) => inter(s.x, s.y, s.x + w, s.y + h, B);
-    const far = (s) => Math.min(...avoid.map((a) => Math.hypot(s.x + w / 2 - (a.left + a.right) / 2, s.y + h / 2 - (a.top + a.bottom) / 2)));
-    let best = null, bestKey = null;
-    for (let y = pad; y <= window.innerHeight - h - pad; y += 8) {
-      for (let x = pad; x <= window.innerWidth - w - pad; x += 8) {
-        const s = { x, y }, key = [-hit(s), onMap(s), far(s)];
-        if (!best || key[0] > bestKey[0] || (key[0] === bestKey[0] && (key[1] > bestKey[1] || (key[1] === bestKey[1] && key[2] > bestKey[2])))) { best = s; bestKey = key; }
-      }
-    }
-    if (!best) best = { x: B.left + pad, y: B.top + pad };
-    m.style.left = Math.round(Math.max(pad, best.x)) + 'px';
-    m.style.top = Math.round(Math.max(pad, best.y)) + 'px';
+    m.style.left = Math.round(Math.max(pad, Math.min(window.innerWidth - w - pad, V.left + (V.width - w) / 2))) + 'px';
+    m.style.top = Math.round(Math.max(pad, Math.min(window.innerHeight - h - pad, V.top + (V.height - h) / 2))) + 'px';
   }
   /** PC: 라운드·턴·행동·점수(목표) 칩을 지도 바로 위 줄로. 다른 배치에서는 원래 상단 줄 자리 */
   const MAP_CHIPS = ['hud-round', 'hud-turn', 'hud-act', 'hud-goal'];
@@ -3643,7 +3794,8 @@
     root.setProperty('--cell', cell + 'px');
     ui.cellSize = cell;
     if (pc) root.setProperty('--pc-h', (P.barH + lbl + N * cell + L.frameBorder) + 'px');   // 패널 높이 = 상태 줄 + 지도 틀 높이
-    if (pc && $('#overlay').classList.contains('at-map')) overlayOnMap();
+    zoomOnLayout();
+    if (pc && $('#overlay').classList.contains('at-map')) overlayCenter();
     themeOnLayout();
     if (!wide && (ui.screen === 'game' || ui.screen === 'deploy')) {   // 게임 화면 아래 빈 공간만큼 조작 줄을 올림 (게임 중에는 높이가 같아 위치 고정)
       const free = H - $('#side').getBoundingClientRect().bottom - L.narrowGap - parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--abar-h'));
@@ -3665,7 +3817,25 @@
     fitLayout();
     if (!open && restoreFocus) $('#btn-log').focus();
   }
-  function toggleDrawer() { if (ui.screen === 'game' || ui.screen === 'deploy') setDrawer(!ui.drawerOpen, ui.drawerOpen); }
+  function toggleDrawer() {
+    if (ui.screen !== 'game' && ui.screen !== 'deploy') return;
+    if (ui.pc) { setLogFold(!ui.logFold); return; }   // PC: 패널의 로그는 늘 있음, 접기/펴기만
+    setDrawer(!ui.drawerOpen, ui.drawerOpen);
+  }
+  /** PC 패널의 전투 로그 접기/펴기 (보기 설정: 이 브라우저에만 기억, 저장이 막혀도 동작) */
+  const LOG_FOLD_KEY = 'chuncheon1950.logFold';
+  function setLogFold(fold) {
+    ui.logFold = !!fold;
+    $('#app').classList.toggle('log-folded', ui.logFold);
+    const b = $('#log-fold');
+    b.setAttribute('aria-expanded', String(!ui.logFold));
+    b.textContent = ui.logFold ? '▸' : '▾';
+    try { localStorage.setItem(LOG_FOLD_KEY, ui.logFold ? '1' : '0'); } catch (e) { /* 저장 불가 환경 */ }
+    if (!ui.logFold) { const log = $('#log'); log.scrollTop = log.scrollHeight; }
+  }
+  $('#log-fold').onclick = () => setLogFold(!ui.logFold);
+  $('#log-title').addEventListener('click', () => { if (ui.pc) setLogFold(!ui.logFold); });
+  { let v = false; try { v = localStorage.getItem(LOG_FOLD_KEY) === '1'; } catch (e) { /* 저장 불가 환경 */ } setLogFold(v); }
 
   const POPS = {
     legend: { el: '#pop-legend', btn: '#btn-legend' },
@@ -4072,6 +4242,9 @@
     if (!typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
       if (e.code === 'KeyL') { e.preventDefault(); toggleDrawer(); return; }   // 한글 입력 상태에서도 같은 키
       if (e.key === '?' || (e.code === 'Slash' && e.shiftKey)) { e.preventDefault(); togglePop('legend'); return; }
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomBy(ZOOM.step); return; }   // 지도 확대/축소/전체 보기
+      if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomBy(1 / ZOOM.step); return; }
+      if (e.key === '0') { e.preventDefault(); applyZoom(zoomIdentity(), true); return; }
     }
     if (e.key === 'Escape') {
       if (ui.pop) { e.preventDefault(); closePop(); return; }

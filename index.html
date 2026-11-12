@@ -30,11 +30,19 @@
       <div id="map-status" class="map-status"></div>
       <div id="map-host">
         <div class="board-wrap" id="board-wrap">
-          <div class="board-frame">
-            <div></div>
-            <div class="col-labels" id="col-labels"></div>
-            <div class="row-labels" id="row-labels"></div>
-            <div id="board"></div>
+          <div class="zoom-vp" id="zoom-vp">
+            <div class="board-frame" id="board-frame">
+              <div></div>
+              <div class="col-labels" id="col-labels"></div>
+              <div class="row-labels" id="row-labels"></div>
+              <div id="board"></div>
+            </div>
+          </div>
+          <canvas id="minimap" class="minimap" hidden role="img" data-i18n-aria="aria.minimap"></canvas>
+          <div class="zoom-ctl" id="zoom-ctl" role="group" data-i18n-aria="aria.zoom">
+            <button id="zoom-in" data-i18n-aria="aria.zoomIn" data-i18n-title="aria.zoomIn">+</button>
+            <button id="zoom-out" data-i18n-aria="aria.zoomOut" data-i18n-title="aria.zoomOut">&minus;</button>
+            <button id="zoom-fit" class="zoom-fit" data-i18n-aria="aria.zoomFit" data-i18n-title="aria.zoomFit">&#x2922;</button>
           </div>
           <div id="banner" class="turn-banner" aria-hidden="true"></div>
           <div id="dice"></div>
@@ -111,7 +119,7 @@
     </aside>
 
     <aside id="drawer" role="complementary">
-      <div class="pane-head"><span class="pane-title tx" data-i18n="panel.log"></span><kbd>L</kbd><button class="x-btn" id="drawer-close" data-i18n-aria="aria.close">×</button></div>
+      <div class="pane-head"><span class="pane-title tx" id="log-title" data-i18n="panel.log"></span><kbd>L</kbd><button class="x-btn pc-only log-fold" id="log-fold" aria-controls="log" aria-expanded="true" data-i18n-aria="aria.logFold" data-i18n-title="aria.logFold">&#x25BE;</button><button class="x-btn" id="drawer-close" data-i18n-aria="aria.close">×</button></div>
       <div id="log"></div>
     </aside>
   </div>
@@ -133,6 +141,7 @@
 <script src="js/engine.js"></script>
 <script src="js/ai-intel.js"></script>
 <script src="js/tutorial.js"></script>
+<script src="js/zoom.js"></script>
 <script src="js/rich-map.js"></script>
 <script src="js/ui.js"></script>
 </body>
