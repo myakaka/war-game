@@ -202,6 +202,43 @@
   const cells = [];   // { el, dyn }
   let hlUnder, hlOver, hlHover, fxLayer, fxCv;
   let fxSeed = (Date.now() & 0xffff) + 1;   // 연출 전용 난수 씨앗 (게임 난수와 무관)
+  /* 소리 (js/audio.js). 처음 터치·클릭 뒤에 시작하고 그때 로딩. 읽기가 막힌 환경(file://)은 오디오 태그로 대체 */
+  const audio = createAudio({
+    makeContext: () => { const C = window.AudioContext || window.webkitAudioContext; return C ? new C() : null; },
+    fetchFile: async (url) => { const r = await fetch(url); return r.ok ? r.arrayBuffer() : null; },
+    makeElement: (url) => new Promise((res) => { const el = new Audio(); el.preload = 'auto'; el.oncanplaythrough = () => res(el); el.onerror = () => res(null); el.src = url; }),
+    now: () => performance.now(),
+    store: { get: () => JSON.parse(localStorage.getItem(AUDIO.storeKey) || 'null'), set: (v) => localStorage.setItem(AUDIO.storeKey, JSON.stringify(v)) },
+    warn: (m) => console.warn(m),
+    seed: (Date.now() ^ 0x51f15e) >>> 0,
+  });
+  /** 효과음 한 번. 가림막 중에는 내지 않음 (다음 사람 턴이 시작된 뒤부터 그 사람 기준) */
+  const sfx = (id) => (ui.screen === 'curtain' ? null : audio.play(id));
+  /** 화면에 맞는 음악: 메뉴·시나리오 선택 = AUDIO.menuBgm, 게임 = 시나리오의 bgm (없으면 조용히). 판이 끝나면 꺼짐 */
+  function syncBgm() {
+    if (ui.screen === 'start') { audio.setBgm(AUDIO.menuBgm, [0, 0]); return; }
+    const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
+    const over = ui.state && ui.state.winner;
+    audio.setBgm(!over && sc && sc.bgm ? sc.bgm : null, sc && sc.bgmLoopTrim);
+  }
+  const muteIcon = (muted) => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>${muted ? '<path d="M17 9l5 6M22 9l-5 6"/>' : '<path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11"/>'}</svg>`;
+  /** 설정 창의 소리 항목과 음소거 버튼을 현재 값으로 */
+  function renderAudioSettings() {
+    const s = audio.settings();
+    for (const [seg, on] of [['#seg-music', s.musicOn], ['#seg-sfx', s.sfxOn], ['#ms-music', s.musicOn], ['#ms-sfx', s.sfxOn]]) {
+      document.querySelectorAll(seg + ' [data-v]').forEach((b) => { const a = (b.dataset.v === '1') === on; b.classList.toggle('active', a); b.setAttribute('aria-pressed', String(a)); });
+    }
+    for (const [sel, v, on] of [['#rng-music', s.music, s.musicOn], ['#rng-sfx', s.sfx, s.sfxOn], ['#ms-rng-music', s.music, s.musicOn], ['#ms-rng-sfx', s.sfx, s.sfxOn]]) {
+      const el = document.querySelector(sel);
+      if (el) { el.value = String(Math.round(v * 100)); el.disabled = !on; }
+    }
+    document.querySelectorAll('[data-mute]').forEach((b) => {
+      b.innerHTML = muteIcon(s.muted);
+      b.setAttribute('aria-pressed', String(s.muted));
+      b.setAttribute('aria-label', t(s.muted ? 'aria.unmute' : 'aria.mute'));
+      b.title = t(s.muted ? 'aria.unmute' : 'aria.mute');
+    });
+  }
   const fxEnv = () => ({ n: N, cellPx: (ui.cellSize || cellPx()) * (ui.zoom ? ui.zoom.z : 1), rich: rich.on, cap: ui.wide ? FX.cap.pc : FX.cap.phone, mul: speedMul() });
   const P = (p) => `(${p.r},${p.c})`;
   const speedMul = () => DESIGN.fx.speed[ui.speed] || 1;
@@ -1640,6 +1677,7 @@
 
   /** annotate 된 이벤트를 각 진영 로그에 (그 진영이 볼 수 있는 것만) */
   function logEvents(events) {
+    if (events.some((ev) => ev.type === 'scored' && ev.pts && ev.side === ui.viewer)) sfx('score_up');   // 상대 점수는 소리 없음
     for (const ev of events) {
       for (const s of logSides()) if (ev.descBy && ev.descBy[s]) pushLog(s, ev.descBy[s]);
     }
@@ -1709,8 +1747,10 @@
       const L = F.path;
       line = fxSvg(`<polyline points="${pts}" fill="none" stroke="${L.line}" stroke-width="${L.w}" stroke-dasharray="${L.dash}" stroke-linecap="round" stroke-linejoin="round" opacity="${L.opacity}"/>`);
     }
+    let mv = null;
+    const mvStart = () => { if (!mv && full.length > 1) mv = sfx(moveSoundOf(type)); };   // 시야 밖 구간에서는 소리도 없음
     let shown = seen(full[0]);
-    if (shown) { place(full[0].r, full[0].c); attach(); }
+    if (shown) { place(full[0].r, full[0].c); attach(); mvStart(); }
     for (let k = 1; k < full.length; k++) {
       if (token !== ui.gameId) break;
       const a = full[k - 1], b = full[k];
@@ -1719,6 +1759,7 @@
         place(b.r, b.c);
         el.style.opacity = '0';
         attach();
+        mvStart();
         await tween(F.fadeInMs * mul, (p) => { el.style.opacity = String(p); }, token);
         shown = true;
         continue;
@@ -1730,6 +1771,7 @@
       }, token);
     }
     el.remove();
+    audio.stopVoice(mv, 200);
     if (line) {   // 경로 점선은 이동 뒤 0.5초에 걸쳐 사라짐 (기다리지 않음)
       const ln = line;
       tween(F.path.fadeMs * mul, (p) => { ln.style.opacity = String(1 - p); }, token).then(() => ln.remove());
@@ -1906,6 +1948,7 @@
   }
   /** 거점 점령: 옛 깃발 내려감 → 새 색 깃발 올라옴 + 테두리 링 한 번 퍼짐 (연출 줄이기: 즉시 바꾸고 유지) */
   async function captureFx(ev, view) {
+    sfx('objective_captured');
     const token = ui.gameId, mul = speedMul(), X = DESIGN.fx.capture;
     const x = cellX(ev.pos), y = cellY(ev.pos), newCol = sideColor(ev.side), oldCol = sideColor(ev.prevOwner);
     if (ui.reduceMotion) {
@@ -2028,6 +2071,7 @@
     fxCv.fit();
     fxCv.play(plan.items);
     for (const s of plan.shakes) setTimeout(() => { if (token === ui.gameId) mapShake(s.amp, s.ms); }, s.at * speedMul());
+    for (const s of plan.sounds) setTimeout(() => { if (token === ui.gameId) sfx(s.id); }, s.at * speedMul());   // 소리: 그림과 같은 시간표 (같은 시야 판정)
     await wait(plan.hitAt);
     if (token !== ui.gameId) return;
     if (ui.reduceMotion) {   // 연출 줄이기: 기존 정지 표시도 함께 (빗나감 ×, 포격 칸 색칠)
@@ -2660,6 +2704,8 @@
     if (ui.tut && !tutOk({ kind: 'endTurn' })) { tutBlocked(); return; }
     if (!ui.endArmed && endNeedsConfirm()) { armEnd(); return; }   // 첫 누름: 버튼만 확인 상태로
     disarmEnd(false);
+    ui.clickSfx = null;
+    sfx('ui_turn_end');
     ui.selectedId = null;
     ui.inspectId = null;
     hideTip();
@@ -3258,6 +3304,7 @@
     };
     const langs = ['ko', 'en'].map((l) => `<button class="link" data-lang="${l}" lang="${l}" aria-pressed="${getLang() === l}">${l.toUpperCase()}</button>`).join('<span aria-hidden="true">·</span>');
     showOverlay(`<div class="start-card menu-card${fade ? ' menu-fade' : ''}">
+      <button class="mute-btn menu-mute" data-mute aria-pressed="false"></button>
       <div class="menu-head"><h1 class="start-title">${esc(t('gameTitle'))}</h1><div class="start-sub">${esc(t('gameSubtitle'))}</div></div>
       <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${model.items.map(item).join('')}</nav>
       <div class="menu-two"><button id="menu-rules">${esc(t('menu.rules'))}</button><button id="menu-set">${esc(t('menu.settings'))}</button></div>
@@ -3265,6 +3312,7 @@
     </div>`, () => showMenu(null, false), 'start');
     const modal = $('#modal');
     modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
+    renderAudioSettings();
     if ($('#menu-new')) $('#menu-new').onclick = () => showIntro();
     if ($('#menu-tut')) $('#menu-tut').onclick = () => startTutorial(0);
     $('#menu-set').onclick = () => showMenuSettings();
@@ -3298,6 +3346,10 @@
         ${row(t('speed.fx'), null, seg('ms-speed', [['slow', t('speed.slow')], ['normal', t('speed.normal')], ['fast', t('speed.fast')]], ui.speed))}
         ${row(t('lbl.reduceMotion'), t('tip.reduceMotion'), seg('ms-reduce', OO, onOff(ui.reduceMotion)))}
         ${row(t('lbl.signalToggle'), t('tip.signalToggle'), seg('ms-signal', OO, onOff(ui.showSignal)))}
+        ${row(t('lbl.music'), null, seg('ms-music', OO, onOff(audio.settings().musicOn)))}
+        <div class="set-row aud-row"><input type="range" id="ms-rng-music" min="0" max="100" step="5" aria-label="${esc(t('aria.musicVol'))}"></div>
+        ${row(t('lbl.sfx'), null, seg('ms-sfx', OO, onOff(audio.settings().sfxOn)))}
+        <div class="set-row aud-row"><input type="range" id="ms-rng-sfx" min="0" max="100" step="5" aria-label="${esc(t('aria.sfxVol'))}"></div>
         ${themeOk ? row(t('lbl.theme'), t('tip.theme'), seg('ms-theme', [['basic', t('theme.basic')], ['rich', t('theme.rich'), !art]], want))
           + row(t('lbl.gridAlways'), t('tip.gridAlways'), seg('ms-grid', OO.map(([v, l]) => [v, l, !art || want !== 'rich']), onOff(ui.gridAlways))) : ''}
         ${note ? `<div class="hint tx">${esc(note)}</div>` : ''}
@@ -3316,6 +3368,12 @@
     modal.querySelectorAll('#ms-signal [data-v]').forEach((b) => { b.onclick = () => { setShowSignal(b.dataset.v === '1'); again(`#ms-signal [data-v="${b.dataset.v}"]`); }; });
     modal.querySelectorAll('#ms-theme [data-v]').forEach((b) => { b.onclick = () => { setThemePref(b.dataset.v); again(`#ms-theme [data-v="${b.dataset.v}"]`); }; });
     modal.querySelectorAll('#ms-grid [data-v]').forEach((b) => { b.onclick = () => { setGridAlways(b.dataset.v === '1'); again(`#ms-grid [data-v="${b.dataset.v}"]`); }; });
+    modal.querySelectorAll('#ms-music [data-v]').forEach((b) => { b.onclick = () => { audio.setMusicOn(b.dataset.v === '1'); again(`#ms-music [data-v="${b.dataset.v}"]`); }; });
+    modal.querySelectorAll('#ms-sfx [data-v]').forEach((b) => { b.onclick = () => { audio.setSfxOn(b.dataset.v === '1'); again(`#ms-sfx [data-v="${b.dataset.v}"]`); }; });
+    $('#ms-rng-music').oninput = (e) => audio.setMusicVolume(Number(e.target.value) / 100);
+    $('#ms-rng-sfx').oninput = (e) => audio.setSfxVolume(Number(e.target.value) / 100);
+    $('#ms-rng-sfx').onchange = () => sfx('ui_click');
+    renderAudioSettings();
     $('#btn-menu-back').onclick = ui.menuBack;
     $('#btn-menu-done').onclick = ui.menuBack;
     const fx = focusSel && modal.querySelector(focusSel);
@@ -3590,6 +3648,8 @@
   }
   function tutBlocked() {
     if (!ui.tut) return;
+    ui.clickSfx = null;
+    sfx('ui_error');
     ui.tut.hint = tutHintText();
     renderCoach();
     announce(ui.tut.hint);
@@ -3776,6 +3836,11 @@
     const st = ui.state;
     if (!st.winner) return;
     const draw = st.winner === 'draw';
+    if (ui.resultSfx !== ui.gameId) {   // 한 판에 한 번
+      ui.resultSfx = ui.gameId;
+      syncBgm();   // 판이 끝나면 음악은 페이드 아웃
+      if (!draw) sfx(hotseat() || st.winner === PLAYER ? 'victory' : 'defeat');
+    }
     if (ui.recordedGameId !== ui.gameId) {
       const m = draw ? M('log.draw', { reason: REASON(st.winReason) }, 'sys') : M('log.victory', { side: S(st.winner), reason: REASON(st.winReason) }, 'sys');
       addLog(m);
@@ -3874,6 +3939,7 @@
     if (name === 'curtain') { if (boardWrapEl.isConnected) boardWrapEl.remove(); }
     else if (!boardWrapEl.isConnected) $('#map-host').appendChild(boardWrapEl);
     if (name !== 'game' && name !== 'deploy') { closePop(false); if (ui.drawerOpen) setDrawer(false); }
+    syncBgm();
     $('#tray').hidden = name !== 'deploy';
     $('#logbar').hidden = name === 'deploy' && !ui.wide;   // 좁은 배치 화면: 로그 바 대신 지도·트레이를 크게
     fitLayout();
@@ -4112,6 +4178,7 @@
     renderActSettings();
     renderFireSettings();
     renderThemeSettings();
+    renderAudioSettings();
     renderLegend();
     renderDiffSelect();
     hideTip();
@@ -4378,6 +4445,29 @@
   $('#drawer-close').onclick = () => setDrawer(false, true);
   $('#btn-legend').onclick = () => togglePop('legend');
   $('#btn-settings').onclick = () => togglePop('settings');
+  /* 소리: 처음 터치·클릭·키 입력에 소리 시스템 시작 (브라우저 자동재생 제한). 탭이 가려지면 멈추고 돌아오면 음악만 이어짐 */
+  for (const ty of ['pointerdown', 'keydown']) document.addEventListener(ty, () => audio.unlock(), true);
+  document.addEventListener('visibilitychange', () => audio.setHidden(document.hidden));
+  const CANCEL_SFX = '#btn-atk-no, #btn-ch-no, #btn-deselect, [data-close], .x-btn, #btn-menu-back, #btn-rules-x';
+  document.addEventListener('click', (e) => {   // 누름 소리: 버튼·카드·칸. 처리 중에 다른 소리(턴 종료·오류)가 정해지면 그것만
+    const el = e.target.closest && e.target.closest('button, [role="radio"], label.opt, .cell, #logbar, #card-sum');
+    if (!el || el.disabled) return;
+    if (el.classList.contains('cell') && (ui.dragClick || !(playerCanAct() || ui.deploy))) return;
+    ui.clickSfx = el.matches(CANCEL_SFX) ? 'ui_cancel' : 'ui_click';
+    setTimeout(() => { if (ui.clickSfx) sfx(ui.clickSfx); ui.clickSfx = null; }, 0);
+  }, true);
+  document.addEventListener('click', (e) => {   // 음소거 버튼 (게임 화면 위쪽, 메인 메뉴 모서리)
+    const b = e.target.closest && e.target.closest('[data-mute]');
+    if (!b) return;
+    audio.setMuted(!audio.settings().muted);
+    renderAudioSettings();
+  });
+  document.querySelectorAll('#seg-music [data-v]').forEach((b) => { b.onclick = () => { audio.setMusicOn(b.dataset.v === '1'); renderAudioSettings(); }; });
+  document.querySelectorAll('#seg-sfx [data-v]').forEach((b) => { b.onclick = () => { audio.setSfxOn(b.dataset.v === '1'); renderAudioSettings(); }; });
+  $('#rng-music').oninput = (e) => audio.setMusicVolume(Number(e.target.value) / 100);
+  $('#rng-sfx').oninput = (e) => audio.setSfxVolume(Number(e.target.value) / 100);
+  $('#rng-sfx').onchange = () => sfx('ui_click');   // 조절한 크기를 들어 볼 수 있게
+  renderAudioSettings();
   document.querySelectorAll('[data-close]').forEach((b) => { b.onclick = () => closePop(); });
   $('#card-sum').onclick = () => openPop('card');
   $('#card-close').onclick = () => closePop();
@@ -4405,13 +4495,13 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') { trapFocus(e); return; }
     if (ui.choice) {   // 이동/사격 선택 창: M = 이동, F = 사격, Esc = 취소
-      if (e.key === 'Escape') { e.preventDefault(); choiceDo(null); }
+      if (e.key === 'Escape') { e.preventDefault(); sfx('ui_cancel'); choiceDo(null); }
       else if (e.code === 'KeyM') { e.preventDefault(); choiceDo('move'); }
       else if (e.code === 'KeyF') { e.preventDefault(); choiceDo('fire'); }
       return;
     }
     if (ui.confirm) {   // 공격 확인 창: Enter = 공격, Esc = 취소 (다른 키보다 우선)
-      if (e.key === 'Escape') { e.preventDefault(); cancelAttack(); }
+      if (e.key === 'Escape') { e.preventDefault(); sfx('ui_cancel'); cancelAttack(); }
       else if (e.key === 'Enter') { e.preventDefault(); confirmAttack(); }
       return;
     }

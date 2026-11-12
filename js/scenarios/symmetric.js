@@ -9,6 +9,8 @@ SCENARIOS.push({
   id: 'symmetric',
   nameKey: 'scen.symmetric.name', descKey: 'scen.symmetric.desc', subKey: 'scen.symmetric.sub',
   tags: ['sym', 'points', 'twoPlayer'],
+  bgm: null,                 // 이 시나리오의 음악 (화면 전용). 예: 'sound/bgm_symmetric' — 확장자 없이 적으면 .m4a → .mp3 → .wav 순으로 찾음. null 이면 음악 없음
+  bgmLoopTrim: [0, 0],       // 반복할 때 건너뛸 앞·뒤 빈 구간 (초)
   scaleMeters: 250,
   map: [
     '................',

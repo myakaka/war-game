@@ -7,6 +7,8 @@ SCENARIOS.push({
   id: 'chuncheon',
   nameKey: 'scen.chuncheon.name', descKey: 'scen.chuncheon.desc', subKey: 'scen.chuncheon.sub',
   tags: ['asym', 'intro', 'twoPlayer'],   // 시나리오 카드의 태그 칩 (화면 전용, 문구 키 'tag.<값>')
+  bgm: null,                 // 이 시나리오의 음악 (화면 전용). 예: 'sound/bgm_chuncheon' — 확장자 없이 적으면 .m4a → .mp3 → .wav 순으로 찾음. null 이면 음악 없음
+  bgmLoopTrim: [0, 0],       // 반복할 때 건너뛸 앞·뒤 빈 구간 (초)
   scaleMeters: 100,
   map: [
     '^^...........^^^',

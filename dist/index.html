@@ -844,6 +844,17 @@ body.reduce-motion .menu-fade { animation: none; }
 .menu-item .d { white-space: normal; font-weight: 400; line-height: 1.35; }
 .menu-item.primary { font-weight: inherit; }
 .lang-inline .link, .lang-inline .link[aria-pressed="true"] { background: none; border: 0; box-shadow: none; }
+
+/* ---------- 소리: 음소거 버튼, 볼륨 슬라이더 ---------- */
+.mute-btn { width: 44px; height: 44px; padding: 0; flex: 0 0 auto; display: grid; place-items: center; border-radius: 10px; }
+.mute-btn[aria-pressed="true"] { color: var(--muted); background: var(--panel-2); border-color: var(--line); }
+#hud .mute-btn { order: 100; margin: -8px 0 -8px 6px; }
+#app.pc #hud .mute-btn { order: 3; }
+.menu-card { position: relative; }
+.menu-mute { position: absolute; top: 10px; right: 10px; }
+.aud-row { min-height: 44px; }
+.aud-row input[type="range"] { width: 100%; height: 44px; margin: 0; accent-color: var(--accent); touch-action: pan-y; }
+.aud-row input[type="range"]:disabled { opacity: 0.45; }
 </style>
 </head>
 <body data-screen="start">
@@ -856,6 +867,7 @@ body.reduce-motion .menu-fade { animation: none; }
       <span class="chip" id="hud-act" hidden></span>
       <button class="hud-help" id="btn-help" hidden data-i18n-aria="aria.rules">?</button>
       <div class="seg lang-seg" id="lang-seg" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div>
+      <button class="mute-btn" id="btn-mute" data-mute aria-pressed="false"></button>
     </div>
     <div class="hud-row" id="hud-r2">
       <span class="hud-objs" id="hud-objs"></span>
@@ -939,6 +951,12 @@ body.reduce-motion .menu-fade { animation: none; }
             <div class="seg" id="seg-signal" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
           <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.reduceMotion" data-i18n-title="tip.reduceMotion"></span>
             <div class="seg" id="seg-reduce" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.music"></span>
+            <div class="seg" id="seg-music" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row aud-row"><input type="range" id="rng-music" min="0" max="100" step="5" data-i18n-aria="aria.musicVol"></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.sfx"></span>
+            <div class="seg" id="seg-sfx" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row aud-row"><input type="range" id="rng-sfx" min="0" max="100" step="5" data-i18n-aria="aria.sfxVol"></div>
           <div id="theme-rows">
             <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.theme" data-i18n-title="tip.theme"></span>
               <div class="seg" id="seg-theme" role="group" data-i18n-aria="lbl.theme"><button data-theme="basic" data-i18n="theme.basic"></button><button data-theme="rich" data-i18n="theme.rich"></button></div></div>
@@ -1249,6 +1267,7 @@ const STRINGS = {
     'menu.new': '새 게임', 'menu.newDesc': '시나리오와 난이도를 고르고 시작',
     'menu.tutorial': '튜토리얼', 'menu.tutorialDesc': '처음이라면 여기부터 · {n}단계 실습', 'menu.rules': '규칙', 'menu.settings': '설정',
     'menu.aiAssets': 'AI 생성 에셋 포함',
+    'lbl.music': '음악', 'lbl.sfx': '효과음', 'aria.musicVol': '음악 볼륨', 'aria.sfxVol': '효과음 볼륨', 'aria.mute': '소리 끄기', 'aria.unmute': '소리 켜기',
     'btn.toMenu': '← 메뉴', 'menu.done': '완료',
     'scen.pick': '시나리오 선택', 'btn.backShort': '‹ 뒤로', 'btn.startScen': '{name} 시작 ›', 'start.setup': '시작 설정', 'aria.closeSheet': '시작 설정 닫기',
     'tag.asym': '비대칭', 'tag.sym': '대칭', 'tag.points': '점수제', 'tag.intro': '입문용', 'tag.fires': '간접 화력', 'tag.twoPlayer': '2인 가능',
@@ -1683,6 +1702,7 @@ const STRINGS = {
     'menu.new': 'New game', 'menu.newDesc': 'Pick a scenario and difficulty',
     'menu.tutorial': 'Tutorial', 'menu.tutorialDesc': 'New here? Start with {n} hands-on steps', 'menu.rules': 'Rules', 'menu.settings': 'Settings',
     'menu.aiAssets': 'Includes AI-generated assets',
+    'lbl.music': 'Music', 'lbl.sfx': 'Sound effects', 'aria.musicVol': 'Music volume', 'aria.sfxVol': 'Sound effects volume', 'aria.mute': 'Mute sound', 'aria.unmute': 'Unmute sound',
     'btn.toMenu': '← Menu', 'menu.done': 'Done',
     'scen.pick': 'Choose a scenario', 'btn.backShort': '‹ Back', 'btn.startScen': 'Start {name} ›', 'start.setup': 'Game setup', 'aria.closeSheet': 'Close game setup',
     'tag.asym': 'Asymmetric', 'tag.sym': 'Symmetric', 'tag.points': 'Points', 'tag.intro': 'Good first game', 'tag.fires': 'Indirect fire', 'tag.twoPlayer': '2 players',
@@ -2176,6 +2196,8 @@ SCENARIOS.push({
   id: 'chuncheon',
   nameKey: 'scen.chuncheon.name', descKey: 'scen.chuncheon.desc', subKey: 'scen.chuncheon.sub',
   tags: ['asym', 'intro', 'twoPlayer'],   // 시나리오 카드의 태그 칩 (화면 전용, 문구 키 'tag.<값>')
+  bgm: null,                 // 이 시나리오의 음악 (화면 전용). 예: 'sound/bgm_chuncheon' — 확장자 없이 적으면 .m4a → .mp3 → .wav 순으로 찾음. null 이면 음악 없음
+  bgmLoopTrim: [0, 0],       // 반복할 때 건너뛸 앞·뒤 빈 구간 (초)
   scaleMeters: 100,
   map: [
     '^^...........^^^',
@@ -2248,6 +2270,8 @@ SCENARIOS.push({
   id: 'hostomel',
   nameKey: 'scen.hostomel.name', descKey: 'scen.hostomel.desc', subKey: 'scen.hostomel.sub',
   tags: ['asym', 'fires', 'twoPlayer'],
+  bgm: null,                 // 이 시나리오의 음악 (화면 전용). 예: 'sound/bgm_hostomel' — 확장자 없이 적으면 .m4a → .mp3 → .wav 순으로 찾음. null 이면 음악 없음
+  bgmLoopTrim: [0, 0],       // 반복할 때 건너뛸 앞·뒤 빈 구간 (초)
   scaleMeters: 275,
   map: [
     'ffffffff.ffffw~f',
@@ -2347,6 +2371,8 @@ SCENARIOS.push({
   id: 'symmetric',
   nameKey: 'scen.symmetric.name', descKey: 'scen.symmetric.desc', subKey: 'scen.symmetric.sub',
   tags: ['sym', 'points', 'twoPlayer'],
+  bgm: null,                 // 이 시나리오의 음악 (화면 전용). 예: 'sound/bgm_symmetric' — 확장자 없이 적으면 .m4a → .mp3 → .wav 순으로 찾음. null 이면 음악 없음
+  bgmLoopTrim: [0, 0],       // 반복할 때 건너뛸 앞·뒤 빈 구간 (초)
   scaleMeters: 250,
   map: [
     '................',
@@ -6542,10 +6568,10 @@ const FX = {
   },
   // 직접 사격 (병종별). shots: 연발 수, gap: 연발 간격, tracer: 탄도 굵기·비행 시간
   direct: {
-    infantry: { shots: 3, gap: 100, flash: 0.2, smoke: 0.12, tracer: { w: 0.045, ms: 130, heavy: false, n: 3 }, hit: 'sparks', miss: 'dust', ms: 600 },
-    antitank: { shots: 1, gap: 0, flash: 0.36, smoke: 0.2, backblast: true, tracer: { w: 0.11, ms: 170, heavy: true }, hit: 'blast', miss: 'dustBig', ms: 800 },
-    armor: { shots: 1, gap: 0, flash: 0.4, smoke: 0.24, tracer: { w: 0.09, ms: 160, heavy: true }, hit: 'blastDebris', miss: 'dirt', ms: 800 },
-    light: { shots: 1, gap: 0, flash: 0.16, smoke: 0.08, tracer: { w: 0.035, ms: 140, heavy: false }, hit: 'sparksSmall', miss: 'dust', ms: 450 },
+    infantry: { shots: 3, gap: 100, flash: 0.2, smoke: 0.12, tracer: { w: 0.045, ms: 130, heavy: false, n: 3 }, hit: 'sparks', miss: 'dust', ms: 600, sfx: 'fire_rifle', hitSfx: 'hit_small' },
+    antitank: { shots: 1, gap: 0, flash: 0.36, smoke: 0.2, backblast: true, tracer: { w: 0.11, ms: 170, heavy: true }, hit: 'blast', miss: 'dustBig', ms: 800, sfx: 'fire_at', hitSfx: 'hit_big' },
+    armor: { shots: 1, gap: 0, flash: 0.4, smoke: 0.24, tracer: { w: 0.09, ms: 160, heavy: true }, hit: 'blastDebris', miss: 'dirt', ms: 800, sfx: 'fire_tank', hitSfx: 'hit_big' },
+    light: { shots: 1, gap: 0, flash: 0.16, smoke: 0.08, tracer: { w: 0.035, ms: 140, heavy: false }, hit: 'sparksSmall', miss: 'dust', ms: 450, sfx: 'fire_rifle', hitSfx: 'hit_small' },
   },
   // 간접 사격. flight: [최소, 최대] 비행 시간, perCell: 거리 1칸당, apex: 포물선 높이(칸), fogLand: 시야 밖 발사일 때 착탄까지 고정 시간
   mortar: { flash: 0.24, smoke: 0.3, ring: 0.5, flight: [400, 700], perCell: 70, apex: 1.1, blast: 0.55, fogLand: 450 },
@@ -6568,13 +6594,14 @@ function fxRng(seed) {
 /**
  * 공격 연출 목록. ev = 엔진의 diceRoll 이벤트.
  * o = { me, vis: Set(칸 번호), N, dmg: [{pos, splash}](보이는 것만), dead: [{pos}](보이는 것만), splash: 포병 여부, rm: 연출 줄이기, seed }
- * 반환 { items: [{kind, at, ...}], shakes: [{at, amp, ms, kind}], units: [{pos, at, push}], hitAt, end }
+ * 반환 { items: [{kind, at, ...}], shakes: [{at, amp, ms, kind}], units: [{pos, at, push}], sounds: [{id, at}], hitAt, end }
  * 안개: 발사(섬광·연기·고리)는 발사 칸이 보일 때만, 비행은 발사 칸이 보이고 (대상 칸이 보이거나 내 사격)일 때만,
  *       착탄은 대상 칸이 보이거나 내 사격일 때만 (내 사격이 안개 속에 떨어지면 명중 여부와 무관한 같은 폭발).
  *       흔들림은 내 발사 또는 보이는 착탄에만, 크기는 발사 종류로만. 밀림 방향은 발사 칸이 보일 때만.
  */
 function planAttackFx(ev, o) {
-  const items = [], shakes = [], units = [];
+  const items = [], shakes = [], units = [], sounds = [];   // sounds: [{ id, at }] 소리 시점 (그림과 같은 시야 분기에서만 만듦. 위치·거리 값 없음)
+  const snd = (id, at) => sounds.push({ id, at: Math.round(at) });
   const R = fxRng(o.seed || 1);
   const N = o.N, see = (p) => p.r >= 0 && p.c >= 0 && p.r < N && p.c < N && o.vis.has(p.r * N + p.c);
   const mine = ev.side === o.me;
@@ -6597,6 +6624,7 @@ function planAttackFx(ev, o) {
     const trMs = rm ? 0 : S.tracer.ms;
     const showFlight = fVis && (tVis || mine) && !rm;
     if (fVis) {
+      snd(S.sfx, 0);   // 발사 소리: 발사 칸이 보일 때만
       for (let k = 0; k < S.shots; k++) add('flash', k * S.gap, { x: M.x, y: M.y, r: S.flash, ms: 90 });
       add('smoke', 0, { x: M.x, y: M.y, n: S.shots > 1 ? 3 : 4, size: S.smoke, rise: 0.25, ms: 700, spread: 0.08 });
       if (S.backblast) add('smoke', 0, { x: A.x - ux * 0.35, y: A.y - uy * 0.35, n: 6, size: 0.18, rise: 0.15, ms: 800, spread: 0.12, vx: -ux * 0.6, vy: -uy * 0.6 });
@@ -6611,6 +6639,7 @@ function planAttackFx(ev, o) {
     hitAt = (S.shots - 1) * S.gap + trMs + (rm ? 120 : 0);
     if (tVis) {
       if (ev.hit) {
+        snd(S.hitSfx, hitAt);
         const H = S.hit;
         for (let k = 0; k < S.shots; k++) {
           const at = k * S.gap + trMs + (rm ? 120 : 0), P = S.shots > 1 ? near(T, 0.02, 0.14) : T;
@@ -6626,6 +6655,7 @@ function planAttackFx(ev, o) {
           if (H === 'blastDebris') add('debris', hitAt, { x: T.x, y: T.y, n: 8, speed: 2, ms: 500 });
         }
       } else {
+        snd('miss_dirt', hitAt);
         // 빗나감: 대상 둘레의 땅에 먼지 (유닛 위가 아니라 옆)
         const big = S.miss === 'dustBig', dirt = S.miss === 'dirt';
         for (let k = 0; k < S.shots; k++) {
@@ -6639,6 +6669,7 @@ function planAttackFx(ev, o) {
   } else {
     const art = !!o.splash, K = art ? FX.artillery : FX.mortar;
     if (fVis) {
+      snd(art ? 'artillery_fire' : 'mortar_fire', 0);
       add('flash', 0, { x: A.x, y: A.y - 0.1, r: K.flash, ms: 120 });
       add('smoke', 0, { x: A.x, y: A.y - 0.3, n: art ? 9 : 5, size: K.smoke * 0.45, rise: art ? 0.8 : 0.6, ms: art ? 1200 : 1000, spread: art ? 0.25 : 0.12 });
       add('ring', 0, { x: A.x, y: A.y, r0: 0.1, r1: K.ring, ms: art ? 420 : 300, dust: art });
@@ -6648,9 +6679,11 @@ function planAttackFx(ev, o) {
     const flight = Math.max(K.flight[0], Math.min(K.flight[1], K.flight[0] + (dist - 1) * K.perCell));
     const land = rm ? 150 : (fVis ? 60 + flight : K.fogLand);
     if (fVis && (tVis || mine) && !rm) add('shell', 60, { x1: A.x, y1: A.y, x2: T.x, y2: T.y, ms: flight, apex: K.apex });
+    if (fVis && (tVis || mine)) snd('shell_whistle', 60);   // 비행 소리: 비행 그림과 같은 조건 (연출 줄이기여도 소리는 남)
     hitAt = land;
     const showLand = tVis || mine;
     if (showLand) {
+      snd(art ? 'artillery_impact' : 'mortar_impact', land);   // 낙하 소리: 명중·빗나감·안개 속 모두 같은 소리
       const kind = art ? 'artyLand' : 'mortarLand';
       if (!tVis) {   // 내 사격이 안개 속에 떨어짐: 명중 여부와 무관하게 같은 폭발
         add('blast', land, { x: T.x, y: T.y, r: K.blast * 0.8, ms: 420 });
@@ -6678,6 +6711,7 @@ function planAttackFx(ev, o) {
         if (!see(q) || !(tVis || dmgAt(q))) return;
         const P = C(q);
         add('blast', at, { x: P.x, y: P.y, r: K.nbBlast, ms: 360 });
+        snd('mortar_impact', at);   // 주변 칸 폭발 (그림이 나오는 칸만)
         add('dust', at, { x: P.x, y: P.y, n: 4, size: 0.14, ms: 800 });
       });
     }
@@ -6692,6 +6726,7 @@ function planAttackFx(ev, o) {
     const at = (u ? u.at : hitAt) + FX.unitFlashMs;
     const P = C(d.pos);
     add('sparks', at, { x: P.x, y: P.y, n: 6, speed: 1.2, ms: 500, up: true });
+    snd('unit_destroyed', at);
     add('smoke', at, { x: P.x, y: P.y, n: 6, size: 0.2, rise: 0.55, ms: 1100, spread: 0.12, dark: true });
   }
   // 상한: 착탄과 피격 반짝임이 maxAttackMs 안에 들어오게 시각을 줄임
@@ -6702,13 +6737,14 @@ function planAttackFx(ev, o) {
     const k = FX.maxAttackMs / last;
     for (const it of items) { it.at = Math.round(it.at * k); if (it.kind === 'tracer' || it.kind === 'shell') it.ms = Math.round(it.ms * k); }
     for (const s of shakes) s.at = Math.round(s.at * k);
+    for (const s of sounds) s.at = Math.round(s.at * k);
     for (const u of units) u.at = Math.round(u.at * k);
     hitAt = Math.round(hitAt * k);
   }
   if (rm) for (const it of items) if (it.n) it.n = Math.max(1, Math.round(it.n * FX.rmParticles));
   let end = hitAt;
   for (const it of items) end = Math.max(end, it.at + (it.ms || 0));
-  return { items, shakes, units, hitAt, end };
+  return { items, shakes, units, sounds, hitAt, end };
 }
 
 /**
@@ -6941,6 +6977,280 @@ function scenarioCardModel(sc) {
 }
 
 if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { MENU_KEYS, readMenuStore, menuModel, scenarioCardModel });
+</script>
+<script data-src="js/audio.js">
+/**
+ * 소리 관리자 (화면 전용. 규칙·판정·게임 난수와 무관).
+ *  - AUDIO: 소리 목록(논리 이름 → sound/ 의 실제 파일), 동시 재생 상한, 기본 볼륨 등 상수
+ *  - createAudio(env): 로드·재생·볼륨·음소거·동시 재생 제한·BGM 반복. env 로 AudioContext·fetch·저장소를 받아 테스트에서 바꿔 끼움
+ *  - 소리 크기는 소리 종류(AUDIO.gain)와 사용자 볼륨으로만 정함. 거리·위치·좌우·음높이 변화 없음 (정보가 새지 않게)
+ *  - 변형 파일 고르기는 소리 전용 난수(audioRng). Math.random 과 게임 주사위 스트림은 쓰지 않음
+ *  - 언제 어떤 소리를 낼지는 연출 시간표(js/fx.js planAttackFx 의 sounds)가 같은 시야 판정으로 정함
+ */
+const AUDIO = {
+  dir: 'sound/',
+  exts: ['m4a', 'mp3', 'wav'],        // 이 순서로 찾음 (files 에 확장자를 적은 항목은 그 파일만)
+  maxVoices: 8, maxSame: 3,           // 동시 재생 상한: 전체, 같은 소리
+  dedupeMs: 50,                       // 같은 소리를 이 시간 안에 또 부르면 한 번만
+  fadeOutMs: 80,                      // 상한을 넘겨 끌 때·이동 소리를 끝낼 때
+  bgmFadeMs: 1000,
+  volume: { music: 0.5, sfx: 0.8 },   // 사용자 볼륨 기본값 (0~1)
+  musicCeil: 0.6,                     // 음악 최대치 (효과음을 덮지 않게 효과음보다 낮음)
+  storeKey: 'chuncheon1950.audio',
+  // 논리 이름 → 파일(변형이 여러 개면 재생할 때마다 무작위, 직전 것은 피함). 확장자가 없으면 exts 순서로 찾음.
+  // 파일이 아직 없는 소리는 빈 목록: 파일을 sound/ 에 넣고 여기에 이름을 적으면 바로 나옴
+  files: {
+    ui_click: ['ui_click.wav'], ui_cancel: ['ui_cancel.wav'], ui_error: ['ui_error.wav'], ui_turn_end: ['ui_turn_end.wav'],
+    fire_rifle: ['fire_rifle.wav'], fire_tank: ['fire_tank.wav'], fire_at: ['fire_at.wav'],
+    hit_small: ['hit_small.wav'], hit_big: ['hit_big.wav'], miss_dirt: ['miss_dirt.wav'],
+    mortar_fire: ['motar_fire.wav'], mortar_impact: ['moratr_impact.wav'],        // 실제 파일 이름 그대로 (철자 주의)
+    artillery_fire: ['artillery_fire.wav'], artillery_impact: ['artillery_impact.wav'],
+    unit_destroyed: ['unit_destroyed.wav'],
+    move_infantry: ['move_infantry.wav'], move_vehicle: ['move_vehicle.wav'],
+    shell_whistle: [], score_up: [], objective_captured: [], victory: [], defeat: [],
+  },
+  // 로딩 순서: UI → 전투 핵심 → 나머지
+  loadOrder: ['ui_click', 'ui_cancel', 'ui_error', 'ui_turn_end',
+    'fire_rifle', 'fire_tank', 'fire_at', 'hit_small', 'hit_big', 'miss_dirt', 'mortar_fire', 'mortar_impact', 'artillery_fire', 'artillery_impact',
+    'unit_destroyed', 'move_infantry', 'move_vehicle', 'shell_whistle', 'score_up', 'objective_captured', 'victory', 'defeat'],
+  gain: {},                           // 소리별 크기 보정 (기본 1). 종류로만 정함
+  vehicleTypes: ['armor', 'recon', 'signal', 'artillery'],   // 이동 소리: 이 병종은 move_vehicle, 나머지는 move_infantry
+  menuBgm: null,                      // 메뉴·시나리오 선택 화면 음악 (예: 'sound/bgm_menu'). 파일이 없으면 null
+};
+
+/** 소리 전용 난수 (게임 난수와 분리) */
+function audioRng(seed) {
+  let a = (seed >>> 0) || 0x1234567;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let x = a;
+    x = Math.imul(x ^ (x >>> 15), x | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** 이동 소리 이름 (병종으로만 정함) */
+function moveSoundOf(unitType) { return AUDIO.vehicleTypes.includes(unitType) ? 'move_vehicle' : 'move_infantry'; }
+
+/**
+ * env = {
+ *   makeContext(): AudioContext 또는 null,  fetchFile(url): Promise<ArrayBuffer|null> (없으면 null, 읽기 자체가 막히면 throw),
+ *   makeElement(url): HTMLAudioElement 대체 경로용 (없어도 됨),  now(): ms,  store: { get(), set(v) } (실패해도 됨),  warn(msg),  seed
+ * }
+ */
+function createAudio(env) {
+  const A = AUDIO;
+  const rng = audioRng(env.seed || 1);
+  const now = env.now || (() => Date.now());
+  const warn = env.warn || (() => {});
+  const S = { musicOn: true, sfxOn: true, music: A.volume.music, sfx: A.volume.sfx, muted: false };
+  try { const v = env.store && env.store.get(); if (v && typeof v === 'object') for (const k of Object.keys(S)) if (typeof v[k] === typeof S[k]) S[k] = v[k]; } catch (e) { /* 저장소를 못 읽어도 기본값으로 */ }
+  const clamp01 = (x) => Math.max(0, Math.min(1, Number(x) || 0));
+  S.music = clamp01(S.music); S.sfx = clamp01(S.sfx);
+  const save = () => { try { if (env.store) env.store.set({ ...S }); } catch (e) { /* 저장 불가: 이 세션 안에서만 */ } };
+
+  let ctx = null, sfxBus = null, musicBus = null, unlocked = false, hidden = false, useElements = false;
+  const bank = new Map();      // 파일 경로 → { state: 'loading'|'ready'|'missing', buffer | el }
+  const lastVar = new Map();   // 논리 이름 → 직전에 쓴 변형 번호
+  const lastAt = new Map();    // 논리 이름 → 직전 재생 시각
+  const voices = [];           // 재생 중 { id, t, stop(fadeMs), done }
+  const bgm = { want: null, trim: [0, 0], cur: null, token: 0 };
+  let loading = Promise.resolve();   // 효과음 로딩 (테스트에서 기다릴 때)
+
+  const sfxLevel = () => (S.muted || !S.sfxOn ? 0 : S.sfx);
+  const musicLevel = () => (S.muted || !S.musicOn ? 0 : S.music * A.musicCeil);
+  function applyLevels() {
+    if (sfxBus) sfxBus.gain.value = sfxLevel();
+    if (musicBus) musicBus.gain.value = musicLevel();
+    for (const v of voices) if (v.el) v.el.volume = clamp01(sfxLevel() * v.g);
+    if (bgm.cur && bgm.cur.el) bgm.cur.el.volume = clamp01(musicLevel());
+  }
+
+  /** 파일 하나 읽기. names: 시도할 경로들 (확장자 순). 끝나면 { buffer } | { el } | null */
+  async function loadFirst(names) {
+    for (const url of names) {
+      if (bank.has(url)) { const b = bank.get(url); if (b.state === 'ready') return b; if (b.state === 'missing') continue; }
+      bank.set(url, { state: 'loading' });
+      try {
+        let entry = null;
+        if (!useElements && ctx) {
+          let data;
+          try { data = await env.fetchFile(url); } catch (e) { useElements = true; }   // file:// 등 읽기가 막힌 환경: 오디오 태그로
+          if (data) entry = { state: 'ready', buffer: await ctx.decodeAudioData(data) };
+        }
+        if (!entry && useElements && env.makeElement) {
+          const el = await env.makeElement(url);
+          if (el) entry = { state: 'ready', el };
+        }
+        if (entry) { bank.set(url, entry); return entry; }
+      } catch (e) { /* 디코딩 실패: 다음 후보 */ }
+      bank.set(url, { state: 'missing' });
+    }
+    return null;
+  }
+  const candidates = (name) => (/\.[a-z0-9]+$/i.test(name) ? [A.dir + name] : A.exts.map((x) => `${A.dir}${name}.${x}`));
+  const pathCandidates = (p) => (/\.[a-z0-9]+$/i.test(p) ? [p] : A.exts.map((x) => `${p}.${x}`));
+  const ready = new Map();     // 논리 이름 → [읽힌 항목] (변형)
+  async function loadAll() {
+    for (const id of A.loadOrder) {
+      const list = A.files[id] || [];
+      const got = [];
+      for (const name of list) {
+        const e = await loadFirst(candidates(name));
+        if (e) got.push(e); else warn(`[audio] ${id}: ${name} 을(를) 읽지 못했습니다 (소리 없이 진행)`);
+      }
+      ready.set(id, got);
+    }
+  }
+
+  /** 처음 터치·클릭 때 한 번: 소리 시스템 시작 + 로딩. 그 전의 재생 요청은 무시됨 */
+  function unlock() {
+    if (unlocked) { if (ctx && ctx.state === 'suspended' && !hidden) { try { ctx.resume(); } catch (e) { /* 무시 */ } } return; }
+    unlocked = true;
+    try { ctx = env.makeContext ? env.makeContext() : null; } catch (e) { ctx = null; }
+    if (ctx) {
+      try {
+        sfxBus = ctx.createGain(); musicBus = ctx.createGain();
+        sfxBus.connect(ctx.destination); musicBus.connect(ctx.destination);
+        if (ctx.state === 'suspended') ctx.resume();
+      } catch (e) { ctx = null; sfxBus = musicBus = null; }
+    }
+    if (!ctx) useElements = true;
+    applyLevels();
+    loading = loadAll().catch(() => {});
+    if (bgm.want) startBgm();
+  }
+
+  function dropVoice(v) { const i = voices.indexOf(v); if (i >= 0) voices.splice(i, 1); }
+  /** 효과음 재생. 못 내는 상황(잠김·꺼짐·아직 안 읽힘·없는 파일·중복)은 null. 위치·거리 인자는 없음 */
+  function play(id) {
+    if (!unlocked || hidden || sfxLevel() <= 0) return null;
+    const list = ready.get(id);
+    if (!list || !list.length) return null;
+    const t = now();
+    if (lastAt.has(id) && t - lastAt.get(id) < A.dedupeMs) return null;
+    lastAt.set(id, t);
+    // 상한: 같은 소리 maxSame, 전체 maxVoices. 넘으면 가장 오래된 것을 줄여서 끔
+    const same = voices.filter((v) => v.id === id);
+    if (same.length >= A.maxSame) same[0].stop(A.fadeOutMs);
+    if (voices.length >= A.maxVoices) voices[0].stop(A.fadeOutMs);
+    let k = 0;
+    if (list.length > 1) { do { k = Math.floor(rng() * list.length); } while (k === lastVar.get(id)); }
+    lastVar.set(id, k);
+    const entry = list[k], g = A.gain[id] == null ? 1 : A.gain[id];
+    const v = { id, t, g, done: false };
+    try {
+      if (entry.buffer && ctx) {
+        const src = ctx.createBufferSource(), gain = ctx.createGain();
+        src.buffer = entry.buffer;
+        gain.gain.value = g;
+        src.connect(gain); gain.connect(sfxBus);
+        v.stop = (fadeMs = 0) => {
+          if (v.done) return;
+          v.done = true; dropVoice(v);
+          try {
+            const at = ctx.currentTime, f = Math.max(0, fadeMs) / 1000;
+            if (f > 0 && gain.gain.linearRampToValueAtTime) { gain.gain.setValueAtTime(g, at); gain.gain.linearRampToValueAtTime(0, at + f); }
+            src.stop(at + f);
+          } catch (e) { /* 이미 끝남 */ }
+        };
+        src.onended = () => { v.done = true; dropVoice(v); };
+        src.start();
+      } else if (entry.el) {
+        const el = entry.el.cloneNode(true);
+        el.volume = clamp01(sfxLevel() * g);
+        v.el = el;
+        v.stop = () => { if (v.done) return; v.done = true; dropVoice(v); try { el.pause(); } catch (e) { /* 무시 */ } };
+        el.onended = () => { v.done = true; dropVoice(v); };
+        const p = el.play();
+        if (p && p.catch) p.catch(() => { v.done = true; dropVoice(v); });
+      } else return null;
+    } catch (e) { return null; }
+    voices.push(v);
+    return v;
+  }
+  function stopVoice(v, fadeMs = A.fadeOutMs) { if (v && v.stop) v.stop(fadeMs); }
+  function stopAllSfx() { for (const v of voices.slice()) v.stop(0); }
+
+  /* ---------- BGM: Web Audio 루프 (loopStart/loopEnd 로 앞뒤 빈 구간을 건너뜀) ---------- */
+  function fadeOutBgm(cur) {
+    if (!cur) return;
+    try {
+      if (cur.src && ctx) {
+        const at = ctx.currentTime, f = A.bgmFadeMs / 1000;
+        cur.gain.gain.setValueAtTime(cur.gain.gain.value, at);
+        cur.gain.gain.linearRampToValueAtTime(0, at + f);
+        cur.src.stop(at + f);
+      } else if (cur.el) cur.el.pause();
+    } catch (e) { /* 무시 */ }
+  }
+  async function startBgm() {
+    const my = ++bgm.token, path = bgm.want;
+    fadeOutBgm(bgm.cur);
+    bgm.cur = null;
+    if (!path || !unlocked) return;
+    const entry = await loadFirst(pathCandidates(path));
+    if (my !== bgm.token) return;                       // 그 사이 다른 음악으로 바뀜
+    if (!entry) { warn(`[audio] 음악 ${path} 을(를) 읽지 못했습니다 (음악 없이 진행)`); return; }
+    try {
+      if (entry.buffer && ctx) {
+        const src = ctx.createBufferSource(), gain = ctx.createGain();
+        src.buffer = entry.buffer;
+        src.loop = true;
+        const dur = entry.buffer.duration || 0, a = Math.max(0, bgm.trim[0] || 0), b = Math.max(0, bgm.trim[1] || 0);
+        if (dur > a + b) { src.loopStart = a; src.loopEnd = dur - b; }
+        const at = ctx.currentTime;
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(1, at + A.bgmFadeMs / 1000);   // 페이드 인
+        src.connect(gain); gain.connect(musicBus);
+        src.start(at, a);
+        bgm.cur = { src, gain, path };
+      } else if (entry.el) {
+        const el = entry.el;
+        el.loop = true;                                 // 오디오 태그 경로: 이음매가 들릴 수 있음
+        el.volume = clamp01(musicLevel());
+        const p = el.play();
+        if (p && p.catch) p.catch(() => {});
+        bgm.cur = { el, path };
+      }
+    } catch (e) { bgm.cur = null; }
+  }
+  /** 음악 바꾸기. path: 'sound/bgm_x' (확장자 없이) 또는 null(끄기). trim: [앞, 뒤] 초 (루프에서 건너뛸 빈 구간) */
+  function setBgm(path, trim) {
+    const p = path || null;
+    if (p === bgm.want && bgm.cur) return;
+    bgm.want = p;
+    bgm.trim = Array.isArray(trim) ? trim : [0, 0];
+    if (unlocked) startBgm();
+  }
+
+  /** 탭이 가려짐: 효과음 정지 + 전체 일시 정지. 돌아오면 음악만 이어짐 */
+  function setHidden(h) {
+    hidden = !!h;
+    if (hidden) {
+      stopAllSfx();
+      try { if (ctx && ctx.suspend) ctx.suspend(); } catch (e) { /* 무시 */ }
+      if (bgm.cur && bgm.cur.el) { try { bgm.cur.el.pause(); } catch (e) { /* 무시 */ } }
+    } else {
+      try { if (ctx && unlocked && ctx.resume) ctx.resume(); } catch (e) { /* 무시 */ }
+      if (bgm.cur && bgm.cur.el) { const p = bgm.cur.el.play(); if (p && p.catch) p.catch(() => {}); }
+    }
+  }
+
+  const set = (patch) => { Object.assign(S, patch); S.music = clamp01(S.music); S.sfx = clamp01(S.sfx); applyLevels(); if (sfxLevel() <= 0) stopAllSfx(); save(); };
+  return {
+    unlock, play, stopVoice, stopAllSfx, setBgm, setHidden,
+    setMusicOn: (on) => set({ musicOn: !!on }), setSfxOn: (on) => set({ sfxOn: !!on }),
+    setMusicVolume: (v) => set({ music: v }), setSfxVolume: (v) => set({ sfx: v }),
+    setMuted: (m) => set({ muted: !!m }),
+    settings: () => ({ ...S }),
+    levels: () => ({ sfx: sfxLevel(), music: musicLevel() }),
+    stats: () => ({ unlocked, voices: voices.length, ids: voices.map((v) => v.id), bgm: bgm.cur ? bgm.cur.path : null, wantBgm: bgm.want, loaded: [...ready].filter(([, l]) => l.length).map(([k]) => k), elements: useElements }),
+    whenLoaded: () => loading,
+  };
+}
+
+if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { AUDIO, audioRng, moveSoundOf, createAudio });
 </script>
 <script data-src="js/rich-map.js">
 'use strict';
@@ -7492,6 +7802,43 @@ const RICH_MAP = (() => {
   const cells = [];   // { el, dyn }
   let hlUnder, hlOver, hlHover, fxLayer, fxCv;
   let fxSeed = (Date.now() & 0xffff) + 1;   // 연출 전용 난수 씨앗 (게임 난수와 무관)
+  /* 소리 (js/audio.js). 처음 터치·클릭 뒤에 시작하고 그때 로딩. 읽기가 막힌 환경(file://)은 오디오 태그로 대체 */
+  const audio = createAudio({
+    makeContext: () => { const C = window.AudioContext || window.webkitAudioContext; return C ? new C() : null; },
+    fetchFile: async (url) => { const r = await fetch(url); return r.ok ? r.arrayBuffer() : null; },
+    makeElement: (url) => new Promise((res) => { const el = new Audio(); el.preload = 'auto'; el.oncanplaythrough = () => res(el); el.onerror = () => res(null); el.src = url; }),
+    now: () => performance.now(),
+    store: { get: () => JSON.parse(localStorage.getItem(AUDIO.storeKey) || 'null'), set: (v) => localStorage.setItem(AUDIO.storeKey, JSON.stringify(v)) },
+    warn: (m) => console.warn(m),
+    seed: (Date.now() ^ 0x51f15e) >>> 0,
+  });
+  /** 효과음 한 번. 가림막 중에는 내지 않음 (다음 사람 턴이 시작된 뒤부터 그 사람 기준) */
+  const sfx = (id) => (ui.screen === 'curtain' ? null : audio.play(id));
+  /** 화면에 맞는 음악: 메뉴·시나리오 선택 = AUDIO.menuBgm, 게임 = 시나리오의 bgm (없으면 조용히). 판이 끝나면 꺼짐 */
+  function syncBgm() {
+    if (ui.screen === 'start') { audio.setBgm(AUDIO.menuBgm, [0, 0]); return; }
+    const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
+    const over = ui.state && ui.state.winner;
+    audio.setBgm(!over && sc && sc.bgm ? sc.bgm : null, sc && sc.bgmLoopTrim);
+  }
+  const muteIcon = (muted) => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>${muted ? '<path d="M17 9l5 6M22 9l-5 6"/>' : '<path d="M17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11"/>'}</svg>`;
+  /** 설정 창의 소리 항목과 음소거 버튼을 현재 값으로 */
+  function renderAudioSettings() {
+    const s = audio.settings();
+    for (const [seg, on] of [['#seg-music', s.musicOn], ['#seg-sfx', s.sfxOn], ['#ms-music', s.musicOn], ['#ms-sfx', s.sfxOn]]) {
+      document.querySelectorAll(seg + ' [data-v]').forEach((b) => { const a = (b.dataset.v === '1') === on; b.classList.toggle('active', a); b.setAttribute('aria-pressed', String(a)); });
+    }
+    for (const [sel, v, on] of [['#rng-music', s.music, s.musicOn], ['#rng-sfx', s.sfx, s.sfxOn], ['#ms-rng-music', s.music, s.musicOn], ['#ms-rng-sfx', s.sfx, s.sfxOn]]) {
+      const el = document.querySelector(sel);
+      if (el) { el.value = String(Math.round(v * 100)); el.disabled = !on; }
+    }
+    document.querySelectorAll('[data-mute]').forEach((b) => {
+      b.innerHTML = muteIcon(s.muted);
+      b.setAttribute('aria-pressed', String(s.muted));
+      b.setAttribute('aria-label', t(s.muted ? 'aria.unmute' : 'aria.mute'));
+      b.title = t(s.muted ? 'aria.unmute' : 'aria.mute');
+    });
+  }
   const fxEnv = () => ({ n: N, cellPx: (ui.cellSize || cellPx()) * (ui.zoom ? ui.zoom.z : 1), rich: rich.on, cap: ui.wide ? FX.cap.pc : FX.cap.phone, mul: speedMul() });
   const P = (p) => `(${p.r},${p.c})`;
   const speedMul = () => DESIGN.fx.speed[ui.speed] || 1;
@@ -8930,6 +9277,7 @@ const RICH_MAP = (() => {
 
   /** annotate 된 이벤트를 각 진영 로그에 (그 진영이 볼 수 있는 것만) */
   function logEvents(events) {
+    if (events.some((ev) => ev.type === 'scored' && ev.pts && ev.side === ui.viewer)) sfx('score_up');   // 상대 점수는 소리 없음
     for (const ev of events) {
       for (const s of logSides()) if (ev.descBy && ev.descBy[s]) pushLog(s, ev.descBy[s]);
     }
@@ -8999,8 +9347,10 @@ const RICH_MAP = (() => {
       const L = F.path;
       line = fxSvg(`<polyline points="${pts}" fill="none" stroke="${L.line}" stroke-width="${L.w}" stroke-dasharray="${L.dash}" stroke-linecap="round" stroke-linejoin="round" opacity="${L.opacity}"/>`);
     }
+    let mv = null;
+    const mvStart = () => { if (!mv && full.length > 1) mv = sfx(moveSoundOf(type)); };   // 시야 밖 구간에서는 소리도 없음
     let shown = seen(full[0]);
-    if (shown) { place(full[0].r, full[0].c); attach(); }
+    if (shown) { place(full[0].r, full[0].c); attach(); mvStart(); }
     for (let k = 1; k < full.length; k++) {
       if (token !== ui.gameId) break;
       const a = full[k - 1], b = full[k];
@@ -9009,6 +9359,7 @@ const RICH_MAP = (() => {
         place(b.r, b.c);
         el.style.opacity = '0';
         attach();
+        mvStart();
         await tween(F.fadeInMs * mul, (p) => { el.style.opacity = String(p); }, token);
         shown = true;
         continue;
@@ -9020,6 +9371,7 @@ const RICH_MAP = (() => {
       }, token);
     }
     el.remove();
+    audio.stopVoice(mv, 200);
     if (line) {   // 경로 점선은 이동 뒤 0.5초에 걸쳐 사라짐 (기다리지 않음)
       const ln = line;
       tween(F.path.fadeMs * mul, (p) => { ln.style.opacity = String(1 - p); }, token).then(() => ln.remove());
@@ -9196,6 +9548,7 @@ const RICH_MAP = (() => {
   }
   /** 거점 점령: 옛 깃발 내려감 → 새 색 깃발 올라옴 + 테두리 링 한 번 퍼짐 (연출 줄이기: 즉시 바꾸고 유지) */
   async function captureFx(ev, view) {
+    sfx('objective_captured');
     const token = ui.gameId, mul = speedMul(), X = DESIGN.fx.capture;
     const x = cellX(ev.pos), y = cellY(ev.pos), newCol = sideColor(ev.side), oldCol = sideColor(ev.prevOwner);
     if (ui.reduceMotion) {
@@ -9318,6 +9671,7 @@ const RICH_MAP = (() => {
     fxCv.fit();
     fxCv.play(plan.items);
     for (const s of plan.shakes) setTimeout(() => { if (token === ui.gameId) mapShake(s.amp, s.ms); }, s.at * speedMul());
+    for (const s of plan.sounds) setTimeout(() => { if (token === ui.gameId) sfx(s.id); }, s.at * speedMul());   // 소리: 그림과 같은 시간표 (같은 시야 판정)
     await wait(plan.hitAt);
     if (token !== ui.gameId) return;
     if (ui.reduceMotion) {   // 연출 줄이기: 기존 정지 표시도 함께 (빗나감 ×, 포격 칸 색칠)
@@ -9950,6 +10304,8 @@ const RICH_MAP = (() => {
     if (ui.tut && !tutOk({ kind: 'endTurn' })) { tutBlocked(); return; }
     if (!ui.endArmed && endNeedsConfirm()) { armEnd(); return; }   // 첫 누름: 버튼만 확인 상태로
     disarmEnd(false);
+    ui.clickSfx = null;
+    sfx('ui_turn_end');
     ui.selectedId = null;
     ui.inspectId = null;
     hideTip();
@@ -10548,6 +10904,7 @@ const RICH_MAP = (() => {
     };
     const langs = ['ko', 'en'].map((l) => `<button class="link" data-lang="${l}" lang="${l}" aria-pressed="${getLang() === l}">${l.toUpperCase()}</button>`).join('<span aria-hidden="true">·</span>');
     showOverlay(`<div class="start-card menu-card${fade ? ' menu-fade' : ''}">
+      <button class="mute-btn menu-mute" data-mute aria-pressed="false"></button>
       <div class="menu-head"><h1 class="start-title">${esc(t('gameTitle'))}</h1><div class="start-sub">${esc(t('gameSubtitle'))}</div></div>
       <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${model.items.map(item).join('')}</nav>
       <div class="menu-two"><button id="menu-rules">${esc(t('menu.rules'))}</button><button id="menu-set">${esc(t('menu.settings'))}</button></div>
@@ -10555,6 +10912,7 @@ const RICH_MAP = (() => {
     </div>`, () => showMenu(null, false), 'start');
     const modal = $('#modal');
     modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
+    renderAudioSettings();
     if ($('#menu-new')) $('#menu-new').onclick = () => showIntro();
     if ($('#menu-tut')) $('#menu-tut').onclick = () => startTutorial(0);
     $('#menu-set').onclick = () => showMenuSettings();
@@ -10588,6 +10946,10 @@ const RICH_MAP = (() => {
         ${row(t('speed.fx'), null, seg('ms-speed', [['slow', t('speed.slow')], ['normal', t('speed.normal')], ['fast', t('speed.fast')]], ui.speed))}
         ${row(t('lbl.reduceMotion'), t('tip.reduceMotion'), seg('ms-reduce', OO, onOff(ui.reduceMotion)))}
         ${row(t('lbl.signalToggle'), t('tip.signalToggle'), seg('ms-signal', OO, onOff(ui.showSignal)))}
+        ${row(t('lbl.music'), null, seg('ms-music', OO, onOff(audio.settings().musicOn)))}
+        <div class="set-row aud-row"><input type="range" id="ms-rng-music" min="0" max="100" step="5" aria-label="${esc(t('aria.musicVol'))}"></div>
+        ${row(t('lbl.sfx'), null, seg('ms-sfx', OO, onOff(audio.settings().sfxOn)))}
+        <div class="set-row aud-row"><input type="range" id="ms-rng-sfx" min="0" max="100" step="5" aria-label="${esc(t('aria.sfxVol'))}"></div>
         ${themeOk ? row(t('lbl.theme'), t('tip.theme'), seg('ms-theme', [['basic', t('theme.basic')], ['rich', t('theme.rich'), !art]], want))
           + row(t('lbl.gridAlways'), t('tip.gridAlways'), seg('ms-grid', OO.map(([v, l]) => [v, l, !art || want !== 'rich']), onOff(ui.gridAlways))) : ''}
         ${note ? `<div class="hint tx">${esc(note)}</div>` : ''}
@@ -10606,6 +10968,12 @@ const RICH_MAP = (() => {
     modal.querySelectorAll('#ms-signal [data-v]').forEach((b) => { b.onclick = () => { setShowSignal(b.dataset.v === '1'); again(`#ms-signal [data-v="${b.dataset.v}"]`); }; });
     modal.querySelectorAll('#ms-theme [data-v]').forEach((b) => { b.onclick = () => { setThemePref(b.dataset.v); again(`#ms-theme [data-v="${b.dataset.v}"]`); }; });
     modal.querySelectorAll('#ms-grid [data-v]').forEach((b) => { b.onclick = () => { setGridAlways(b.dataset.v === '1'); again(`#ms-grid [data-v="${b.dataset.v}"]`); }; });
+    modal.querySelectorAll('#ms-music [data-v]').forEach((b) => { b.onclick = () => { audio.setMusicOn(b.dataset.v === '1'); again(`#ms-music [data-v="${b.dataset.v}"]`); }; });
+    modal.querySelectorAll('#ms-sfx [data-v]').forEach((b) => { b.onclick = () => { audio.setSfxOn(b.dataset.v === '1'); again(`#ms-sfx [data-v="${b.dataset.v}"]`); }; });
+    $('#ms-rng-music').oninput = (e) => audio.setMusicVolume(Number(e.target.value) / 100);
+    $('#ms-rng-sfx').oninput = (e) => audio.setSfxVolume(Number(e.target.value) / 100);
+    $('#ms-rng-sfx').onchange = () => sfx('ui_click');
+    renderAudioSettings();
     $('#btn-menu-back').onclick = ui.menuBack;
     $('#btn-menu-done').onclick = ui.menuBack;
     const fx = focusSel && modal.querySelector(focusSel);
@@ -10880,6 +11248,8 @@ const RICH_MAP = (() => {
   }
   function tutBlocked() {
     if (!ui.tut) return;
+    ui.clickSfx = null;
+    sfx('ui_error');
     ui.tut.hint = tutHintText();
     renderCoach();
     announce(ui.tut.hint);
@@ -11066,6 +11436,11 @@ const RICH_MAP = (() => {
     const st = ui.state;
     if (!st.winner) return;
     const draw = st.winner === 'draw';
+    if (ui.resultSfx !== ui.gameId) {   // 한 판에 한 번
+      ui.resultSfx = ui.gameId;
+      syncBgm();   // 판이 끝나면 음악은 페이드 아웃
+      if (!draw) sfx(hotseat() || st.winner === PLAYER ? 'victory' : 'defeat');
+    }
     if (ui.recordedGameId !== ui.gameId) {
       const m = draw ? M('log.draw', { reason: REASON(st.winReason) }, 'sys') : M('log.victory', { side: S(st.winner), reason: REASON(st.winReason) }, 'sys');
       addLog(m);
@@ -11164,6 +11539,7 @@ const RICH_MAP = (() => {
     if (name === 'curtain') { if (boardWrapEl.isConnected) boardWrapEl.remove(); }
     else if (!boardWrapEl.isConnected) $('#map-host').appendChild(boardWrapEl);
     if (name !== 'game' && name !== 'deploy') { closePop(false); if (ui.drawerOpen) setDrawer(false); }
+    syncBgm();
     $('#tray').hidden = name !== 'deploy';
     $('#logbar').hidden = name === 'deploy' && !ui.wide;   // 좁은 배치 화면: 로그 바 대신 지도·트레이를 크게
     fitLayout();
@@ -11402,6 +11778,7 @@ const RICH_MAP = (() => {
     renderActSettings();
     renderFireSettings();
     renderThemeSettings();
+    renderAudioSettings();
     renderLegend();
     renderDiffSelect();
     hideTip();
@@ -11668,6 +12045,29 @@ const RICH_MAP = (() => {
   $('#drawer-close').onclick = () => setDrawer(false, true);
   $('#btn-legend').onclick = () => togglePop('legend');
   $('#btn-settings').onclick = () => togglePop('settings');
+  /* 소리: 처음 터치·클릭·키 입력에 소리 시스템 시작 (브라우저 자동재생 제한). 탭이 가려지면 멈추고 돌아오면 음악만 이어짐 */
+  for (const ty of ['pointerdown', 'keydown']) document.addEventListener(ty, () => audio.unlock(), true);
+  document.addEventListener('visibilitychange', () => audio.setHidden(document.hidden));
+  const CANCEL_SFX = '#btn-atk-no, #btn-ch-no, #btn-deselect, [data-close], .x-btn, #btn-menu-back, #btn-rules-x';
+  document.addEventListener('click', (e) => {   // 누름 소리: 버튼·카드·칸. 처리 중에 다른 소리(턴 종료·오류)가 정해지면 그것만
+    const el = e.target.closest && e.target.closest('button, [role="radio"], label.opt, .cell, #logbar, #card-sum');
+    if (!el || el.disabled) return;
+    if (el.classList.contains('cell') && (ui.dragClick || !(playerCanAct() || ui.deploy))) return;
+    ui.clickSfx = el.matches(CANCEL_SFX) ? 'ui_cancel' : 'ui_click';
+    setTimeout(() => { if (ui.clickSfx) sfx(ui.clickSfx); ui.clickSfx = null; }, 0);
+  }, true);
+  document.addEventListener('click', (e) => {   // 음소거 버튼 (게임 화면 위쪽, 메인 메뉴 모서리)
+    const b = e.target.closest && e.target.closest('[data-mute]');
+    if (!b) return;
+    audio.setMuted(!audio.settings().muted);
+    renderAudioSettings();
+  });
+  document.querySelectorAll('#seg-music [data-v]').forEach((b) => { b.onclick = () => { audio.setMusicOn(b.dataset.v === '1'); renderAudioSettings(); }; });
+  document.querySelectorAll('#seg-sfx [data-v]').forEach((b) => { b.onclick = () => { audio.setSfxOn(b.dataset.v === '1'); renderAudioSettings(); }; });
+  $('#rng-music').oninput = (e) => audio.setMusicVolume(Number(e.target.value) / 100);
+  $('#rng-sfx').oninput = (e) => audio.setSfxVolume(Number(e.target.value) / 100);
+  $('#rng-sfx').onchange = () => sfx('ui_click');   // 조절한 크기를 들어 볼 수 있게
+  renderAudioSettings();
   document.querySelectorAll('[data-close]').forEach((b) => { b.onclick = () => closePop(); });
   $('#card-sum').onclick = () => openPop('card');
   $('#card-close').onclick = () => closePop();
@@ -11695,13 +12095,13 @@ const RICH_MAP = (() => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Tab') { trapFocus(e); return; }
     if (ui.choice) {   // 이동/사격 선택 창: M = 이동, F = 사격, Esc = 취소
-      if (e.key === 'Escape') { e.preventDefault(); choiceDo(null); }
+      if (e.key === 'Escape') { e.preventDefault(); sfx('ui_cancel'); choiceDo(null); }
       else if (e.code === 'KeyM') { e.preventDefault(); choiceDo('move'); }
       else if (e.code === 'KeyF') { e.preventDefault(); choiceDo('fire'); }
       return;
     }
     if (ui.confirm) {   // 공격 확인 창: Enter = 공격, Esc = 취소 (다른 키보다 우선)
-      if (e.key === 'Escape') { e.preventDefault(); cancelAttack(); }
+      if (e.key === 'Escape') { e.preventDefault(); sfx('ui_cancel'); cancelAttack(); }
       else if (e.key === 'Enter') { e.preventDefault(); confirmAttack(); }
       return;
     }

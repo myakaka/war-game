@@ -7,6 +7,8 @@ SCENARIOS.push({
   id: 'hostomel',
   nameKey: 'scen.hostomel.name', descKey: 'scen.hostomel.desc', subKey: 'scen.hostomel.sub',
   tags: ['asym', 'fires', 'twoPlayer'],
+  bgm: null,                 // 이 시나리오의 음악 (화면 전용). 예: 'sound/bgm_hostomel' — 확장자 없이 적으면 .m4a → .mp3 → .wav 순으로 찾음. null 이면 음악 없음
+  bgmLoopTrim: [0, 0],       // 반복할 때 건너뛸 앞·뒤 빈 구간 (초)
   scaleMeters: 275,
   map: [
     'ffffffff.ffffw~f',

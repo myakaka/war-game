@@ -16,7 +16,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(ROOT, p);
   if (!fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
   let body = fs.readFileSync(f);
-  if (p === '/js/ui.js') body = Buffer.from(body.toString('utf8').replace(/\}\)\(\);\s*$/, '  window.__T = { ui, render, showResult, newGame, renderHeader, playAttack, setReduceMotion };\n})();\n'));
+  if (p === '/js/ui.js') body = Buffer.from(body.toString('utf8').replace(/\}\)\(\);\s*$/, '  window.__T = { ui, render, showResult, newGame, renderHeader, playAttack, setReduceMotion, audio };\n})();\n'));
   // ?nostore: localStorage 접근이 오류를 내는 환경 (사생활 보호 모드 가정)
   if (p === '/index.html' && req.url.includes('nostore')) body = Buffer.from(body.toString('utf8').replace('<head>', "<head><script>Object.defineProperty(window, 'localStorage', { get() { throw new Error('blocked'); } });</script>"));
   res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream' });

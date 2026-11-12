@@ -27,10 +27,10 @@ const FX = {
   },
   // 직접 사격 (병종별). shots: 연발 수, gap: 연발 간격, tracer: 탄도 굵기·비행 시간
   direct: {
-    infantry: { shots: 3, gap: 100, flash: 0.2, smoke: 0.12, tracer: { w: 0.045, ms: 130, heavy: false, n: 3 }, hit: 'sparks', miss: 'dust', ms: 600 },
-    antitank: { shots: 1, gap: 0, flash: 0.36, smoke: 0.2, backblast: true, tracer: { w: 0.11, ms: 170, heavy: true }, hit: 'blast', miss: 'dustBig', ms: 800 },
-    armor: { shots: 1, gap: 0, flash: 0.4, smoke: 0.24, tracer: { w: 0.09, ms: 160, heavy: true }, hit: 'blastDebris', miss: 'dirt', ms: 800 },
-    light: { shots: 1, gap: 0, flash: 0.16, smoke: 0.08, tracer: { w: 0.035, ms: 140, heavy: false }, hit: 'sparksSmall', miss: 'dust', ms: 450 },
+    infantry: { shots: 3, gap: 100, flash: 0.2, smoke: 0.12, tracer: { w: 0.045, ms: 130, heavy: false, n: 3 }, hit: 'sparks', miss: 'dust', ms: 600, sfx: 'fire_rifle', hitSfx: 'hit_small' },
+    antitank: { shots: 1, gap: 0, flash: 0.36, smoke: 0.2, backblast: true, tracer: { w: 0.11, ms: 170, heavy: true }, hit: 'blast', miss: 'dustBig', ms: 800, sfx: 'fire_at', hitSfx: 'hit_big' },
+    armor: { shots: 1, gap: 0, flash: 0.4, smoke: 0.24, tracer: { w: 0.09, ms: 160, heavy: true }, hit: 'blastDebris', miss: 'dirt', ms: 800, sfx: 'fire_tank', hitSfx: 'hit_big' },
+    light: { shots: 1, gap: 0, flash: 0.16, smoke: 0.08, tracer: { w: 0.035, ms: 140, heavy: false }, hit: 'sparksSmall', miss: 'dust', ms: 450, sfx: 'fire_rifle', hitSfx: 'hit_small' },
   },
   // 간접 사격. flight: [최소, 최대] 비행 시간, perCell: 거리 1칸당, apex: 포물선 높이(칸), fogLand: 시야 밖 발사일 때 착탄까지 고정 시간
   mortar: { flash: 0.24, smoke: 0.3, ring: 0.5, flight: [400, 700], perCell: 70, apex: 1.1, blast: 0.55, fogLand: 450 },
@@ -53,13 +53,14 @@ function fxRng(seed) {
 /**
  * 공격 연출 목록. ev = 엔진의 diceRoll 이벤트.
  * o = { me, vis: Set(칸 번호), N, dmg: [{pos, splash}](보이는 것만), dead: [{pos}](보이는 것만), splash: 포병 여부, rm: 연출 줄이기, seed }
- * 반환 { items: [{kind, at, ...}], shakes: [{at, amp, ms, kind}], units: [{pos, at, push}], hitAt, end }
+ * 반환 { items: [{kind, at, ...}], shakes: [{at, amp, ms, kind}], units: [{pos, at, push}], sounds: [{id, at}], hitAt, end }
  * 안개: 발사(섬광·연기·고리)는 발사 칸이 보일 때만, 비행은 발사 칸이 보이고 (대상 칸이 보이거나 내 사격)일 때만,
  *       착탄은 대상 칸이 보이거나 내 사격일 때만 (내 사격이 안개 속에 떨어지면 명중 여부와 무관한 같은 폭발).
  *       흔들림은 내 발사 또는 보이는 착탄에만, 크기는 발사 종류로만. 밀림 방향은 발사 칸이 보일 때만.
  */
 function planAttackFx(ev, o) {
-  const items = [], shakes = [], units = [];
+  const items = [], shakes = [], units = [], sounds = [];   // sounds: [{ id, at }] 소리 시점 (그림과 같은 시야 분기에서만 만듦. 위치·거리 값 없음)
+  const snd = (id, at) => sounds.push({ id, at: Math.round(at) });
   const R = fxRng(o.seed || 1);
   const N = o.N, see = (p) => p.r >= 0 && p.c >= 0 && p.r < N && p.c < N && o.vis.has(p.r * N + p.c);
   const mine = ev.side === o.me;
@@ -82,6 +83,7 @@ function planAttackFx(ev, o) {
     const trMs = rm ? 0 : S.tracer.ms;
     const showFlight = fVis && (tVis || mine) && !rm;
     if (fVis) {
+      snd(S.sfx, 0);   // 발사 소리: 발사 칸이 보일 때만
       for (let k = 0; k < S.shots; k++) add('flash', k * S.gap, { x: M.x, y: M.y, r: S.flash, ms: 90 });
       add('smoke', 0, { x: M.x, y: M.y, n: S.shots > 1 ? 3 : 4, size: S.smoke, rise: 0.25, ms: 700, spread: 0.08 });
       if (S.backblast) add('smoke', 0, { x: A.x - ux * 0.35, y: A.y - uy * 0.35, n: 6, size: 0.18, rise: 0.15, ms: 800, spread: 0.12, vx: -ux * 0.6, vy: -uy * 0.6 });
@@ -96,6 +98,7 @@ function planAttackFx(ev, o) {
     hitAt = (S.shots - 1) * S.gap + trMs + (rm ? 120 : 0);
     if (tVis) {
       if (ev.hit) {
+        snd(S.hitSfx, hitAt);
         const H = S.hit;
         for (let k = 0; k < S.shots; k++) {
           const at = k * S.gap + trMs + (rm ? 120 : 0), P = S.shots > 1 ? near(T, 0.02, 0.14) : T;
@@ -111,6 +114,7 @@ function planAttackFx(ev, o) {
           if (H === 'blastDebris') add('debris', hitAt, { x: T.x, y: T.y, n: 8, speed: 2, ms: 500 });
         }
       } else {
+        snd('miss_dirt', hitAt);
         // 빗나감: 대상 둘레의 땅에 먼지 (유닛 위가 아니라 옆)
         const big = S.miss === 'dustBig', dirt = S.miss === 'dirt';
         for (let k = 0; k < S.shots; k++) {
@@ -124,6 +128,7 @@ function planAttackFx(ev, o) {
   } else {
     const art = !!o.splash, K = art ? FX.artillery : FX.mortar;
     if (fVis) {
+      snd(art ? 'artillery_fire' : 'mortar_fire', 0);
       add('flash', 0, { x: A.x, y: A.y - 0.1, r: K.flash, ms: 120 });
       add('smoke', 0, { x: A.x, y: A.y - 0.3, n: art ? 9 : 5, size: K.smoke * 0.45, rise: art ? 0.8 : 0.6, ms: art ? 1200 : 1000, spread: art ? 0.25 : 0.12 });
       add('ring', 0, { x: A.x, y: A.y, r0: 0.1, r1: K.ring, ms: art ? 420 : 300, dust: art });
@@ -133,9 +138,11 @@ function planAttackFx(ev, o) {
     const flight = Math.max(K.flight[0], Math.min(K.flight[1], K.flight[0] + (dist - 1) * K.perCell));
     const land = rm ? 150 : (fVis ? 60 + flight : K.fogLand);
     if (fVis && (tVis || mine) && !rm) add('shell', 60, { x1: A.x, y1: A.y, x2: T.x, y2: T.y, ms: flight, apex: K.apex });
+    if (fVis && (tVis || mine)) snd('shell_whistle', 60);   // 비행 소리: 비행 그림과 같은 조건 (연출 줄이기여도 소리는 남)
     hitAt = land;
     const showLand = tVis || mine;
     if (showLand) {
+      snd(art ? 'artillery_impact' : 'mortar_impact', land);   // 낙하 소리: 명중·빗나감·안개 속 모두 같은 소리
       const kind = art ? 'artyLand' : 'mortarLand';
       if (!tVis) {   // 내 사격이 안개 속에 떨어짐: 명중 여부와 무관하게 같은 폭발
         add('blast', land, { x: T.x, y: T.y, r: K.blast * 0.8, ms: 420 });
@@ -163,6 +170,7 @@ function planAttackFx(ev, o) {
         if (!see(q) || !(tVis || dmgAt(q))) return;
         const P = C(q);
         add('blast', at, { x: P.x, y: P.y, r: K.nbBlast, ms: 360 });
+        snd('mortar_impact', at);   // 주변 칸 폭발 (그림이 나오는 칸만)
         add('dust', at, { x: P.x, y: P.y, n: 4, size: 0.14, ms: 800 });
       });
     }
@@ -177,6 +185,7 @@ function planAttackFx(ev, o) {
     const at = (u ? u.at : hitAt) + FX.unitFlashMs;
     const P = C(d.pos);
     add('sparks', at, { x: P.x, y: P.y, n: 6, speed: 1.2, ms: 500, up: true });
+    snd('unit_destroyed', at);
     add('smoke', at, { x: P.x, y: P.y, n: 6, size: 0.2, rise: 0.55, ms: 1100, spread: 0.12, dark: true });
   }
   // 상한: 착탄과 피격 반짝임이 maxAttackMs 안에 들어오게 시각을 줄임
@@ -187,13 +196,14 @@ function planAttackFx(ev, o) {
     const k = FX.maxAttackMs / last;
     for (const it of items) { it.at = Math.round(it.at * k); if (it.kind === 'tracer' || it.kind === 'shell') it.ms = Math.round(it.ms * k); }
     for (const s of shakes) s.at = Math.round(s.at * k);
+    for (const s of sounds) s.at = Math.round(s.at * k);
     for (const u of units) u.at = Math.round(u.at * k);
     hitAt = Math.round(hitAt * k);
   }
   if (rm) for (const it of items) if (it.n) it.n = Math.max(1, Math.round(it.n * FX.rmParticles));
   let end = hitAt;
   for (const it of items) end = Math.max(end, it.at + (it.ms || 0));
-  return { items, shakes, units, hitAt, end };
+  return { items, shakes, units, sounds, hitAt, end };
 }
 
 /**

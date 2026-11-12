@@ -17,6 +17,7 @@
       <span class="chip" id="hud-act" hidden></span>
       <button class="hud-help" id="btn-help" hidden data-i18n-aria="aria.rules">?</button>
       <div class="seg lang-seg" id="lang-seg" role="group"><button data-lang="ko" lang="ko">KO</button><button data-lang="en" lang="en">EN</button></div>
+      <button class="mute-btn" id="btn-mute" data-mute aria-pressed="false"></button>
     </div>
     <div class="hud-row" id="hud-r2">
       <span class="hud-objs" id="hud-objs"></span>
@@ -100,6 +101,12 @@
             <div class="seg" id="seg-signal" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
           <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.reduceMotion" data-i18n-title="tip.reduceMotion"></span>
             <div class="seg" id="seg-reduce" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.music"></span>
+            <div class="seg" id="seg-music" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row aud-row"><input type="range" id="rng-music" min="0" max="100" step="5" data-i18n-aria="aria.musicVol"></div>
+          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.sfx"></span>
+            <div class="seg" id="seg-sfx" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
+          <div class="set-row aud-row"><input type="range" id="rng-sfx" min="0" max="100" step="5" data-i18n-aria="aria.sfxVol"></div>
           <div id="theme-rows">
             <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.theme" data-i18n-title="tip.theme"></span>
               <div class="seg" id="seg-theme" role="group" data-i18n-aria="lbl.theme"><button data-theme="basic" data-i18n="theme.basic"></button><button data-theme="rich" data-i18n="theme.rich"></button></div></div>
@@ -145,6 +152,7 @@
 <script src="js/zoom.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/menu.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/rich-map.js"></script>
 <script src="js/ui.js"></script>
 </body>

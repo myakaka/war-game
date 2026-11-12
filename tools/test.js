@@ -1288,3 +1288,181 @@ test('메뉴: 시나리오 카드는 데이터에서 이름·설명·태그(최�
   for (const lang of ['ko', 'en']) for (const k of ['gameTitle', 'gameSubtitle']) assert.ok(run('STRINGS')[lang][k], `${lang} ${k}`);
   assert.ok(!/춘천|Chuncheon|1950/.test(run('STRINGS').ko.gameTitle + run('STRINGS').en.gameTitle), '게임 제목에 시나리오 이름 없음');
 });
+
+/* ---------------- 소리 (js/audio.js 관리자 + js/fx.js 의 소리 시점). AudioContext 는 목(mock) ---------------- */
+const sndIds = (plan) => plan.sounds.map((s) => s.id);
+/** 목 AudioContext: 재생 호출만 기록 */
+function mockAudioEnv(o = {}) {
+  const log = { started: [], stopped: [], warns: [], fetched: [], saved: null };
+  let clock = 0;
+  const gainNode = () => ({ gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {} });
+  const ctx = {
+    state: 'suspended', currentTime: 0, destination: {},
+    resume() { ctx.state = 'running'; }, suspend() { ctx.state = 'suspended'; },
+    createGain: gainNode,
+    createBufferSource() { const s = { buffer: null, loop: false, connect() {}, start(at, off) { log.started.push({ url: s.buffer.url, loop: s.loop, loopStart: s.loopStart, loopEnd: s.loopEnd, off }); }, stop() { log.stopped.push(s.buffer.url); } }; return s; },
+    decodeAudioData: async (data) => ({ url: data.url, duration: 10 }),
+  };
+  const missing = new Set(o.missing || []);
+  const env = {
+    makeContext: () => ctx,
+    fetchFile: async (url) => { log.fetched.push(url); if (o.blocked) throw new Error('blocked'); return missing.has(url) || (o.only && !o.only.includes(url)) ? null : { url }; },
+    now: () => clock, warn: (m) => log.warns.push(m), seed: 3,
+    store: o.store || { get: () => null, set: (v) => { log.saved = v; } },
+  };
+  return { env, log, ctx, tick: (ms) => { clock += ms; } };
+}
+
+test('소리 시점: 병종별 발사·명중·빗나감·격파, 박격포, 포병(중심 + 주변 4칸 0.1초 간격)', () => {
+  const dmg = [{ pos: { r: 6, c: 5 } }];
+  jsonEq(sndIds(E.planAttackFx(fxEv({}), fxBase({ dmg }))), ['fire_rifle', 'hit_small']);
+  jsonEq(sndIds(E.planAttackFx(fxEv({ unitType: 'armor' }), fxBase({ dmg, dead: dmg }))), ['fire_tank', 'hit_big', 'unit_destroyed']);
+  jsonEq(sndIds(E.planAttackFx(fxEv({ unitType: 'antitank', hit: false }), fxBase({}))), ['fire_at', 'miss_dirt']);
+  const hit = E.planAttackFx(fxEv({}), fxBase({ dmg }));
+  assert.equal(hit.sounds[0].at, 0);
+  assert.equal(hit.sounds[1].at, hit.hitAt, '명중 소리는 착탄(번쩍임) 시점');
+  jsonEq(sndIds(E.planAttackFx(fxEv({ unitType: 'mortar', indirect: true }), fxBase({ dmg }))), ['mortar_fire', 'shell_whistle', 'mortar_impact']);
+  const ar = E.planAttackFx(fxEv({ unitType: 'artillery', indirect: true }), fxBase({ splash: true, dmg }));
+  jsonEq(sndIds(ar), ['artillery_fire', 'shell_whistle', 'artillery_impact', 'mortar_impact', 'mortar_impact', 'mortar_impact', 'mortar_impact']);
+  const nb = ar.sounds.filter((s) => s.id === 'mortar_impact').map((s) => s.at), c = ar.sounds.find((s) => s.id === 'artillery_impact').at;
+  jsonEq(nb.map((x) => x - c), [1, 2, 3, 4].map((k) => k * E.FX.splashGap));
+  assert.equal(E.moveSoundOf('infantry'), 'move_infantry');
+  for (const ty of ['armor', 'recon', 'signal']) assert.equal(E.moveSoundOf(ty), 'move_vehicle');
+  for (const p of [hit, ar]) for (const s of p.sounds) jsonEq(Object.keys(s).sort(), ['at', 'id'], '소리에는 위치·거리·크기 값이 없음');
+});
+
+test('소리 안개: 시야 밖 발사는 낙하 폭발만, 보이지 않는 대상의 명중·빗나감·격파 소리 없음, 거리와 무관', () => {
+  const N = 16, vis = fxVis(N, [[12, 5], [11, 5], [13, 5], [12, 4], [12, 6]]);
+  const ev = fxEv({ side: 'b', unitType: 'artillery', indirect: true, from: { r: 1, c: 5 }, target: { r: 12, c: 5 } });
+  const p = E.planAttackFx(ev, fxBase({ vis, splash: true, dmg: [{ pos: { r: 12, c: 5 } }] }));
+  assert.ok(sndIds(p).every((id) => id === 'artillery_impact' || id === 'mortar_impact'), sndIds(p).join());
+  assert.ok(sndIds(p).includes('artillery_impact'));
+  const far = E.planAttackFx({ ...ev, from: { r: 0, c: 0 } }, fxBase({ vis, splash: true, dmg: [{ pos: { r: 12, c: 5 } }] }));
+  jsonEq(far.sounds, p.sounds, '발사 위치가 달라도 소리 목록과 시각이 같음');
+  // 시야 밖 박격포가 시야 안으로: 낙하 소리만
+  jsonEq(sndIds(E.planAttackFx(fxEv({ side: 'b', unitType: 'mortar', indirect: true, from: { r: 1, c: 1 }, target: { r: 12, c: 5 } }), fxBase({ vis }))), ['mortar_impact']);
+  // 보이지 않는 곳끼리: 소리 없음
+  jsonEq(sndIds(E.planAttackFx(fxEv({ side: 'b', unitType: 'armor', from: { r: 1, c: 1 }, target: { r: 3, c: 3 } }), fxBase({ vis }))), []);
+  // 보이는 적이 시야 밖 칸을 직접 사격: 발사 소리만 (명중·빗나감·격파 없음)
+  for (const hit of [true, false]) jsonEq(sndIds(E.planAttackFx(fxEv({ side: 'b', unitType: 'armor', from: { r: 12, c: 5 }, target: { r: 2, c: 2 }, hit }), fxBase({ vis }))), ['fire_tank']);
+  // 시야 밖 적이 보이는 내 유닛을 직접 사격: 발사 소리 없이 명중 소리만
+  jsonEq(sndIds(E.planAttackFx(fxEv({ side: 'b', from: { r: 1, c: 1 }, target: { r: 12, c: 5 } }), fxBase({ vis, dmg: [{ pos: { r: 12, c: 5 } }] }))), ['hit_small']);
+  // 내 포병이 안개 속을 쏨: 명중·빗나감이 같은 소리
+  const mv = fxVis(N, [[12, 5]]);
+  const mk = (hit) => JSON.stringify(E.planAttackFx(fxEv({ unitType: 'artillery', indirect: true, from: { r: 12, c: 5 }, target: { r: 6, c: 5 }, hit }), fxBase({ vis: mv, splash: true })).sounds);
+  assert.equal(mk(true), mk(false));
+});
+
+test('소리 관리자: 첫 입력 전에는 무음, 동시 재생 상한(전체 8·같은 소리 3), 0.05초 중복 방지, 볼륨은 설정으로만', async () => {
+  const m = mockAudioEnv();
+  const a = E.createAudio(m.env);
+  assert.equal(a.play('ui_click'), null, '첫 입력 전에는 재생하지 않음');
+  assert.equal(m.log.fetched.length, 0, '첫 입력 전에는 로딩도 하지 않음');
+  a.unlock();
+  await a.whenLoaded();
+  assert.equal(m.ctx.state, 'running');
+  jsonEq(m.log.fetched.slice(0, 4), ['sound/ui_click.wav', 'sound/ui_cancel.wav', 'sound/ui_error.wav', 'sound/ui_turn_end.wav'], 'UI 소리부터 로딩');
+  assert.ok(a.play('ui_click'));
+  assert.equal(a.play('ui_click'), null, '0.05초 안의 같은 소리는 한 번만');
+  m.tick(60);
+  assert.ok(a.play('ui_click'));
+  m.tick(60); a.play('ui_click'); m.tick(60); a.play('ui_click');
+  assert.equal(a.stats().ids.filter((x) => x === 'ui_click').length, 3, '같은 소리는 3개까지');
+  for (const id of ['fire_rifle', 'fire_tank', 'fire_at', 'hit_small', 'hit_big', 'miss_dirt', 'mortar_fire', 'artillery_fire']) { m.tick(60); a.play(id); }
+  assert.equal(a.stats().voices, 8, '전체 8개까지');
+  assert.ok(m.log.stopped.length >= 4, '넘친 것은 오래된 것부터 끔');
+  // 볼륨: 종류와 설정으로만 (재생 함수는 소리 이름만 받음)
+  assert.equal(a.play.length, 1);
+  jsonEq(a.levels(), { sfx: 0.8, music: 0.5 * E.AUDIO.musicCeil });
+  assert.ok(a.levels().music < a.levels().sfx, '음악 최대치는 효과음보다 낮음');
+  a.setMuted(true);
+  jsonEq(a.levels(), { sfx: 0, music: 0 });
+  assert.equal(a.stats().voices, 0, '음소거하면 재생 중인 효과음도 멈춤');
+  m.tick(60);
+  assert.equal(a.play('ui_click'), null);
+  a.setMuted(false); a.setSfxOn(false);
+  assert.equal(a.play('fire_rifle'), null);
+  a.setSfxOn(true); a.setSfxVolume(0.3);
+  assert.equal(a.levels().sfx, 0.3);
+  assert.equal(m.log.saved.sfx, 0.3, '마지막 설정 저장');
+  // 탭이 가려지면 멈춤
+  m.tick(60); a.play('ui_click');
+  a.setHidden(true);
+  assert.equal(a.stats().voices, 0);
+  assert.equal(m.ctx.state, 'suspended');
+  assert.equal(a.play('ui_click'), null);
+  a.setHidden(false);
+  assert.equal(m.ctx.state, 'running');
+});
+
+test('소리 관리자: 파일이 없거나 저장소·읽기가 막혀도 오류 없이 조용히, 음악은 루프 구간으로 반복', async () => {
+  // 특정 소리 누락 + 목록이 빈 소리
+  const m = mockAudioEnv({ missing: ['sound/hit_big.wav'] });
+  const a = E.createAudio(m.env);
+  a.unlock();
+  await a.whenLoaded();
+  assert.equal(a.play('hit_big'), null);
+  assert.equal(a.play('shell_whistle'), null, '파일이 아직 없는 소리');
+  assert.equal(a.play('no_such_sound'), null);
+  assert.equal(m.log.warns.length, 1, '누락 파일마다 경고 한 줄');
+  assert.ok(a.play('hit_small'));
+  // 음악: 없는 파일 → 조용히, 있는 파일 → 루프 (확장자 m4a → mp3 → wav 순)
+  const m1 = mockAudioEnv({ only: [] });
+  const n = E.createAudio(m1.env);
+  n.unlock();
+  n.setBgm('sound/bgm_none', [0, 0]);
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(n.stats().bgm, null);
+  jsonEq(m1.log.fetched.filter((u) => u.includes('bgm_none')), ['sound/bgm_none.m4a', 'sound/bgm_none.mp3', 'sound/bgm_none.wav']);
+  assert.equal(m1.log.warns.filter((w) => w.includes('bgm_none')).length, 1);
+  const m2 = mockAudioEnv({ only: ['sound/bgm_x.mp3'] });
+  const b = E.createAudio(m2.env);
+  b.setBgm('sound/bgm_x', [0.5, 1.5]);            // 첫 입력 전: 대기만
+  assert.equal(m2.log.started.length, 0);
+  b.unlock();
+  await b.whenLoaded();
+  await new Promise((r) => setTimeout(r, 5));
+  jsonEq(m2.log.fetched.filter((u) => u.includes('bgm_x')), ['sound/bgm_x.m4a', 'sound/bgm_x.mp3']);
+  const st = m2.log.started.find((s) => s.loop);
+  jsonEq({ loop: st.loop, loopStart: st.loopStart, loopEnd: st.loopEnd, off: st.off }, { loop: true, loopStart: 0.5, loopEnd: 8.5, off: 0.5 });
+  assert.equal(b.stats().bgm, 'sound/bgm_x');
+  // 저장소가 오류를 내도 동작
+  const m3 = mockAudioEnv({ store: { get() { throw new Error('blocked'); }, set() { throw new Error('blocked'); } } });
+  const c = E.createAudio(m3.env);
+  c.setSfxVolume(0.4);
+  assert.equal(c.settings().sfx, 0.4);
+  // 읽기 자체가 막힌 환경 (file://): 오류 없이 무음 (브라우저에서는 오디오 태그로 대체)
+  const m4 = mockAudioEnv({ blocked: true });
+  const d = E.createAudio(m4.env);
+  d.unlock();
+  await d.whenLoaded();
+  assert.equal(d.play('ui_click'), null);
+  // AudioContext 가 없는 환경
+  const e = E.createAudio({ makeContext: () => null, fetchFile: async () => null });
+  e.unlock();
+  await e.whenLoaded();
+  assert.equal(e.play('ui_click'), null);
+});
+
+test('소리 난수·데이터: Math.random 을 쓰지 않고 시드 결과가 같음. 시나리오에 bgm 필드, 소리 목록은 sound/ 의 실제 파일', async () => {
+  E.loadScenario('symmetric');
+  const before = JSON.stringify(E.simulateGames(2));
+  run('globalThis.__auR = Math.random; Math.random = () => { throw new Error("audio used Math.random"); }');
+  try {
+    const m = mockAudioEnv();
+    const a = E.createAudio(m.env);
+    a.unlock();
+    await a.whenLoaded();
+    for (let k = 0; k < 20; k++) { m.tick(60); a.play(k % 2 ? 'fire_rifle' : 'ui_click'); }
+  } finally { run('Math.random = globalThis.__auR'); }
+  assert.equal(JSON.stringify(E.simulateGames(2)), before);
+  for (const sc of E.SCENARIOS.filter((s) => !s.hidden)) {
+    assert.ok('bgm' in sc && (sc.bgm === null || typeof sc.bgm === 'string'), sc.id);
+    assert.equal(sc.bgmLoopTrim.length, 2);
+  }
+  const onDisk = new Set(fs.readdirSync(path.join(ROOT, 'sound')));
+  const listed = Object.values(E.AUDIO.files).flat();
+  for (const f of listed) assert.ok(onDisk.has(f), `sound/${f} 없음`);
+  for (const f of onDisk) if (/\.(wav|mp3|m4a)$/.test(f) && !/^bgm/.test(f)) assert.ok(listed.includes(f), `sound/${f} 가 소리 목록에 없음`);
+  for (const id of E.AUDIO.loadOrder) assert.ok(id in E.AUDIO.files, id);
+});
