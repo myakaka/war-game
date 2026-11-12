@@ -145,6 +145,7 @@ function validateScenario(s) {
   if (s.secondMoverBonus != null && !(Number.isInteger(s.secondMoverBonus) && s.secondMoverBonus >= 0)) E('scenErr.secondMoverBonus', { n: s.secondMoverBonus });
   if (s.objectiveControl != null && !['sticky', 'presence'].includes(s.objectiveControl)) E('scenErr.objectiveControl', { v: String(s.objectiveControl) });
   if (s.aiProfile != null && s.aiProfile !== 'symmetric') E('scenErr.aiProfile', { v: String(s.aiProfile) });
+  if (s.aiProfiles != null && !(Array.isArray(s.aiProfiles) && s.aiProfiles.length && s.aiProfiles.every((p) => GAME_CONFIG.AI.TACTIC_PROFILES[p]))) E('scenErr.aiProfiles', { v: String(s.aiProfiles) });
   if (!sides.includes(s.playerSide)) E('scenErr.playerSide');
   if (new Set(sides.map((x) => x[0].toUpperCase())).size !== sides.length) E('scenErr.prefix2');
   const roles = sides.map((x) => s.sides[x].role).sort().join(',');
@@ -330,6 +331,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
     for (const o of C.OBJECTIVES) for (const p of o.cells || [{ r: o.r, c: o.c }]) C.OBJ_CELL_ID.set(p.r * C.MAP.length + p.c, o.id);
   }
   C.OBJECTIVE_CONTROL = s.objectiveControl === 'presence' ? 'presence' : 'sticky';   // sticky: 마지막으로 들어간 진영 (기존) · presence: 지금 안에 있는 진영
+  C.AI_PROFILES = Array.isArray(s.aiProfiles) ? s.aiProfiles.slice() : null;   // 화면 난이도 목록 (없으면 전체). AI 판단에는 쓰지 않음
   C.AI_MODE = s.aiProfile === 'symmetric' ? 'symmetric' : null;   // symmetric: 역할과 무관한 중립 AI
   C.SECOND_MOVER_BONUS = Number.isInteger(s.secondMoverBonus) && s.secondMoverBonus > 0 ? s.secondMoverBonus : 0;
   C.SYMMETRIC = !!s.symmetric;
@@ -1194,10 +1196,10 @@ function profileDesc(id) {
   return typeof STRINGS !== 'undefined' && STRINGS.ko[k] != null ? t(k) : t(`profile.${id}.desc`);
 }
 
-/** 시작 화면 등에서 쓰는 프로필 목록 */
+/** 시작 화면 등에서 쓰는 프로필 목록 (시나리오 aiProfiles 가 있으면 그 목록만, 그 순서로) */
 function listTacticProfiles() {
   const P = GAME_CONFIG.AI.TACTIC_PROFILES;
-  return Object.keys(P).map((id) => ({ id, name: t(`profile.${id}.name`), description: profileDesc(id) }));
+  return (GAME_CONFIG.AI_PROFILES || Object.keys(P)).filter((id) => P[id]).map((id) => ({ id, name: t(`profile.${id}.name`), description: profileDesc(id) }));
 }
 
 /** AI 가 아는 정보만 모은 맥락 (안개 준수). 공격 측이면 프로필 기능(feat)과 작전 상태를 포함 */

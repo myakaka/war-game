@@ -74,6 +74,7 @@ SCENARIOS.push({
   zoneLabelKey: null,
   river: null,
   aiConstants: {},
+  aiProfiles: ['easy', 'normal', 'hard'],   // 시작 화면 난이도 목록 (산개전술은 어려움과 같은 단계)
   objectiveCheckAfter: null,
   activations: { def: 5, att: 5 },
   fires: {

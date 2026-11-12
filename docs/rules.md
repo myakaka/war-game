@@ -83,6 +83,7 @@
 | `firstMover`, `secondMoverBonus` | 선공 진영 id(`turnOrder` 대신), 후공 1라운드 행동 한도 추가 |
 | `objectiveControl` | `'sticky'`(기본) 또는 `'presence'` |
 | `symmetric`, `aiProfile` | `true`면 회전 대칭 검사, `'symmetric'`이면 AI 중립 모드 |
+| `aiProfiles` | 시작 화면 난이도 목록(프로필 id 배열, 생략하면 전체). 화면 표시만 바꾸고 AI 판단에는 쓰지 않음 |
 | `deployments` | round 0 = 시작 배치(AI 추정 위치 겸용), round 1 이상 = 예약 투입(`pos` 또는 `count`+`cells`) |
 | `placementZones`, `zoneLabelKey` | 직접 배치 구역, 안내 문구 키 |
 | `victory` | 진영별 승리 조건 목록 (`enterHQ`, `annihilation`, `holdObjectives`, `surviveRounds`, `roundLimitScore`) |

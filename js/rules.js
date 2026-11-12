@@ -87,6 +87,7 @@ const TERRAIN_TYPES = {
  *   victory 조건 roundLimitScore: 마지막 라운드가 끝나면 점유 거점 수 → 남은 총 체력(도착 대기 유닛은 최대 체력) → 무승부(winner 'draw'). 양쪽이 모두 가질 때만 동작
  *   symmetric      true 면 validateScenario 가 180도 회전 대칭(지형·거점·배치·증원·행동 한도·승리 조건·본부)을 검사
  *   aiProfile      'symmetric' 이면 AI 중립 모드 (역할과 무관하게 양쪽 같은 목표·점수, AI_CONFIG.SYMMETRIC)
+ *   aiProfiles     시작 화면 난이도 목록 (TACTIC_PROFILES id 배열, 생략 = 전체). 화면 표시만, AI 판단에는 쓰지 않음
  */
 const SCENARIOS = [];
 const DEFAULT_SCENARIO_ID = 'chuncheon';

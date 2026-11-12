@@ -2851,6 +2851,20 @@
   function profileOptionsHtml() {
     return listTacticProfiles().map((p) => `<option value="${esc(p.id)}" title="${esc(p.description)}">${esc(p.name)}</option>`).join('');
   }
+  /** 이 시나리오 난이도 목록에 없는 프로필 → 바탕 프로필(extends), 없으면 기본 프로필 */
+  function fitDifficulty(id) {
+    const ids = listTacticProfiles().map((p) => p.id), P = GAME_CONFIG.AI.TACTIC_PROFILES;
+    for (let k = id; k; k = P[k] && P[k].extends) if (ids.includes(k)) return k;
+    return ids.includes(GAME_CONFIG.AI.DEFAULT_PROFILE) ? GAME_CONFIG.AI.DEFAULT_PROFILE : ids[0];
+  }
+  /** 설정 패널의 난이도 선택 (시나리오·언어가 바뀌면 다시 채움) */
+  function renderDiffSelect() {
+    ui.difficulty = fitDifficulty(ui.difficulty);
+    const diffSel = $('#difficulty-select');
+    diffSel.innerHTML = profileOptionsHtml();
+    diffSel.value = ui.difficulty;
+    diffSel.title = resolveProfile(ui.difficulty).description;
+  }
 
   /** 모드에 따라 보이는 컨트롤 정리 */
   function applyModeUi() {
@@ -2931,6 +2945,7 @@
     loadFirePref();
     renderFireSettings();
     applyScenarioStrings();
+    renderDiffSelect();
     rich.on = false;
     boardEl.classList.remove('rich', 'grid-on');
     if (save) { try { localStorage.setItem(SCEN_KEY, GAME_CONFIG.SCENARIO_ID); } catch (e) { /* 저장 불가 환경 */ } }
@@ -2961,6 +2976,7 @@
     const sel = keep || { mode: ui.mode, diff: resolveProfile(ui.difficulty).id };
     const draw = (focusSel = null) => {
       const hs = sel.mode === 'hotseat';
+      sel.diff = fitDifficulty(sel.diff);   // 시나리오를 바꾸면 그 시나리오 목록 안으로
       const prof = resolveProfile(sel.diff);
       const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
       const sub = t((hs ? 'start.subHotseat' : 'start.sub') + (GAME_CONFIG.SYMMETRIC ? 'Sym' : ''), { place: { t: sc.subKey }, max: GAME_CONFIG.MAX_ROUNDS, ...SP() });
@@ -2971,7 +2987,7 @@
           <button class="mode-card" data-mode="ai" aria-pressed="${!hs}"><span class="t tx">${esc(t('mode.ai'))}</span><span class="d tx">${esc(t('mode.aiDesc', SP()))}</span></button>
           <button class="mode-card" data-mode="hotseat" aria-pressed="${hs}"><span class="t tx">${esc(t('mode.hotseatShort'))}</span><span class="d tx">${esc(t('mode.hotseatDesc'))}</span></button>
         </div></div>
-        ${hs ? '' : `<div><div class="sec-lbl">${esc(t('lbl.aiDifficulty'))}</div><div class="diff-grid" role="group" aria-label="${esc(t('lbl.aiDifficulty'))}">`
+        ${hs ? '' : `<div><div class="sec-lbl">${esc(t('lbl.aiDifficulty'))}</div><div class="diff-grid${listTacticProfiles().length === 3 ? ' n3' : ''}" role="group" aria-label="${esc(t('lbl.aiDifficulty'))}">`
           + listTacticProfiles().map((p) => `<button data-diff="${esc(p.id)}" aria-pressed="${p.id === prof.id}" title="${esc(p.name)}"><span class="tx">${esc(p.name)}</span></button>`).join('')
           + `</div><div class="desc-box" id="intro-diff-desc">${esc(prof.description)}</div></div>`}
         <div class="opt-list">${GAME_CONFIG.ROUND_ORDER.some((x) => GAME_CONFIG.DEPLOY_ZONES[x] && GAME_CONFIG.DEPLOYMENT[x].length) ? `<label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>` : ''}
@@ -3370,10 +3386,7 @@
     renderFireSettings();
     renderThemeSettings();
     renderLegend();
-    const diffSel = $('#difficulty-select');
-    diffSel.innerHTML = profileOptionsHtml();
-    diffSel.value = ui.difficulty;
-    diffSel.title = resolveProfile(ui.difficulty).description;
+    renderDiffSelect();
     hideTip();
     hideBalloon();
     if (ui.state) { render(); renderLog(); }

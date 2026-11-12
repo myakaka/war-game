@@ -63,6 +63,7 @@ SCENARIOS.push({
   zoneLabelKey: 'scen.hostomel.zone',
   river: null,
   aiConstants: {},
+  aiProfiles: ['easy', 'normal', 'hard'],   // 시작 화면 난이도 목록 (강이 없어 산개전술은 어려움과 같음)
   objectiveCheckAfter: null,
   activations: { def: 4, att: 4 },          // 역할별 한 턴 행동 한도 (직접 해 보며 조절할 시작값)
   fires: {                                  // 간접 화력 (규칙 v7). 값은 직접 해 보며 조절할 시작값

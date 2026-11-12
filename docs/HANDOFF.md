@@ -7,6 +7,8 @@
 - 계산 시간: AI 한 턴 평균 39~46ms, 최대 약 115ms(Node, 진단 2,400판 기준), 브라우저 20~40ms.
 - 진단(200판×선공/후공, `node tools/sym-ai.js 200`): 새 AI vs turtle 승률 81.5/89.0%, 기존 AI vs turtle 59.5/65.0%, 새 AI vs 기존 AI 69.0/62.5%, 새 AI 자기 대결 선공 54.0%.
 
+- 시작 화면 난이도: 시나리오 `aiProfiles`(화면 목록만)로 호스토멜·대칭은 쉬움/보통/어려움 3개(산개전술 = 강이 없어 어려움과 같음), 춘천은 4개. 목록에 없는 선택은 `extends` 바탕(산개전술 → 어려움)으로. 설명은 시나리오별 실제 AI 기준(`profile.<id>.desc.<시나리오>`).
+
 ## 주요 변경 위치
 - `js/ai-intel.js`(새 파일, engine.js 다음): `intelInit`·`intelOnVision`·`intelOnIndirectFire`(state.aiIntel, 대칭만), `intelRecords`, `intelArtyResting`, `threatMap`, `expectedLoss`, `threatScore`, `symUrgency`, `symV2Context/Position/Attack/FogTargets/Goals`, `turtleTakeTurn`.
 - `js/engine.js`: aiTakeTurn 프로필 분기, buildAiContext `ctx.v2`, 점수 함수에 v2 항목 연결, 박격포 이동 후 사격 필터(intel/likely 허용), `distanceField` 버킷 큐(결과 동일), simulateGames `res.sym.bySide`(진영별 지표, `opts.timing`+`opts.clock` 때만 계산 시간), `diagnoseSymmetricAI`.
