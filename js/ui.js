@@ -3238,8 +3238,74 @@
   const savePref = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch (e) { /* 저장 불가 환경 */ } };
   const loadPref = (k, def) => { try { const v = localStorage.getItem(k); return v === '1' ? true : v === '0' ? false : def; } catch (e) { return def; } };
 
+  /** 첫 화면: 시나리오 · 튜토리얼 · 설정 세 갈래 (규칙은 아래 링크) */
+  function showMenu(focusSel = null) {
+    if (ui.screen !== 'start') setScreen('start');
+    ui.menuBack = null;
+    render();
+    const item = (id, ic, title, desc) => `<button class="menu-item" id="${id}"><span class="ic" aria-hidden="true">${ic}</span><span class="mt"><span class="t tx">${esc(title)}</span><span class="d tx">${esc(desc)}</span></span><span class="go" aria-hidden="true">›</span></button>`;
+    showOverlay(`<div class="start-card menu-card">
+      <div class="start-top"><div style="min-width:0"><h1 class="start-title">${esc(t('app.title'))}</h1><div class="start-sub">${esc(t('menu.sub'))}</div></div>${langButtonsHtml()}</div>
+      <nav class="menu-list" aria-label="${esc(t('app.title'))}">
+        ${item('menu-scen', '▶', t('menu.scenario'), t('menu.scenarioDesc'))}
+        ${item('menu-tut', '?', t('menu.tutorial'), t('menu.tutorialDesc'))}
+        ${item('menu-set', '⚙', t('menu.settings'), t('menu.settingsDesc'))}
+      </nav>
+      <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button></div>
+    </div>`, () => showMenu(), 'start');
+    const modal = $('#modal');
+    modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
+    $('#menu-scen').onclick = () => showIntro();
+    $('#menu-tut').onclick = () => startTutorial(0);
+    $('#menu-set').onclick = () => showMenuSettings();
+    $('#btn-rules').onclick = () => showRules(() => showMenu('#btn-rules'));
+    const fx = focusSel && modal.querySelector(focusSel);
+    (fx || $('#menu-scen')).focus();
+  }
+  /** 메뉴의 설정: 게임과 상관없는 보기 설정만 (속도·연출 줄이기·통신 범위·테마·언어). 판마다 정하는 값(행동 한도·화력·난이도)은 게임 안 설정에 */
+  function showMenuSettings(focusSel = null) {
+    if (ui.screen !== 'start') setScreen('start');
+    ui.menuBack = () => showMenu('#menu-set');
+    const seg = (id, opts, cur) => `<div class="seg" role="group" id="${id}">${opts.map(([v, lbl, dis]) => `<button data-v="${v}" aria-pressed="${v === cur}" class="${v === cur ? 'active' : ''}"${dis ? ' disabled' : ''}>${esc(lbl)}</button>`).join('')}</div>`;
+    const row = (lbl, tip, ctl) => `<div class="set-row"><span class="set-lbl tx"${tip ? ` title="${esc(tip)}"` : ''}>${esc(lbl)}</span>${ctl}</div>`;
+    const onOff = (on) => (on ? '1' : '0');
+    const OO = [['1', t('opt.on')], ['0', t('opt.off')]];
+    const themeOk = richLayout(), art = !!scenArt(), want = wantTheme();
+    const note = themeOk && !art ? t('theme.noArt') : '';
+    showOverlay(`<div class="start-card menu-set">
+      <div class="start-top"><button class="link back" id="btn-menu-back">${esc(t('btn.toMenu'))}</button>${langButtonsHtml()}</div>
+      <h2 class="start-title">${esc(t('settings.title'))}</h2>
+      <div class="set-list">
+        ${row(t('speed.fx'), null, seg('ms-speed', [['slow', t('speed.slow')], ['normal', t('speed.normal')], ['fast', t('speed.fast')]], ui.speed))}
+        ${row(t('lbl.reduceMotion'), t('tip.reduceMotion'), seg('ms-reduce', OO, onOff(ui.reduceMotion)))}
+        ${row(t('lbl.signalToggle'), t('tip.signalToggle'), seg('ms-signal', OO, onOff(ui.showSignal)))}
+        ${themeOk ? row(t('lbl.theme'), t('tip.theme'), seg('ms-theme', [['basic', t('theme.basic')], ['rich', t('theme.rich'), !art]], want))
+          + row(t('lbl.gridAlways'), t('tip.gridAlways'), seg('ms-grid', OO.map(([v, l]) => [v, l, !art || want !== 'rich']), onOff(ui.gridAlways))) : ''}
+        ${note ? `<div class="hint tx">${esc(note)}</div>` : ''}
+      </div>
+      <button class="primary btn-go" id="btn-menu-done">${esc(t('menu.done'))}</button>
+    </div>`, () => showMenuSettings(), 'start');
+    const modal = $('#modal');
+    const again = (sel) => showMenuSettings(sel);
+    modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
+    modal.querySelectorAll('#ms-speed [data-v]').forEach((b) => { b.onclick = () => {
+      ui.speed = b.dataset.v;
+      document.querySelectorAll('#speed-seg button').forEach((x) => { const a = x.dataset.speed === ui.speed; x.classList.toggle('active', a); x.setAttribute('aria-pressed', String(a)); });
+      again(`#ms-speed [data-v="${b.dataset.v}"]`);
+    }; });
+    modal.querySelectorAll('#ms-reduce [data-v]').forEach((b) => { b.onclick = () => { setReduceMotion(b.dataset.v === '1'); again(`#ms-reduce [data-v="${b.dataset.v}"]`); }; });
+    modal.querySelectorAll('#ms-signal [data-v]').forEach((b) => { b.onclick = () => { setShowSignal(b.dataset.v === '1'); again(`#ms-signal [data-v="${b.dataset.v}"]`); }; });
+    modal.querySelectorAll('#ms-theme [data-v]').forEach((b) => { b.onclick = () => { setThemePref(b.dataset.v); again(`#ms-theme [data-v="${b.dataset.v}"]`); }; });
+    modal.querySelectorAll('#ms-grid [data-v]').forEach((b) => { b.onclick = () => { setGridAlways(b.dataset.v === '1'); again(`#ms-grid [data-v="${b.dataset.v}"]`); }; });
+    $('#btn-menu-back').onclick = ui.menuBack;
+    $('#btn-menu-done').onclick = ui.menuBack;
+    const fx = focusSel && modal.querySelector(focusSel);
+    (fx || $('#btn-menu-back')).focus();
+  }
+
   function showIntro(keep = null) {
     if (ui.screen !== 'start') setScreen('start');
+    ui.menuBack = () => showMenu('#menu-scen');
     render();
     const sel = keep || { mode: ui.mode, diff: resolveProfile(ui.difficulty).id };
     const draw = (focusSel = null) => {
@@ -3249,8 +3315,9 @@
       const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
       const sub = t((hs ? 'start.subHotseat' : 'start.sub') + (GAME_CONFIG.SYMMETRIC ? 'Sym' : ''), { place: { t: sc.subKey }, max: GAME_CONFIG.MAX_ROUNDS, ...SP() });
       showOverlay(`<div class="start-card">
-        <div class="start-top"><div style="min-width:0"><h1 class="start-title">${esc(t('app.title'))}</h1><div class="start-sub">${esc(sub)}</div></div>${langButtonsHtml()}</div>
-        <div><div class="sec-lbl">${esc(t('start.scenario'))}</div><div class="scen-list" role="radiogroup" aria-label="${esc(t('start.scenario'))}">${scenarioCardsHtml(GAME_CONFIG.SCENARIO_ID)}</div></div>
+        <div class="start-top"><button class="link back" id="btn-menu-back">${esc(t('btn.toMenu'))}</button>${langButtonsHtml()}</div>
+        <div style="min-width:0"><h2 class="start-title">${esc(t('menu.scenario'))}</h2><div class="start-sub">${esc(sub)}</div></div>
+        <div><div class="scen-list" role="radiogroup" aria-label="${esc(t('start.scenario'))}">${scenarioCardsHtml(GAME_CONFIG.SCENARIO_ID)}</div></div>
         <div><div class="sec-lbl">${esc(t('intro.mode'))}</div><div class="mode-grid" role="group" aria-label="${esc(t('intro.mode'))}">
           <button class="mode-card" data-mode="ai" aria-pressed="${!hs}"><span class="t tx">${esc(t('mode.ai'))}</span><span class="d tx">${esc(t('mode.aiDesc', SP()))}</span></button>
           <button class="mode-card" data-mode="hotseat" aria-pressed="${hs}"><span class="t tx">${esc(t('mode.hotseatShort'))}</span><span class="d tx">${esc(t('mode.hotseatDesc'))}</span></button>
@@ -3261,7 +3328,7 @@
         <div class="opt-list">${GAME_CONFIG.ROUND_ORDER.some((x) => GAME_CONFIG.DEPLOY_ZONES[x] && GAME_CONFIG.DEPLOYMENT[x].length) ? `<label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>` : ''}
           ${hs ? `<label class="opt"><input type="checkbox" id="opt-curtain"${ui.useCurtain ? ' checked' : ''}><span class="tx">${esc(t('start.optCurtain'))}</span></label>` : ''}</div>
         <button class="primary btn-go" id="btn-start">${esc(t('btn.startGo'))}</button>
-        <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button><button class="link" id="btn-tutorial">${esc(t('btn.tutorial'))}</button></div>
+        <div class="links"><button class="link" id="btn-rules">${esc(t('start.rules'))}</button></div>
       </div>`, () => draw(), 'start');
       const modal = $('#modal');
       modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
@@ -3283,7 +3350,7 @@
       if ($('#opt-deploy')) $('#opt-deploy').onchange = (e) => { ui.manualDeploy = e.target.checked; savePref(OPT_DEPLOY_KEY, ui.manualDeploy); };   // 배치 구역이 없는 시나리오(고정 배치)는 항목 없음
       if ($('#opt-curtain')) $('#opt-curtain').onchange = (e) => { ui.useCurtain = e.target.checked; savePref(OPT_CURTAIN_KEY, ui.useCurtain); };
       $('#btn-rules').onclick = () => showRules(() => draw('#btn-rules'));
-      $('#btn-tutorial').onclick = () => startTutorial(0);
+      $('#btn-menu-back').onclick = ui.menuBack;
       $('#btn-start').onclick = () => {
         ui.mode = sel.mode;
         ui.difficulty = sel.diff;
@@ -3292,7 +3359,7 @@
         newGame();
       };
       const f = focusSel && modal.querySelector(focusSel);
-      (f || $('#btn-start')).focus();
+      (f || modal.querySelector('[data-scen][aria-checked="true"]') || $('#btn-start')).focus();   // 처음엔 고른 시나리오 카드 (화면 위쪽이 보이게)
     };
     draw();
   }
@@ -3555,7 +3622,7 @@
     showOverlay(`<div class="start-card tut-ask"><h2>${esc(t('tut.ask.title'))}</h2><p>${esc(t('tut.ask.body'))}</p>
       <div class="btn-row"><button class="primary" id="btn-tut-yes">${esc(t('btn.tutStart'))}</button><button id="btn-tut-later">${esc(t('btn.tutLater'))}</button></div></div>`, showTutAsk, 'start');
     $('#btn-tut-yes').onclick = () => startTutorial(0);
-    $('#btn-tut-later').onclick = () => { tutMark({ seen: true }); showIntro(); };
+    $('#btn-tut-later').onclick = () => { tutMark({ seen: true }); showMenu(); };
     $('#btn-tut-yes').focus();
   }
   /** 깜빡이는 표시 (눌러 볼 곳만. 좋고 나쁨의 표시가 아님) + 턴 종료 버튼 표시 + 연습 판의 '?' */
@@ -3724,7 +3791,7 @@
     ui.history = [];
     $('#log').innerHTML = '';
     hideOverlay();
-    showIntro();
+    showMenu();
   }
 
   /* =====================================================================
@@ -4274,6 +4341,7 @@
       return;
     }
     if (ui.rulesBack && e.key === 'Escape') { e.preventDefault(); ui.rulesBack(); return; }
+    if (ui.menuBack && ui.screen === 'start' && e.key === 'Escape') { e.preventDefault(); ui.menuBack(); return; }   // 시나리오·설정 화면 → 메뉴
     if ($('#overlay').classList.contains('show')) return;   // 시작·승패·가림막·요약 창이 떠 있을 때는 단축키 없음
     if (ui.screen !== 'game' && ui.screen !== 'deploy') return;
     const tag = (e.target && e.target.tagName || '').toLowerCase();
@@ -4313,5 +4381,5 @@
   setReduceMotion(initialReduceMotion(), false);
   applyTheme();    // 그림 세트가 있으면 불러오기 시작 (끝날 때까지 기본 테마)
   setLanguage(initialLang());   // 정적 문구·범례·난이도 목록·화면을 현재 언어로
-  if (tutLoad().seen) showIntro(); else showTutAsk();   // 처음 실행: 튜토리얼을 한 번 물어봄 (저장이 안 되면 매번 물어봄)
+  if (tutLoad().seen) showMenu(); else showTutAsk();   // 처음 실행: 튜토리얼을 한 번 물어봄 (저장이 안 되면 매번 물어봄)
 })();

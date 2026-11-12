@@ -14,7 +14,7 @@ for (const [w, h, mobile] of views) {
     steps.push({ w, h, mobile, nav: 'index.html' });
     steps.push({ js: `localStorage.clear(); localStorage.setItem('scenarioId','${scen}'); localStorage.setItem('chuncheon1950.tutorial','{"seen":1}'); localStorage.setItem('lang','ko'); localStorage.setItem('chuncheon1950.theme','basic'); location.reload();`, sleep: 2200 });
     steps.push({ name: tag + ' start', js: R + 'return R()' });
-    steps.push({ name: tag + ' deploy', js: `document.querySelector('#btn-start').click(); await W(900); return R()` });
+    steps.push({ name: tag + ' deploy', js: `const ms = document.querySelector('#menu-scen'); if (ms) { ms.click(); await W(300); } document.querySelector('#btn-start').click(); await W(900); return R()` });
     steps.push({ name: tag + ' game', js: `const d=document.querySelector('#btn-deploy-default'); if(d) d.click(); await W(300); const b=document.querySelector('#btn-end-turn'); if(window.__T.ui.screen==='deploy') b.click(); await W(300); if(window.__T.ui.screen==='deploy') b.click(); await W(4500); const u=window.__T.ui; for(let j=0;j<40 && (u.busy || u.state.turn!==GAME_CONFIG.PLAYER_SIDE);j++) await W(250); const me=u.state.units.find(x=>x.side===GAME_CONFIG.PLAYER_SIDE); document.querySelectorAll('#board .cell')[me.r*N+me.c].click(); await W(600); return R()` });
     steps.push({ name: tag + ' legend', js: `document.querySelector('#btn-legend').click(); await W(500); const r=R(); document.querySelector('#btn-legend').click(); await W(300); return r` });
   }
