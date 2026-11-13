@@ -1,0 +1,53 @@
+{
+ "scenario": "hostomel",
+ "level": "easy",
+ "games": 60,
+ "rulesVersion": 11,
+ "avgRounds": 10.35,
+ "defHoldShare": 0.865,
+ "capturedCenter": 1,
+ "capturedFlank": 1.02,
+ "midAttacks": 13.38,
+ "midMoves": 27.35,
+ "nearShare": 0.387,
+ "midNearShare": 0.392,
+ "retreats": 0,
+ "retreatKills": 0,
+ "suppressed": 0,
+ "resupKills": 0,
+ "lossesTotal": 7.95,
+ "lossesBySide": {
+  "def(def)": {
+   "infantry": 2.8,
+   "armor": 0,
+   "antitank": 0.95,
+   "recon": 0,
+   "signal": 0.75,
+   "mortar": 0,
+   "artillery": 0.4
+  },
+  "att(att)": {
+   "infantry": 2.13,
+   "armor": 0.05,
+   "antitank": 0,
+   "recon": 0.82,
+   "signal": 0,
+   "mortar": 0.03,
+   "artillery": 0.02
+  }
+ },
+ "supportLost": 0.45,
+ "supportLostByRetreatBlock": 0,
+ "stallShare": 0.872,
+ "maxStallAvg": 5.47,
+ "hqRetreats": 0,
+ "reasons": {
+  "objectives": 49,
+  "survived": 11
+ },
+ "wins": {
+  "def(def)": 11,
+  "att(att)": 49
+ },
+ "draws": 0
+}

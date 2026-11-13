@@ -162,7 +162,7 @@ function tutorialParams() {
   return {
     act: act ?? '-',
     base: CB.baseHit, per: CB.perPoint, fog: Math.abs(CB.fogPenalty), mv: Math.abs(C.MOVE_ATTACK_PENALTY),
-    min: CB.minHitD10, max: CB.maxHitD10, dice: C.DICE_SIDES,
+    min: CB.minHitD10, max: CB.maxHitD10, dice: C.DICE_SIDES, steps: C.RETREAT.STEPS,
     forest: ter('f').hitMod, plain: ter('.').hitMod, city: ter('#').hitMod,
     marsh: { t: terrainNameKey('paddy') },
     mMin: UT.mortar.rangeMin, mRange: fire('mortar', 'range', UT.mortar.rangeMax), mCd: fire('mortar', 'cooldown', 0), mDmg: UT.mortar.fixedDamage,

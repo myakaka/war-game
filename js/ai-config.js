@@ -108,6 +108,13 @@ const AI_CONFIG = {
     damage: 3.0,             // w1 예상 피해
     kill: 4.0,               // 격파 기대 보너스
     threat: 1.0,             // w2 예상 피격
+    // 후퇴·제압 (v12, 호스토멜·춘천의 기존 AI). 대칭 AI 의 같은 항목은 SYMMETRIC.V2. 위험 항목은 난이도 위험 회피 배수(diff.risk)를 곱함
+    retreatKill: 4,          // 공격: 후퇴할 곳이 없어 피해를 입히면 격파되는 적 (병종 가치 × 명중 확률)
+    retreatClear: 3,         // 공격: 거점 수비 유닛을 밀어내 거점이 비게 됨 (거점 점수 1당)
+    suppress: 2,             // 공격: 간접 화력 정중앙 직격으로 적을 제압
+    resuppressKill: 6,       // 공격: 이번 턴 내가 이미 제압한 적을 다시 정중앙 직격 = 격파
+    noRetreat: 3,            // 위치: 물러날 곳이 막힌 방향 비율 × 피격 기대 (즉사 위험)
+    suppressRisk: 1.5,       // 위치: 간접 화력에 맞아 다음 턴 행동 불가가 될 위험
     terrain: 0.6,            // w3 지형 방어 (hitMod 10 당)
     approach: 1.6,           // w4 목표까지 거리 1 감소당
     capture: 12,             // 거점 점령

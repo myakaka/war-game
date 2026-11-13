@@ -11,11 +11,6 @@ const TUTORIAL_FIRES = {
   mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
   artillery: { range: 5, cooldown: 1 },
 };
-const TUTORIAL_RETREAT = {   // 후퇴·제압: 대칭 전장과 같은 규칙 (가르치는 내용이 실제 규칙과 같게)
-  enabled: true, cause: 'enemyDamage', direct: 'awayFromAttacker', indirect: 'awayFromImpact', steps: 1,
-  repeatPerHit: true, blockedIsDeath: true, passThroughFriendly: true,
-  suppress: { byImpactCenter: true, sources: ['mortar', 'artillery'], duration: 1, repeatIsDeath: true },
-};
 const TUTORIAL_ART = {
   terrain: {
     plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
@@ -167,7 +162,6 @@ SCENARIOS.push({
   objectiveCheckAfter: null,
   activations: { def: 3, att: 3 },
   fires: TUTORIAL_FIRES,
-  retreat: TUTORIAL_RETREAT,
   victory: {
     ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
     enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
@@ -227,7 +221,6 @@ SCENARIOS.push({
   objectiveCheckAfter: null,
   activations: { def: 3, att: 3 },
   fires: TUTORIAL_FIRES,
-  retreat: TUTORIAL_RETREAT,
   victory: {
     ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
     enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],

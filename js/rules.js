@@ -6,7 +6,12 @@
    ===================================================================== */
 const RULES = {
   MAX_HP: 4,
-  RULES_VERSION: 11,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로) · 11: 대칭 전장 후퇴·제압 (시나리오 retreat: 적에게 피해를 받으면 뒤로 1칸 후퇴, 막히면 격파, 간접 화력 정중앙은 제압. retreat 가 없는 시나리오는 v10 그대로)
+  RULES_VERSION: 12,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로) · 11: 대칭 전장 후퇴·제압 (시나리오 retreat: 적에게 피해를 받으면 뒤로 1칸 후퇴, 막히면 격파, 간접 화력 정중앙은 제압. retreat 가 없는 시나리오는 v10 그대로) · 12: 후퇴와 제압을 모든 시나리오의 기본 규칙으로 (시나리오 retreat 블록 삭제, 중앙 상수 RULES.RETREAT. 이전 규칙은 남기지 않음)
+  RETREAT: {                                // 후퇴·제압 (v12, 모든 시나리오 공통). 사람이 조정하기 쉽게 수치는 여기 한 곳
+    STEPS: 1,                               // 후퇴 칸 수
+    SUPPRESS_TURNS: 1,                      // 제압 지속 (제압된 유닛의 자기 턴 수)
+    SUPPRESS_SOURCES: ['mortar', 'artillery'],   // 정중앙 직격이 제압을 일으키는 간접 화력 병종
+  },
   ENABLE_ACTIVATION_LIMIT: true,            // true: 시나리오 activations 의 진영별 행동 한도 적용 · false: 한도 무시 (v5 와 완전히 같은 동작)
   ATTACK_AFTER_MOVE: false,                 // (ENABLE_MOVE_ATTACK 가 false 일 때만 사용) false: 한 유닛은 한 턴에 이동 또는 공격 중 하나만 (포병은 항상 false)
   ENABLE_MOVE_ATTACK: true,                 // true: 남은 이동력 >= 공격 비용이면 이동 후 공격 가능 (포병·통신 제외)

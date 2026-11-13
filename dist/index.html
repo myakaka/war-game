@@ -1368,7 +1368,7 @@ const STRINGS = {
     'tut.s1.done': '위쪽 행동 칩의 남은 수가 하나 줄었습니다 (한 턴 최대 {act}). 유닛이 그 턴에 처음 이동하거나 공격하면 행동 1회를 씁니다.',
     'tut.s2.title': '공격과 명중률',
     'tut.s2.text': '보병을 선택하고 붙어 있는 적(빨간 마름모)을 누르면 공격 확인 창이 열립니다. 명중률과 보정 칩을 보고 공격을 눌러 보세요.',
-    'tut.s2.done': '명중률은 {base}%에서 시작해 보정이 붙고, {dice}면체 주사위로 정합니다 (최소 {min}%, 최대 {max}%). 확률이라 빗나갈 수 있습니다.',
+    'tut.s2.done': '명중률은 {base}%에서 시작해 보정이 붙고, {dice}면체 주사위로 정합니다 (최소 {min}%, 최대 {max}%). 확률이라 빗나갈 수 있습니다. 명중하면 맞은 유닛은 공격자 반대 방향으로 {steps}칸 물러나고, 물러날 곳이 막혀 있으면 격파됩니다.',
     'tut.s3.title': '지형',
     'tut.s3.text': '숲에 선 적과 평지에 선 적을 차례로 눌러 확인 창을 열어 보세요. 지형 보정이 다릅니다 (숲 {forest}%, 평지 {plain}%). 확인 창은 취소해도 됩니다.',
     'tut.s3.done': '방어자가 선 칸의 지형이 명중률을 바꿉니다 (도심 {city}%). {marsh}에는 기갑이 들어갈 수 없습니다.',
@@ -1415,6 +1415,8 @@ const STRINGS = {
     'rules.retreat.3': '포병이 쏜 칸에 붙은 4칸의 유닛은 폭발 중심에서 멀어지는 방향으로 물러납니다.',
     'rules.retreat.4': '박격포나 포병의 정중앙에 맞고 살아남은 유닛은 물러나지 않고 제압됩니다. 제압된 유닛은 자기 다음 턴에 이동도 공격도 할 수 없지만 거점 점유에는 기여합니다. 제압된 유닛이 다시 정중앙에 맞으면 체력이 남아도 격파됩니다.',
     'rules.retreat.5': '아군이 쏜 포탄에 맞아도 피해는 받지만, 물러나거나 제압되지 않습니다.',
+    'save.rulesUpdated': '규칙이 업데이트되어 후퇴와 제압이 적용됩니다.',
+    'rules.retreat.noIndirect': '이 시나리오에는 간접 화력(포병·박격포)이 없어, 포병 주변 후퇴와 제압은 일어나지 않습니다.',
     'rules.sec.fog': '안개와 시야', 'rules.sec.units': '병종', 'rules.sec.obj': '거점과 점수', 'rules.sec.fires': '박격포와 포병', 'rules.sec.terms': '용어',
     'rules.now': '지금 시나리오: {name}',
     'rules.flow': '한 라운드에 양쪽이 한 번씩 턴을 가집니다. 내 턴에는 유닛을 골라 이동하거나 공격하고, 턴 종료를 누르면 상대 턴으로 넘어갑니다.',
@@ -1449,7 +1451,6 @@ const STRINGS = {
     'intro.whoAISym': '당신은 <b class="c-def">{def}</b>, AI는 <b class="c-att">{att}</b>입니다 (양쪽 조건이 같습니다).',
     'intro.whoHotseatSym': '<b class="c-def">{def}</b> 플레이어와 <b class="c-att">{att}</b> 플레이어가 한 화면을 번갈아 씁니다. 턴이 끝나면 가림막이 내려오니 화면을 넘겨 주세요.',
     'scenErr.symmetry': '대칭 검사 실패: {what}',
-    'scenErr.retreat': '후퇴·제압(retreat) 값이 잘못됐습니다: {key} = {v}',
     'scenErr.secondMoverBonus': '후공 보너스(secondMoverBonus)는 0 이상 정수여야 합니다 ({n})',
     'scenErr.objectiveControl': '알 수 없는 거점 점유 방식 {v}',
     'scenErr.aiProfile': '알 수 없는 AI 모드 {v}',
@@ -1818,7 +1819,7 @@ const STRINGS = {
     'tut.s1.done': 'The actions counter {act}/{act} at the top went down by one. A unit uses one action the first time it moves or attacks in a turn.',
     'tut.s2.title': 'Attack and hit chance',
     'tut.s2.text': 'Select the infantry and tap the adjacent enemy (red diamond) to open the attack sheet. Look at the hit chance and its modifier chips, then press Attack.',
-    'tut.s2.done': 'Hit chance starts at {base}%, modifiers are added, and a d{dice} decides ({min}% to {max}%). It is a chance, so attacks can miss.',
+    'tut.s2.done': 'Hit chance starts at {base}%, modifiers are added, and a d{dice} decides ({min}% to {max}%). It is a chance, so attacks can miss. A unit that is hit falls back {steps} tile directly away from the attacker, and is destroyed if there is no room behind it.',
     'tut.s3.title': 'Terrain',
     'tut.s3.text': 'Open the attack sheet on the enemy in the forest, then on the one in the open. The terrain modifier differs (forest {forest}%, plain {plain}%). You can cancel the sheet.',
     'tut.s3.done': 'The defender\'s tile changes the hit chance (urban {city}%). Armor cannot enter {marsh}.',
@@ -1864,6 +1865,8 @@ const STRINGS = {
     'rules.retreat.3': 'Units on the 4 tiles next to an artillery hit fall back away from the blast centre.',
     'rules.retreat.4': 'A unit that survives a direct hit at the centre of a mortar or artillery shot is suppressed instead of falling back. A suppressed unit cannot move or attack on its own next turn, but still counts toward holding an objective. Hit at the centre again while suppressed, it is destroyed even with health left.',
     'rules.retreat.5': 'Shells fired by your own side still do damage, but never make a unit fall back or become suppressed.',
+    'save.rulesUpdated': 'The rules have been updated: retreat and suppression now apply.',
+    'rules.retreat.noIndirect': 'This scenario has no indirect fire (artillery or mortars), so blast-edge retreats and suppression do not occur.',
     'rules.sec.fog': 'Fog and sight', 'rules.sec.units': 'Unit types', 'rules.sec.obj': 'Objectives and score', 'rules.sec.fires': 'Mortars and artillery', 'rules.sec.terms': 'Terms',
     'rules.now': 'Current scenario: {name}',
     'rules.flow': 'In each round both sides take one turn. On your turn, pick units to move or attack, then press End turn to pass to the opponent.',
@@ -1898,7 +1901,6 @@ const STRINGS = {
     'intro.whoAISym': 'You are <b class="c-def">{def}</b>; the AI is <b class="c-att">{att}</b> (both sides have the same conditions).',
     'intro.whoHotseatSym': 'A <b class="c-def">{def}</b> player and a <b class="c-att">{att}</b> player share one screen. A curtain drops at the end of each turn — pass the device.',
     'scenErr.symmetry': 'Symmetry check failed: {what}',
-    'scenErr.retreat': 'Invalid retreat value: {key} = {v}',
     'scenErr.secondMoverBonus': 'secondMoverBonus must be an integer of 0 or more ({n})',
     'scenErr.objectiveControl': 'Unknown objective control mode {v}',
     'scenErr.aiProfile': 'Unknown AI mode {v}',
@@ -1942,7 +1944,12 @@ function t(key, params) {
    ===================================================================== */
 const RULES = {
   MAX_HP: 4,
-  RULES_VERSION: 11,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로) · 11: 대칭 전장 후퇴·제압 (시나리오 retreat: 적에게 피해를 받으면 뒤로 1칸 후퇴, 막히면 격파, 간접 화력 정중앙은 제압. retreat 가 없는 시나리오는 v10 그대로)
+  RULES_VERSION: 12,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로) · 11: 대칭 전장 후퇴·제압 (시나리오 retreat: 적에게 피해를 받으면 뒤로 1칸 후퇴, 막히면 격파, 간접 화력 정중앙은 제압. retreat 가 없는 시나리오는 v10 그대로) · 12: 후퇴와 제압을 모든 시나리오의 기본 규칙으로 (시나리오 retreat 블록 삭제, 중앙 상수 RULES.RETREAT. 이전 규칙은 남기지 않음)
+  RETREAT: {                                // 후퇴·제압 (v12, 모든 시나리오 공통). 사람이 조정하기 쉽게 수치는 여기 한 곳
+    STEPS: 1,                               // 후퇴 칸 수
+    SUPPRESS_TURNS: 1,                      // 제압 지속 (제압된 유닛의 자기 턴 수)
+    SUPPRESS_SOURCES: ['mortar', 'artillery'],   // 정중앙 직격이 제압을 일으키는 간접 화력 병종
+  },
   ENABLE_ACTIVATION_LIMIT: true,            // true: 시나리오 activations 의 진영별 행동 한도 적용 · false: 한도 무시 (v5 와 완전히 같은 동작)
   ATTACK_AFTER_MOVE: false,                 // (ENABLE_MOVE_ATTACK 가 false 일 때만 사용) false: 한 유닛은 한 턴에 이동 또는 공격 중 하나만 (포병은 항상 false)
   ENABLE_MOVE_ATTACK: true,                 // true: 남은 이동력 >= 공격 비용이면 이동 후 공격 가능 (포병·통신 제외)
@@ -2143,6 +2150,13 @@ const AI_CONFIG = {
     damage: 3.0,             // w1 예상 피해
     kill: 4.0,               // 격파 기대 보너스
     threat: 1.0,             // w2 예상 피격
+    // 후퇴·제압 (v12, 호스토멜·춘천의 기존 AI). 대칭 AI 의 같은 항목은 SYMMETRIC.V2. 위험 항목은 난이도 위험 회피 배수(diff.risk)를 곱함
+    retreatKill: 4,          // 공격: 후퇴할 곳이 없어 피해를 입히면 격파되는 적 (병종 가치 × 명중 확률)
+    retreatClear: 3,         // 공격: 거점 수비 유닛을 밀어내 거점이 비게 됨 (거점 점수 1당)
+    suppress: 2,             // 공격: 간접 화력 정중앙 직격으로 적을 제압
+    resuppressKill: 6,       // 공격: 이번 턴 내가 이미 제압한 적을 다시 정중앙 직격 = 격파
+    noRetreat: 3,            // 위치: 물러날 곳이 막힌 방향 비율 × 피격 기대 (즉사 위험)
+    suppressRisk: 1.5,       // 위치: 간접 화력에 맞아 다음 턴 행동 불가가 될 위험
     terrain: 0.6,            // w3 지형 방어 (hitMod 10 당)
     approach: 1.6,           // w4 목표까지 거리 1 감소당
     capture: 12,             // 거점 점령
@@ -2486,18 +2500,6 @@ SCENARIOS.push({
     mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
     artillery: { range: 5, cooldown: 1 },
   },
-  // 후퇴·제압 (v11): 적에게 피해를 받으면 뒤로 후퇴(막히면 격파), 간접 화력 정중앙은 제압. 양쪽 같은 규칙 (진영별 값을 두면 대칭 검사 실패)
-  retreat: {
-    enabled: true,
-    cause: 'enemyDamage',          // 적이 입힌 피해(직접, 박격포, 포병)만. 자기 진영이 쏜 간접 화력 피해는 제외
-    direct: 'awayFromAttacker',    // 직접 사격: 공격자 반대 방향
-    indirect: 'awayFromImpact',    // 포병 주변 4칸: 폭발 중심에서 멀어지는 방향
-    steps: 1,
-    repeatPerHit: true,            // 한 턴에 여러 번 맞으면 맞은 횟수만큼 연속 후퇴
-    blockedIsDeath: true,          // 후퇴할 수 없으면 격파
-    passThroughFriendly: true,     // 후퇴 칸에 아군이 있으면 지나서 그 뒤로
-    suppress: { byImpactCenter: true, sources: ['mortar', 'artillery'], duration: 1, repeatIsDeath: true },
-  },
   // 점수제 (v10): 점유한 거점의 점수가 쌓임. 측면 두 거점은 같은 값이어야 함 (대칭 검사)
   objectivePoints: { SL: 1, SC: 2, SR: 1 },
   scoreTiming: 'ownTurnEnd',             // 'ownTurnEnd' 자기 턴을 끝낼 때 자기 점유만 · 'roundEnd' 라운드 끝에 양쪽 동시
@@ -2534,11 +2536,6 @@ const TUTORIAL_FIRES = {
   blindFire: true,
   mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
   artillery: { range: 5, cooldown: 1 },
-};
-const TUTORIAL_RETREAT = {   // 후퇴·제압: 대칭 전장과 같은 규칙 (가르치는 내용이 실제 규칙과 같게)
-  enabled: true, cause: 'enemyDamage', direct: 'awayFromAttacker', indirect: 'awayFromImpact', steps: 1,
-  repeatPerHit: true, blockedIsDeath: true, passThroughFriendly: true,
-  suppress: { byImpactCenter: true, sources: ['mortar', 'artillery'], duration: 1, repeatIsDeath: true },
 };
 const TUTORIAL_ART = {
   terrain: {
@@ -2691,7 +2688,6 @@ SCENARIOS.push({
   objectiveCheckAfter: null,
   activations: { def: 3, att: 3 },
   fires: TUTORIAL_FIRES,
-  retreat: TUTORIAL_RETREAT,
   victory: {
     ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
     enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
@@ -2751,7 +2747,6 @@ SCENARIOS.push({
   objectiveCheckAfter: null,
   activations: { def: 3, att: 3 },
   fires: TUTORIAL_FIRES,
-  retreat: TUTORIAL_RETREAT,
   victory: {
     ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
     enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
@@ -3004,26 +2999,6 @@ function validateScenario(s) {
       }
     }
   }
-  if (s.retreat != null) {
-    const R = s.retreat, bad = (k, v) => E('scenErr.retreat', { key: k, v: String(v) });
-    if (typeof R !== 'object' || Array.isArray(R)) bad('retreat', R);
-    else {
-      if (typeof R.enabled !== 'boolean') bad('enabled', R.enabled);
-      if (R.cause !== 'enemyDamage') bad('cause', R.cause);
-      if (R.direct !== 'awayFromAttacker') bad('direct', R.direct);
-      if (R.indirect !== 'awayFromImpact') bad('indirect', R.indirect);
-      if (!(Number.isInteger(R.steps) && R.steps >= 1)) bad('steps', R.steps);
-      for (const k of ['repeatPerHit', 'blockedIsDeath', 'passThroughFriendly']) if (typeof R[k] !== 'boolean') bad(k, R[k]);
-      const sp = R.suppress;
-      if (sp != null) {
-        if (typeof sp !== 'object' || typeof sp.byImpactCenter !== 'boolean' || typeof sp.repeatIsDeath !== 'boolean') bad('suppress', sp);
-        else {
-          if (!(Number.isInteger(sp.duration) && sp.duration >= 1)) bad('suppress.duration', sp.duration);
-          if (!(Array.isArray(sp.sources) && sp.sources.every((k) => UNIT_TYPES[k] && UNIT_TYPES[k].indirect))) bad('suppress.sources', sp.sources);
-        }
-      }
-    }
-  }
   if (s.symmetric) for (const m of symmetryErrors(s)) E('scenErr.symmetry', { what: m });
   return errs;
 }
@@ -3068,10 +3043,6 @@ function symmetryErrors(s) {
   }
   if (s.activations && s.activations.def !== s.activations.att) out.push('activations');
   if (s.fires) for (const k of Object.keys(s.fires)) if (sides.includes(k) || k === 'def' || k === 'att') out.push(`fires.${k}`);
-  if (s.retreat) {   // 후퇴·제압은 양 진영에 같은 규칙: 진영·역할 키를 둘 수 없음
-    const walk = (o, path) => { if (o && typeof o === 'object') for (const k of Object.keys(o)) { if (sides.includes(k) || k === 'def' || k === 'att') out.push(`retreat.${path}${k}`); walk(o[k], `${path}${k}.`); } };
-    walk(s.retreat, '');
-  }
   if (s.unitTypes || s.unitOverrides || s.sideStats) out.push('unit stats');   // 진영별 병종 보정은 두지 않음
   return out;
 }
@@ -3167,7 +3138,6 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.ARRIVAL_RADIUS = s.arrivalRadius ?? RULES.ARRIVAL_RADIUS;
   C.ACTIVATIONS = s.activations ? { def: s.activations.def ?? null, att: s.activations.att ?? null } : null;   // 역할별 행동 한도 (null = 제한 없음)
   C.FIRES = s.fires ? JSON.parse(JSON.stringify(s.fires)) : null;   // 간접 화력 설정 (null = v6 규칙)
-  C.RETREAT = s.retreat && s.retreat.enabled ? JSON.parse(JSON.stringify(s.retreat)) : null;   // 후퇴·제압 (규칙 v11, null = 이전 규칙 그대로)
   C.ANCHORS = {};
   for (const side of C.ROUND_ORDER) {
     const pts = norm.filter((d) => d.side === side).flatMap((d) => d.cells);
@@ -3177,6 +3147,20 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   _rushCache.clear();
   if (typeof intelClearCaches === 'function') intelClearCaches();   // ai-intel.js 의 지도 크기에 묶인 캐시 (지도 크기가 다른 시나리오로 바꿀 때)
   return C;
+}
+
+/**
+ * 예전 규칙 버전(rulesVersion 이 없거나 낮음)으로 저장된 판을 지금 규칙으로 이어서 하게 함. 실패하지 않고, 원본은 바꾸지 않는다.
+ * 새 필드(제압 u.suppressed)는 없음이 기본값이라 채울 것이 없다. upgraded 가 true 면 화면이 '규칙이 업데이트되어 후퇴와 제압이 적용됩니다' 안내를 한 번 보여 준다.
+ * 저장하는 쪽은 저장 때 rulesVersion 을 함께 기록해야 한다 (판 상태 자체에는 넣지 않음: 시드 비교의 상태 해시를 바꾸지 않으려고).
+ * @returns {{state: object|null, upgraded: boolean}} 읽을 수 없는 값이면 state 는 null
+ */
+function upgradeSavedState(saved, savedVersion = saved && saved.rulesVersion) {
+  if (!saved || typeof saved !== 'object' || !Array.isArray(saved.units)) return { state: null, upgraded: false };
+  const state = cloneState(saved);
+  delete state.rulesVersion;
+  for (const u of state.units) if (!(u.suppressed > 0)) delete u.suppressed;
+  return { state, upgraded: !(Number.isInteger(savedVersion) && savedVersion >= GAME_CONFIG.RULES_VERSION) };
 }
 
 /** 시드 기반 난수 (mulberry32). 0 이상 1 미만 실수 반환 */
@@ -3501,7 +3485,7 @@ function endTurn(state) {
   const order = GAME_CONFIG.ROUND_ORDER;
   const pos = order.indexOf(state.turn);
   const roundEnd = pos === order.length - 1;
-  if (GAME_CONFIG.RETREAT) for (const u of state.units) if (u.side === state.turn && u.suppressed > 0 && --u.suppressed <= 0) delete u.suppressed;   // 제압: 제압된 유닛의 자기 턴이 끝나면 해제
+  for (const u of state.units) if (u.side === state.turn && u.suppressed > 0 && --u.suppressed <= 0) delete u.suppressed;   // 제압: 제압된 유닛의 자기 턴이 끝나면 해제
   const checkSide = GAME_CONFIG.OBJECTIVE_CHECK_AFTER || order[order.length - 1];
   if (roundEnd) recordObjectiveTimeline(state);
   if (GAME_CONFIG.OBJECTIVE_POINTS) {   // 점수제: 자기 턴 끝(ownTurnEnd) 또는 라운드 끝(roundEnd, 양쪽 동시)에 지금 점유한 거점의 점수
@@ -3855,10 +3839,11 @@ function getAttackableTiles(state, unitId) {
   return out;
 }
 
-/* ---------- 후퇴·제압 (시나리오 retreat, 규칙 v11) ----------
- * GAME_CONFIG.RETREAT 가 null 이면 이 코드는 실행되지 않는다 (이전 규칙과 정확히 같음).
+/* ---------- 후퇴·제압 (규칙 v12, 모든 시나리오 공통) ----------
  * 적이 입힌 피해로 살아남은 유닛은 뒤로 물러나고(막히면 격파), 간접 화력 정중앙에 맞은 유닛은 제압된다 (u.suppressed = 남은 자기 턴 수).
+ * 수치는 RULES.RETREAT (STEPS·SUPPRESS_TURNS·SUPPRESS_SOURCES). 시나리오 데이터에는 없다.
  * 자기 진영이 쏜 간접 화력 피해는 후퇴도 제압도 없다. 후퇴는 행동으로 세지 않아 moved·acted·moveLeft 를 건드리지 않는다.
+ * 간접 화력이 없는 판에서는 직접 사격 후퇴만 일어난다 (같은 코드가 자연스럽게 그렇게 동작).
  */
 const sgn = (x) => (x > 0) - (x < 0);
 /** 후퇴 방향 [dr, dc]. 직접 사격: 공격자 반대 (행·열 차이 중 큰 쪽 축, 같으면 세로). 포병 주변 칸: 폭발 중심에서 멀어지는 방향 */
@@ -3868,7 +3853,7 @@ function retreatDir(attacker, u, impact, splash) {
   return Math.abs(dr) >= Math.abs(dc) ? [sgn(dr), 0] : [0, sgn(dc)];
 }
 /** 후퇴 도착 칸. 막히면 null (격파). 맵 밖·병종이 못 들어가는 지형·적 유닛은 막힘, 아군은 지나서 같은 방향의 다음 칸 */
-function retreatTarget(state, u, dir, steps, passFriendly) {
+function retreatTarget(state, u, dir, steps = GAME_CONFIG.RETREAT.STEPS) {
   let pos = { r: u.r, c: u.c };
   for (let k = 0; k < steps; k++) {
     let r = pos.r + dir[0], c = pos.c + dir[1];
@@ -3878,7 +3863,7 @@ function retreatTarget(state, u, dir, steps, passFriendly) {
       if (ter.impassableFor && ter.impassableFor.includes(u.type)) return null;
       const o = getUnitAt(state, r, c);
       if (!o || o.id === u.id) break;
-      if (o.side !== u.side || !passFriendly) return null;
+      if (o.side !== u.side) return null;
       r += dir[0]; c += dir[1];
     }
     pos = { r, c };
@@ -3896,16 +3881,15 @@ function resolveRetreats(state, attacker, impact, hits) {
   for (const h of hits) {
     const u = h.unit;
     if (u.hp <= 0 || u.side === attacker.side || !(h.amount > 0)) continue;   // 격파됨 · 아군 오사 · 피해 없음
-    const sp = R.suppress;
-    if (at.indirect && !h.splash && sp && sp.byImpactCenter && sp.sources.includes(attacker.type)) {
-      if (u.suppressed > 0 && sp.repeatIsDeath) kill(u, 'resuppressed');
-      else { u.suppressed = sp.duration; events.push({ type: 'suppressed', unitId: u.id, side: u.side, unitType: u.type, pos: { r: u.r, c: u.c }, turns: sp.duration }); }
+    if (at.indirect && !h.splash && R.SUPPRESS_SOURCES.includes(attacker.type)) {
+      if (u.suppressed > 0) kill(u, 'resuppressed');   // 제압 중 정중앙 재직격은 체력이 남아도 격파
+      else { u.suppressed = R.SUPPRESS_TURNS; events.push({ type: 'suppressed', unitId: u.id, side: u.side, unitType: u.type, pos: { r: u.r, c: u.c }, turns: R.SUPPRESS_TURNS }); }
       continue;
     }
     const dir = retreatDir(attacker, u, impact, at.indirect && h.splash);
     const from = { r: u.r, c: u.c };
-    const to = retreatTarget(state, u, dir, R.steps, R.passThroughFriendly);
-    if (!to) { if (R.blockedIsDeath) kill(u, 'retreatBlocked'); continue; }
+    const to = retreatTarget(state, u, dir);
+    if (!to) { kill(u, 'retreatBlocked'); continue; }
     u.r = to.r; u.c = to.c;
     events.push({ type: 'retreat', unitId: u.id, side: u.side, unitType: u.type, hp: u.hp, from, to: { ...to }, splash: !!h.splash });
   }
@@ -3949,11 +3933,9 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
       if (h.unit.hp <= 0) events.push({ type: 'destroyed', unitId: h.unit.id, side: h.unit.side, unitType: h.unit.type, pos: { r: h.unit.r, c: h.unit.c } });
     }
     state.units = state.units.filter((u) => u.hp > 0);
-    if (GAME_CONFIG.RETREAT) {
-      const rev = resolveRetreats(state, a, targetPos, hits);   // 후퇴·제압 (피해를 모두 적용한 뒤)
-      events.push(...rev);
-      if (state.aiIntel) intelOnSuppress(state, a, rev);   // 내 사격 결과: 시야 안에서 제압한 적 (ai-intel.js)
-    }
+    const rev = resolveRetreats(state, a, targetPos, hits);   // 후퇴·제압 (피해를 모두 적용한 뒤)
+    events.push(...rev);
+    intelOnSuppress(state, a, rev);   // 내 사격 결과: 시야 안에서 제압한 적을 기억 (ai-intel.js, 모든 시나리오)
     if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence') events.push(...updateObjectiveControl(state));
   }
   if (state.aiIntel && t.indirect) intelOnIndirectFire(state, a, targetPos, events);   // 맞은 진영의 간접 사격 단서
@@ -4638,6 +4620,7 @@ function aiScorePosition(state, ctx, u, pos, goals, diff) {
   const ter = terrainAt(pos.r, pos.c);
   let s = 0;
   s -= W.threat * diff.risk * aiEstimateThreat(state, ctx, u, pos);
+  if (!ctx.neutral) s -= diff.risk * aiRetreatRisk(state, ctx, W, u, pos);   // 후퇴·제압 위험 (난이도별 위험 회피 배수 그대로). 대칭 AI 는 symV2Position 이 따로 셈
   s += W.terrain * (-ter.hitMod / 10);
   const SYM = ctx.neutral ? AI.SYMMETRIC : null;
   if (goals.length) {
@@ -4795,6 +4778,7 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
     if (!ctx.isAttacker && C.CROSSINGS.some((x) => manhattan(x, tg) <= 1)) s += W.crossingFire;
   }
   if (ctx.v2 && target) s += symV2Attack(state, ctx, u, target, p, tg.kind, from);   // 위협 제거·마무리·집중 (ai-intel.js)
+  else if (!ctx.neutral && target && tg.kind === 'visible') s += retreatGain(state, ctx, W, u, from, target, p);   // 후퇴 불가 격파·거점 비우기·제압 (공통 모듈, 기존 AI)
   return s;
 }
 
@@ -5822,7 +5806,7 @@ if (typeof module !== 'undefined' && module.exports) {
     diagnoseSymmetric, diagnoseSymmetricAI, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
     roundLimitType, heldPoints, awardPoints, pointsLimitResult, limitResultNow, scoreTargetResult, diagnoseScoring, SCORING_COMBOS,
     diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
-    retreatDir, retreatTarget, canUnitMove, canUnitAttack,
+    retreatDir, retreatTarget, canUnitMove, canUnitAttack, upgradeSavedState,
   };
 }
 </script>
@@ -6229,7 +6213,7 @@ function symV2Position(state, ctx, u, pos) {
     const o = objectiveAt(state, pos.r, pos.c);
     if (o) s -= V.indirectHoldCut * (o.owner !== side ? GAME_CONFIG.AI.WEIGHTS.capture : GAME_CONFIG.AI.SYMMETRIC.HOLD);
   }
-  if (GAME_CONFIG.RETREAT) s -= symV2RetreatRisk(state, ctx, u, pos, loss, mult);   // 한 번 맞으면 물러날 곳이 없는 칸·제압 위험 (retreat 규칙이 켜진 시나리오만)
+  s -= symV2RetreatRisk(state, ctx, u, pos, loss, mult);   // 한 번 맞으면 물러날 곳이 없는 칸·제압 위험 (retreat 규칙이 켜진 시나리오만)
   // 최소 수비: 점유 중인 거점의 마지막 수비 유닛은 떠나지 않음
   const o0 = objectiveAt(state, u.r, u.c);
   if (o0 && o0.owner === side && moving) {
@@ -6263,7 +6247,8 @@ function symV2Position(state, ctx, u, pos) {
   return s;
 }
 
-/* ---------- 후퇴·제압 (시나리오 retreat) 을 아는 점수 항목 ----------
+/* ---------- 후퇴·제압 규칙을 아는 점수 항목 (모든 시나리오 공통 모듈, 규칙 v12) ----------
+ * 대칭 AI(v2)와 호스토멜·춘천의 기존 AI 가 같은 함수를 쓴다. 가중치 세트만 다르다 (V2 / AI_CONFIG.WEIGHTS).
  * AI 가 쓰는 정보: 지형(공개), 맵 크기, 자기 유닛, 내 시야 안의 적 유닛, 내가 이번 턴에 제압한 유닛 id (내 사격 결과).
  * 안 보이는 칸은 비어 있다고 가정하고, 적의 제압 상태·체력 밖의 숨은 정보는 읽지 않는다.
  */
@@ -6271,7 +6256,7 @@ function symV2Position(state, ctx, u, pos) {
 function symRetreatOutcome(state, ctx, aiSide, victim, dir) {
   const R = GAME_CONFIG.RETREAT;
   let r = victim.r, c = victim.c;
-  for (let k = 0; k < R.steps; k++) {
+  for (let k = 0; k < R.STEPS; k++) {
     r += dir[0]; c += dir[1];
     for (;;) {
       if (!inBounds(r, c)) return { dies: true };
@@ -6280,7 +6265,7 @@ function symRetreatOutcome(state, ctx, aiSide, victim, dir) {
       const o = getUnitAt(state, r, c);
       const known = o && o.id !== victim.id && (o.side === aiSide || ctx.vis.has(idx(r, c)));
       if (!known) break;
-      if (o.side !== victim.side || !R.passThroughFriendly) return { dies: true };
+      if (o.side !== victim.side) return { dies: true };
       r += dir[0]; c += dir[1];
     }
   }
@@ -6289,26 +6274,33 @@ function symRetreatOutcome(state, ctx, aiSide, victim, dir) {
 
 /** 내가 이번 턴에 제압한 적 유닛인가 (내 사격 결과로 안 것) */
 function symKnowsSuppressed(state, side, unitId) {
-  const sp = state.aiIntel && state.aiIntel[side] && state.aiIntel[side].supp;
+  const sp = suppMemory(state, side, false);
   return !!sp && sp[unitId] === state.round && state.turn === side;
+}
+/** 진영별 '내가 제압한 유닛 id → 라운드' 기억. 대칭 시나리오는 state.aiIntel[side].supp, 그 밖은 state.aiSupp[side] (create 가 true 일 때만 만듦) */
+function suppMemory(state, side, create) {
+  if (state.aiIntel && state.aiIntel[side]) { const ai = state.aiIntel[side]; return create ? (ai.supp || (ai.supp = {})) : (ai.supp || null); }
+  if (!create) return (state.aiSupp && state.aiSupp[side]) || null;
+  const all = state.aiSupp || (state.aiSupp = {});
+  return all[side] || (all[side] = {});
 }
 
 /** 내 사격 결과 기록 (resolveAttack 끝): 시야 안에서 제압한 적 유닛 id 를 이번 라운드에 기억 */
 function intelOnSuppress(state, attacker, events) {
-  if (!state.aiIntel || !state.aiIntel[attacker.side]) return;
   let vis = null;
   for (const ev of events) {
     if (ev.type !== 'suppressed' || ev.side === attacker.side) continue;
     vis = vis || getVisibleTiles(state, attacker.side);
     if (!vis.has(idx(ev.pos.r, ev.pos.c))) continue;
-    const ai = state.aiIntel[attacker.side];
-    (ai.supp || (ai.supp = {}))[ev.unitId] = state.round;
+    suppMemory(state, attacker.side, true)[ev.unitId] = state.round;
   }
 }
 
 /** 이 사격이 (명중하면) 가져올 후퇴·제압 효과의 가치. 보이는 표적과 그 파편 칸의 적만 센다 */
-function symV2RetreatGain(state, ctx, u, from, target, p) {
-  const X = ctx.v2, V = X.V, R = GAME_CONFIG.RETREAT, UV = GAME_CONFIG.AI.UNIT_VALUE;
+function symV2RetreatGain(state, ctx, u, from, target, p) { return retreatGain(state, ctx, ctx.v2.V, u, from, target, p); }
+/** 공통: V = { retreatKill, retreatClear, suppress, resuppressKill } 가중치 세트 */
+function retreatGain(state, ctx, V, u, from, target, p) {
+  const R = GAME_CONFIG.RETREAT, UV = GAME_CONFIG.AI.UNIT_VALUE;
   const t = unitType(u);
   const victims = [{ unit: target, splash: false, amount: t.fixedDamage != null ? t.fixedDamage : calcDamage(u, target) }];
   if (t.indirect && t.splash !== false) {
@@ -6322,9 +6314,8 @@ function symV2RetreatGain(state, ctx, u, from, target, p) {
     const o = v.unit;
     if (o.side === u.side || o.hp <= v.amount) continue;   // 아군 오사는 후퇴·제압 없음 · 피해로 격파되면 기존 항목이 셈
     const val = UV[o.type] || 1;
-    const sp = R.suppress;
-    if (t.indirect && !v.splash && sp && sp.byImpactCenter && sp.sources.includes(u.type)) {
-      s += (symKnowsSuppressed(state, u.side, o.id) && sp.repeatIsDeath ? V.resuppressKill : V.suppress) * val * p;
+    if (t.indirect && !v.splash && R.SUPPRESS_SOURCES.includes(u.type)) {
+      s += (symKnowsSuppressed(state, u.side, o.id) ? V.resuppressKill : V.suppress) * val * p;
       continue;
     }
     const out = symRetreatOutcome(state, ctx, u.side, o, retreatDir(from, o, target, t.indirect && v.splash));
@@ -6340,11 +6331,8 @@ function symV2RetreatGain(state, ctx, u, from, target, p) {
   return s;
 }
 
-/** 칸 pos 에 u 를 두었을 때의 후퇴·제압 위험 (감점 크기, 0 이상). loss: 그 칸의 기대 손실 비율, mult: 병종·체력 가중 */
-function symV2RetreatRisk(state, ctx, u, pos, loss, mult) {
-  const X = ctx.v2, V = X.V;
-  const m = X.maps(u.type), i = idx(pos.r, pos.c);
-  // 맞았을 때 물러날 칸이 막힌 방향 비율 (맵 끝·이동 불가 지형·보이는 적). 아군은 지나갈 수 있으므로 막힘이 아님
+/** 맞았을 때 물러날 칸이 막힌 방향 수 (0~4): 맵 끝·이동 불가 지형·보이는 적. 아군은 지나갈 수 있으므로 막힘이 아님 */
+function retreatBlockedCount(state, ctx, u, pos) {
   let blocked = 0;
   for (const [dr, dc] of DIRS) {
     const r = pos.r + dr, c = pos.c + dc;
@@ -6354,6 +6342,39 @@ function symV2RetreatRisk(state, ctx, u, pos, loss, mult) {
     const o = getUnitAt(state, r, c);
     if (o && o.side !== u.side && ctx.vis.has(idx(r, c))) blocked++;
   }
+  return blocked;
+}
+
+/**
+ * 기존 AI(호스토멜·춘천)의 위치 위험: 알려진 적(보이는 적 + 기억)이 다음 턴에 줄 기대 피해로 직접·간접을 나눠 센다.
+ * 공통 함수가 쓰는 가중치 W = AI_CONFIG.WEIGHTS (noRetreat, suppressRisk). 호출하는 쪽이 diff.risk (난이도별 위험 회피 배수)를 곱한다.
+ */
+function aiRetreatRisk(state, ctx, W, u, pos) {
+  const blocked = retreatBlockedCount(state, ctx, u, pos);
+  const me = { ...u, r: pos.r, c: pos.c };
+  const ter = terrainAt(pos.r, pos.c);
+  let direct = 0, indirect = 0;
+  for (const e of ctx.known) {
+    const et = GAME_CONFIG.UNIT_TYPES[e.type];
+    if (!et.canAttack) continue;
+    const d = manhattan(e, pos);
+    const R = et.indirect ? fireRange(state, enemyOf(u.side), e.type) : { min: et.rangeMin, max: et.rangeMax };
+    if (et.indirect && !et.moveFire) { if (d < R.min || d > R.max) continue; }
+    else if (d > et.move + R.max) continue;
+    const hc = calcHitBreakdown({ attacker: e, defender: me, terrain: ter, signal: false, fogged: false, movedAttack: !(et.indirect && !et.moveFire) && d > R.max });
+    const dmg = (hc.chance / 100) * Math.min(calcDamage(e, me), me.hp);
+    if (et.indirect) indirect += dmg; else direct += dmg;
+  }
+  const hp = Math.max(1, u.hp);
+  const mult = GAME_CONFIG.AI.UNIT_VALUE[u.type];
+  return mult * (W.noRetreat * (blocked / 4) * Math.min(1, (direct + indirect) / hp) + W.suppressRisk * Math.min(1, indirect / hp));
+}
+
+/** 칸 pos 에 u 를 두었을 때의 후퇴·제압 위험 (감점 크기, 0 이상). loss: 그 칸의 기대 손실 비율, mult: 병종·체력 가중 */
+function symV2RetreatRisk(state, ctx, u, pos, loss, mult) {
+  const X = ctx.v2, V = X.V;
+  const m = X.maps(u.type), i = idx(pos.r, pos.c);
+  const blocked = retreatBlockedCount(state, ctx, u, pos);
   const exposure = Math.min(1, (m.direct[i] + 0.5 * m.artyP[i] * GAME_CONFIG.COMBAT.splashDamage) / Math.max(1, u.hp));
   const indirectLoss = Math.min(1, Math.max(0, m.dmg[i] - m.direct[i]));   // 간접 화력에 맞을 기대치 (제압 위험)
   return V.noRetreat * mult * (blocked / 4) * exposure + V.suppressRisk * mult * indirectLoss;
@@ -6374,7 +6395,7 @@ function symV2Attack(state, ctx, u, target, p, kind = 'visible', from = u) {
   let adj = 0;
   if (t.indirect && t.splash !== false) for (const [dr, dc] of DIRS) { const a = getUnitAt(state, target.r + dr, target.c + dc); if (a && a.side === u.side) adj++; }
   if (t.indirect) s += adj ? -V.ffAdjacent * adj : (V.fireReady[kind] || 0) * (u.hp / GAME_CONFIG.MAX_HP);
-  if (GAME_CONFIG.RETREAT && kind === 'visible') s += symV2RetreatGain(state, ctx, u, from, target, p);   // 후퇴 불가 격파·거점 비우기·제압 (retreat 규칙이 켜진 시나리오만)
+  if (kind === 'visible') s += symV2RetreatGain(state, ctx, u, from, target, p);   // 후퇴 불가 격파·거점 비우기·제압 (retreat 규칙이 켜진 시나리오만)
   return s;
 }
 
@@ -6695,7 +6716,7 @@ function tutorialParams() {
   return {
     act: act ?? '-',
     base: CB.baseHit, per: CB.perPoint, fog: Math.abs(CB.fogPenalty), mv: Math.abs(C.MOVE_ATTACK_PENALTY),
-    min: CB.minHitD10, max: CB.maxHitD10, dice: C.DICE_SIDES,
+    min: CB.minHitD10, max: CB.maxHitD10, dice: C.DICE_SIDES, steps: C.RETREAT.STEPS,
     forest: ter('f').hitMod, plain: ter('.').hitMod, city: ter('#').hitMod,
     marsh: { t: terrainNameKey('paddy') },
     mMin: UT.mortar.rangeMin, mRange: fire('mortar', 'range', UT.mortar.rangeMax), mCd: fire('mortar', 'cooldown', 0), mDmg: UT.mortar.fixedDamage,
@@ -7168,7 +7189,7 @@ if (typeof module !== 'undefined' && module.exports) Object.assign(module.export
  *  - menuModel: 저장 판·처음 실행 여부 → 큰 버튼 순서와 강조 버튼
  *  - scenarioCardModel: 시나리오 데이터 → 카드에 보일 이름·설명·태그(최대 3개)
  */
-const MENU_KEYS = { tutorial: 'chuncheon1950.tutorial', records: 'chuncheon1950.gameRecords', save: 'chuncheon1950.savedGame' };
+const MENU_KEYS = { tutorial: 'chuncheon1950.tutorial', records: 'chuncheon1950.gameRecords', save: 'chuncheon1950.savedGame', rulesNotice: 'chuncheon1950.rulesNotice' };
 
 /**
  * getStorage(): localStorage 를 돌려주는 함수 (접근 자체가 오류를 낼 수 있어 함수로 받음).
@@ -7186,12 +7207,19 @@ function readMenuStore(getStorage) {
     const s = J(MENU_KEYS.save);
     if (s && typeof s.scenarioId === 'string' && Number.isInteger(s.round) && Number.isInteger(s.maxRounds)) {
       const mode = s.mode === 'hotseat' ? 'hotseat' : 'ai';
-      save = { scenarioId: s.scenarioId, round: s.round, maxRounds: s.maxRounds, mode, turn: mode === 'hotseat' && typeof s.turn === 'string' ? s.turn : null };
+      // rulesUpdated: 지금 규칙보다 앞선 버전(또는 버전 기록 없음)으로 저장된 판 → 이어하기 때 규칙 업데이트 안내 (upgradeSavedState)
+      const rulesUpdated = !(Number.isInteger(s.rulesVersion) && s.rulesVersion >= RULES.RULES_VERSION);
+      save = { scenarioId: s.scenarioId, round: s.round, maxRounds: s.maxRounds, mode, turn: mode === 'hotseat' && typeof s.turn === 'string' ? s.turn : null, rulesUpdated };
     }
     return { ok: true, firstRun: !seenTut && !played && !save, save };
   } catch (e) {
     return { ok: false, firstRun: false, save: null };
   }
+}
+
+/** 이어하기 때 '규칙이 업데이트되어 후퇴와 제압이 적용됩니다' 안내를 보여야 하는가: 옛 규칙으로 저장된 판이고, 이 규칙 버전의 안내를 아직 안 봤을 때 (한 번만) */
+function rulesNoticeNeeded(save, seenVersion) {
+  return !!save && !!save.rulesUpdated && !(Number.isInteger(seenVersion) && seenVersion >= RULES.RULES_VERSION);
 }
 
 /**
@@ -7222,7 +7250,7 @@ function scenarioCardModel(sc) {
   };
 }
 
-if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { MENU_KEYS, readMenuStore, menuModel, scenarioCardModel });
+if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { MENU_KEYS, readMenuStore, menuModel, scenarioCardModel, rulesNoticeNeeded });
 </script>
 <script data-src="js/audio.js">
 /**
@@ -11436,9 +11464,7 @@ const RICH_MAP = (() => {
         <li>${t(hasHq ? 'intro.hqLoss' : 'intro.annihilation')}</li>
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
   }
-  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'zoom', 'terms'];
-  /** 이 시나리오에서 보이는 규칙 항목 (후퇴와 제압은 그 규칙이 켜진 시나리오만, '박격포와 포병' 다음) */
-  const ruleSecs = () => (GAME_CONFIG.RETREAT ? RULE_SECS.flatMap((id) => (id === 'fires' ? [id, 'retreat'] : [id])) : RULE_SECS);
+  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'retreat', 'zoom', 'terms'];
   /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
   function ruleSectionHtml(id) {
     const C = GAME_CONFIG, CB = C.COMBAT;
@@ -11486,8 +11512,9 @@ const RICH_MAP = (() => {
         return `<ul>${li(t('intro.arty', { range: rangeText(art, { side: PLAYER, type: 'artillery' }), splash: CB.splashDamage }))}${introFireRuleHtml()}${C.FIRES ? li(esc(t('rules.enemyCd'))) : ''}</ul>`;
       }
       case 'retreat': {
-        const R = C.RETREAT;
-        return `<ul>${['1', '2', '3', '4', '5'].map((k) => li(esc(t('rules.retreat.' + k, { steps: R ? R.steps : 1 })))).join('')}</ul>`;
+        // 모든 시나리오 공통 규칙. 그 시나리오에 포병·박격포가 없으면 제압·포병 줄은 안내 한 줄로 (유닛 구성에서 읽음)
+        const R = C.RETREAT, ind = R.SUPPRESS_SOURCES.some(scenarioHasType);
+        return `<ul>${(ind ? ['1', '2', '3', '4', '5'] : ['1', '2', 'noIndirect']).map((k) => li(esc(t('rules.retreat.' + k, { steps: R.STEPS })))).join('')}</ul>`;
       }
       case 'terms':
         return `<ul>${['range', 'cooldown', 'contest', 'fog', 'action', 'moveAttack', 'splash'].map((k) => li(esc(t('rules.term.' + k)))).join('')}</ul>`;
@@ -11500,7 +11527,7 @@ const RICH_MAP = (() => {
    */
   function showRules(back, kind = 'rules') {
     const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
-    const secs = ruleSecs();
+    const secs = RULE_SECS;
     const open = secs.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
     showOverlay(`<div class="rules-sheet">
       <div class="rules-head"><h2>${esc(t('rules.title'))}</h2><button class="x-btn rules-x" id="btn-rules-x" aria-label="${esc(t('aria.close'))}">×</button></div>

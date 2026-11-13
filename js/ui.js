@@ -3590,9 +3590,7 @@
         <li>${t(hasHq ? 'intro.hqLoss' : 'intro.annihilation')}</li>
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
   }
-  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'zoom', 'terms'];
-  /** 이 시나리오에서 보이는 규칙 항목 (후퇴와 제압은 그 규칙이 켜진 시나리오만, '박격포와 포병' 다음) */
-  const ruleSecs = () => (GAME_CONFIG.RETREAT ? RULE_SECS.flatMap((id) => (id === 'fires' ? [id, 'retreat'] : [id])) : RULE_SECS);
+  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'retreat', 'zoom', 'terms'];
   /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
   function ruleSectionHtml(id) {
     const C = GAME_CONFIG, CB = C.COMBAT;
@@ -3640,8 +3638,9 @@
         return `<ul>${li(t('intro.arty', { range: rangeText(art, { side: PLAYER, type: 'artillery' }), splash: CB.splashDamage }))}${introFireRuleHtml()}${C.FIRES ? li(esc(t('rules.enemyCd'))) : ''}</ul>`;
       }
       case 'retreat': {
-        const R = C.RETREAT;
-        return `<ul>${['1', '2', '3', '4', '5'].map((k) => li(esc(t('rules.retreat.' + k, { steps: R ? R.steps : 1 })))).join('')}</ul>`;
+        // 모든 시나리오 공통 규칙. 그 시나리오에 포병·박격포가 없으면 제압·포병 줄은 안내 한 줄로 (유닛 구성에서 읽음)
+        const R = C.RETREAT, ind = R.SUPPRESS_SOURCES.some(scenarioHasType);
+        return `<ul>${(ind ? ['1', '2', '3', '4', '5'] : ['1', '2', 'noIndirect']).map((k) => li(esc(t('rules.retreat.' + k, { steps: R.STEPS })))).join('')}</ul>`;
       }
       case 'terms':
         return `<ul>${['range', 'cooldown', 'contest', 'fog', 'action', 'moveAttack', 'splash'].map((k) => li(esc(t('rules.term.' + k)))).join('')}</ul>`;
@@ -3654,7 +3653,7 @@
    */
   function showRules(back, kind = 'rules') {
     const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
-    const secs = ruleSecs();
+    const secs = RULE_SECS;
     const open = secs.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
     showOverlay(`<div class="rules-sheet">
       <div class="rules-head"><h2>${esc(t('rules.title'))}</h2><button class="x-btn rules-x" id="btn-rules-x" aria-label="${esc(t('aria.close'))}">×</button></div>

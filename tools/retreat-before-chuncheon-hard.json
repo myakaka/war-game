@@ -1,0 +1,54 @@
+{
+ "scenario": "chuncheon",
+ "level": "hard",
+ "games": 60,
+ "rulesVersion": 11,
+ "avgRounds": 18.02,
+ "defHoldShare": 0.675,
+ "capturedCenter": 2.12,
+ "capturedFlank": 1.45,
+ "midAttacks": 18.32,
+ "midMoves": 28.98,
+ "nearShare": 0.495,
+ "midNearShare": 0.449,
+ "retreats": 0,
+ "retreatKills": 0,
+ "suppressed": 0,
+ "resupKills": 0,
+ "lossesTotal": 11.33,
+ "lossesBySide": {
+  "south(def)": {
+   "infantry": 2.37,
+   "armor": 0,
+   "antitank": 1.73,
+   "recon": 0.15,
+   "signal": 0.82,
+   "mortar": 0,
+   "artillery": 1.32
+  },
+  "north(att)": {
+   "infantry": 2.3,
+   "armor": 2.13,
+   "antitank": 0,
+   "recon": 0.45,
+   "signal": 0,
+   "mortar": 0,
+   "artillery": 0.07
+  }
+ },
+ "supportLost": 1.38,
+ "supportLostByRetreatBlock": 0,
+ "stallShare": 0.83,
+ "maxStallAvg": 7.78,
+ "hqRetreats": 0,
+ "reasons": {
+  "objectives": 26,
+  "survived": 23,
+  "hq": 11
+ },
+ "wins": {
+  "south(def)": 23,
+  "north(att)": 37
+ },
+ "draws": 0
+}

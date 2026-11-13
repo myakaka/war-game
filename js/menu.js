@@ -5,7 +5,7 @@
  *  - menuModel: 저장 판·처음 실행 여부 → 큰 버튼 순서와 강조 버튼
  *  - scenarioCardModel: 시나리오 데이터 → 카드에 보일 이름·설명·태그(최대 3개)
  */
-const MENU_KEYS = { tutorial: 'chuncheon1950.tutorial', records: 'chuncheon1950.gameRecords', save: 'chuncheon1950.savedGame' };
+const MENU_KEYS = { tutorial: 'chuncheon1950.tutorial', records: 'chuncheon1950.gameRecords', save: 'chuncheon1950.savedGame', rulesNotice: 'chuncheon1950.rulesNotice' };
 
 /**
  * getStorage(): localStorage 를 돌려주는 함수 (접근 자체가 오류를 낼 수 있어 함수로 받음).
@@ -23,12 +23,19 @@ function readMenuStore(getStorage) {
     const s = J(MENU_KEYS.save);
     if (s && typeof s.scenarioId === 'string' && Number.isInteger(s.round) && Number.isInteger(s.maxRounds)) {
       const mode = s.mode === 'hotseat' ? 'hotseat' : 'ai';
-      save = { scenarioId: s.scenarioId, round: s.round, maxRounds: s.maxRounds, mode, turn: mode === 'hotseat' && typeof s.turn === 'string' ? s.turn : null };
+      // rulesUpdated: 지금 규칙보다 앞선 버전(또는 버전 기록 없음)으로 저장된 판 → 이어하기 때 규칙 업데이트 안내 (upgradeSavedState)
+      const rulesUpdated = !(Number.isInteger(s.rulesVersion) && s.rulesVersion >= RULES.RULES_VERSION);
+      save = { scenarioId: s.scenarioId, round: s.round, maxRounds: s.maxRounds, mode, turn: mode === 'hotseat' && typeof s.turn === 'string' ? s.turn : null, rulesUpdated };
     }
     return { ok: true, firstRun: !seenTut && !played && !save, save };
   } catch (e) {
     return { ok: false, firstRun: false, save: null };
   }
+}
+
+/** 이어하기 때 '규칙이 업데이트되어 후퇴와 제압이 적용됩니다' 안내를 보여야 하는가: 옛 규칙으로 저장된 판이고, 이 규칙 버전의 안내를 아직 안 봤을 때 (한 번만) */
+function rulesNoticeNeeded(save, seenVersion) {
+  return !!save && !!save.rulesUpdated && !(Number.isInteger(seenVersion) && seenVersion >= RULES.RULES_VERSION);
 }
 
 /**
@@ -59,4 +66,4 @@ function scenarioCardModel(sc) {
   };
 }
 
-if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { MENU_KEYS, readMenuStore, menuModel, scenarioCardModel });
+if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { MENU_KEYS, readMenuStore, menuModel, scenarioCardModel, rulesNoticeNeeded });

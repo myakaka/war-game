@@ -200,7 +200,14 @@ for (const id of AI_SCEN_IDS) {
       if (!hidden.length) continue;
       const alt = E.cloneState(st);
       for (const u of alt.units) if (hidden.some((h) => h.id === u.id)) u.hp = 1;
-      assert.equal(aiActions(alt, side, 11), aiActions(st, side, 11), `round ${st.round} ${side}`);
+      // 판단(유닛·이동·표적)이 같아야 한다. 포병 파편이 시야 밖 적을 맞히면 그 적의 체력에 따라 결과(격파/후퇴)가 실제로 갈리고,
+      // 그 뒤의 판단은 그 결과를 본 뒤라 달라질 수 있으므로 결과가 처음 갈리는 행동까지만 비교한다.
+      const dec = (x) => JSON.parse(aiActions(x, side, 11)).map((a) => ({ a: { unitId: a.unitId, from: a.from, to: a.to, target: a.target }, ev: JSON.stringify(a.events) }));
+      const A = dec(st), B = dec(alt);
+      for (let i = 0; i < Math.min(A.length, B.length); i++) {
+        assert.deepEqual(B[i].a, A[i].a, `round ${st.round} ${side} 행동 ${i}`);
+        if (A[i].ev !== B[i].ev) break;   // 실제 결과가 갈림 (시야 밖 유닛이 맞음)
+      }
       checked++;
     }
     assert.ok(checked > 0, '시야 밖 적이 있는 상태를 찾지 못함');
@@ -1267,7 +1274,7 @@ test('메뉴: 저장소를 못 읽으면 "저장 없음, 처음 아님"으로 �
   assert.equal(broken.ok, false);
   const raw = { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', turn: 'ua', state: { units: [{ id: 'r1', r: 1, c: 1 }] }, logs: ['x'] };
   const s = E.readMenuStore(memStore({ [E.MENU_KEYS.save]: JSON.stringify(raw) })).save;
-  jsonEq(s, { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', turn: 'ua' }, '유닛 위치·로그는 요약에 없음');
+  jsonEq(s, { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', turn: 'ua', rulesUpdated: true }, '유닛 위치·로그는 요약에 없음');
   const ai = E.readMenuStore(memStore({ [E.MENU_KEYS.save]: JSON.stringify({ ...raw, mode: 'ai' }) })).save;
   assert.equal(ai.turn, null, 'AI 대전은 차례 표시 없음');
 });
@@ -1467,129 +1474,221 @@ test('소리 난수·데이터: Math.random 을 쓰지 않고 시드 결과가 �
   for (const id of E.AUDIO.loadOrder) assert.ok(id in E.AUDIO.files, id);
 });
 
-/* ---------------- 후퇴·제압 (규칙 v11, 대칭 전장만) ---------------- */
-// 시험 구역: 아래쪽 평지 (13,8) 둘레는 모두 평지, 맨 아래줄(15행)은 맵 끝
+/* ---------------- 후퇴·제압 (규칙 v12, 모든 시나리오 공통) ---------------- */
+const HIT = () => 0, MISS = () => 0.999;
+const evOf = (ev, type) => [...ev].filter((e) => e.type === type);   // vm 안 배열 → 일반 배열
+const pos = (u) => `${u.r},${u.c}`;
+const RT_SCENS = ['symmetric', 'hostomel', 'chuncheon'];
+
+/** 대칭 전장 시험 상태 (AI 시험이 씀): 어느 쪽도 전멸하지 않도록 구석에 보병 한 명씩 */
 function rtState(turn = 'ru') {
   const st = fresh('symmetric');
   st.units = [];
   st.turn = turn; st.round = 2;
   E.startTurn(st);
-  // 어느 쪽도 전멸하지 않도록 멀리 보병 한 명씩
   put(st, { id: 'RFAR', side: 'ru', type: 'infantry', r: 0, c: 0 });
   put(st, { id: 'UFAR', side: 'ua', type: 'infantry', r: 15, c: 15 });
   return st;
 }
-const HIT = () => 0, MISS = () => 0.999;
-const evOf = (ev, type) => [...ev].filter((e) => e.type === type);   // vm 안 배열 → 일반 배열
-const pos = (u) => `${u.r},${u.c}`;
 
-test('후퇴: 직접 사격을 맞으면 공격자 반대 방향으로 1칸 (세로·가로), 행동 상태는 그대로', () => {
-  const st = rtState();
-  const a = put(st, { id: 'R1', side: 'ru', type: 'infantry', r: 12, c: 8 });
-  const d = put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  const ev = E.resolveAttack(st, a.id, { r: 13, c: 8 }, HIT);
-  assert.equal(pos(d), '14,8');
-  assert.equal(d.hp, C().MAX_HP - 1);
-  assert.deepEqual(evOf(ev, 'retreat').map((e) => [e.unitId, e.from.r, e.from.c, e.to.r, e.to.c]), [['U1', 13, 8, 14, 8]]);
-  assert.equal(d.moved, false); assert.equal(d.acted, false);
-  assert.equal(pos(a), '12,8', '공격자는 움직이지 않음');
-  const st2 = rtState();
-  const a2 = put(st2, { id: 'R1', side: 'ru', type: 'infantry', r: 13, c: 7 });
-  const d2 = put(st2, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  E.resolveAttack(st2, a2.id, { r: 13, c: 8 }, HIT);
-  assert.equal(pos(d2), '13,9');
+/** 시나리오 지도에서 시험 구역을 찾음 (칸 좌표는 시나리오 데이터가 아니라 지도에서 읽음):
+ *  open  = 십자 모양으로 둘레가 평지인 칸 (열린 곳), edge = 맨 아래 세 줄이 평지인 열 c,
+ *  paddy = 위가 평지·아래가 기갑이 못 들어가는 지형인 평지 칸 (없으면 null) */
+function rtLocate(id) {
+  E.loadScenario(id);
+  const M = C().MAP, n = M.length;
+  const plain = (r, c) => r >= 0 && r < n && c >= 0 && c < n && M[r][c] === '.';
+  const blockedForArmor = (r, c) => r >= 0 && r < n && c >= 0 && c < n && ((C().TERRAIN[M[r][c]].impassableFor || []).includes('armor'));
+  let open = null, edge = null, paddy = null;
+  // 열린 칸: (r,c) 와 그 위 1칸, 아래 3칸, 왼쪽 3칸, 오른쪽 2칸이 모두 평지 (공격자·연속 후퇴·포병 사거리 3 에 필요한 칸)
+  for (let r = 2; r < n - 3 && !open; r++) for (let c = 3; c < n - 2 && !open; c++) {
+    let ok = true;
+    for (let dr = -1; dr <= 3 && ok; dr++) if (!plain(r + dr, c)) ok = false;
+    for (let dc = -3; dc <= 2 && ok; dc++) if (!plain(r, c + dc)) ok = false;
+    if (ok) open = { r, c };
+  }
+  for (let c = 1; c < n - 1 && !edge; c++) if (plain(n - 1, c) && plain(n - 2, c) && plain(n - 3, c) && plain(n - 4, c)) edge = { r: n - 1, c };
+  // 기갑 후퇴 막힘: 평지 칸 (r,c), 그 앞(공격자 쪽)이 평지, 뒤가 기갑이 못 들어가는 지형인 방향 (dr,dc)
+  for (let r = 0; r < n && !paddy; r++) for (let c = 0; c < n && !paddy; c++) {
+    for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (plain(r, c) && plain(r - dr, c - dc) && blockedForArmor(r + dr, c + dc)) { paddy = { r, c, dr, dc }; break; }
+    }
+  }
+  return { n, open, edge, paddy };
+}
+
+/** 시나리오 id 의 시험 상태: 유닛 없음, 첫 진영 차례. A = 이번 턴 진영(공격), B = 상대(맞는 쪽). 양쪽 구석에 보병 한 명씩 (전멸 방지) */
+function gState(id) {
+  const loc = rtLocate(id);
+  const st = E.createInitialState();
+  st.units = [];
+  E.startTurn(st);
+  const [A, B] = C().ROUND_ORDER;
+  const far = (side, r, c) => put(st, { id: `${side[0].toUpperCase()}FAR`, side, type: 'infantry', r, c });
+  far(A, 0, 0); far(B, loc.n - 1, loc.n - 1);
+  return { st, loc, A, B, id: (s, k) => `${s[0].toUpperCase()}${k}` };
+}
+
+for (const sid of RT_SCENS) {
+  test(`[${sid}] 후퇴: 직접 사격을 맞으면 공격자 반대 방향으로 1칸 (세로·가로), 행동 상태는 그대로, 공격자는 안 움직임`, () => {
+    const g = gState(sid), { st, loc, A, B } = g, { r, c } = loc.open;
+    const a = put(st, { id: g.id(A, 1), side: A, type: 'infantry', r: r - 1, c });
+    const d = put(st, { id: g.id(B, 1), side: B, type: 'infantry', r, c });
+    const ev = E.resolveAttack(st, a.id, { r, c }, HIT);
+    assert.equal(pos(d), `${r + 1},${c}`);
+    assert.equal(d.hp, C().MAX_HP - 1);
+    assert.deepEqual(evOf(ev, 'retreat').map((e) => [e.unitId, e.from.r, e.from.c, e.to.r, e.to.c]), [[d.id, r, c, r + 1, c]]);
+    assert.equal(d.moved, false); assert.equal(d.acted, false);
+    assert.equal(pos(a), `${r - 1},${c}`);
+    const g2 = gState(sid), a2 = put(g2.st, { id: g2.id(A, 1), side: A, type: 'infantry', r, c: c - 1 });
+    const d2 = put(g2.st, { id: g2.id(B, 1), side: B, type: 'infantry', r, c });
+    E.resolveAttack(g2.st, a2.id, { r, c }, HIT);
+    assert.equal(pos(d2), `${r},${c + 1}`, '가로 방향');
+  });
+
+  test(`[${sid}] 후퇴: 빗나감·격파는 후퇴하지 않음`, () => {
+    const g = gState(sid), { st, loc, A, B } = g, { r, c } = loc.open;
+    const a = put(st, { id: g.id(A, 1), side: A, type: 'infantry', r: r - 1, c });
+    const d = put(st, { id: g.id(B, 1), side: B, type: 'infantry', r, c });
+    const ev = E.resolveAttack(st, a.id, { r, c }, MISS);
+    assert.equal(evOf(ev, 'retreat').length, 0); assert.equal(pos(d), `${r},${c}`);
+    const g2 = gState(sid), a2 = put(g2.st, { id: g2.id(A, 1), side: A, type: 'infantry', r: r - 1, c });
+    put(g2.st, { id: g2.id(B, 1), side: B, type: 'infantry', r, c, hp: 1 });
+    const ev2 = E.resolveAttack(g2.st, a2.id, { r, c }, HIT);
+    assert.equal(evOf(ev2, 'destroyed').length, 1); assert.equal(evOf(ev2, 'retreat').length, 0);
+  });
+
+  test(`[${sid}] 후퇴 막힘: 맵 끝·적 유닛·이동 불가 지형은 격파, 아군은 지나서 뒤로, 도착 칸이 막히면 격파`, () => {
+    const loc0 = rtLocate(sid);
+    const play = (cfg) => {
+      const g = gState(sid);
+      const base = cfg.at(g.loc);
+      const a = put(g.st, { id: g.id(g.A, 1), side: g.A, type: 'infantry', r: base.ar, c: base.ac });
+      const d = put(g.st, { id: g.id(g.B, 1), side: g.B, type: cfg.type || 'infantry', r: base.dr, c: base.dc });
+      (base.extra || []).forEach((x, i) => put(g.st, { id: g.id(x.side === 'A' ? g.A : g.B, 10 + i), side: x.side === 'A' ? g.A : g.B, type: 'infantry', r: x.r, c: x.c }));
+      const ev = E.resolveAttack(g.st, a.id, { r: base.dr, c: base.dc }, HIT);
+      return { d, ev };
+    };
+    const causes = (k) => evOf(k.ev, 'destroyed').map((e) => e.cause);
+    const col = loc0.open;
+    // 맵 끝
+    let k = play({ at: (l) => ({ ar: l.n - 2, ac: l.edge.c, dr: l.n - 1, dc: l.edge.c }) });
+    assert.deepEqual(causes(k), ['retreatBlocked'], '맵 끝');
+    // 뒤가 적
+    k = play({ at: (l) => ({ ar: l.open.r - 1, ac: l.open.c, dr: l.open.r, dc: l.open.c, extra: [{ side: 'A', r: l.open.r + 1, c: l.open.c }] }) });
+    assert.deepEqual(causes(k), ['retreatBlocked'], '뒤가 적');
+    // 아군 한 명 · 두 명을 지남
+    k = play({ at: (l) => ({ ar: l.open.r - 1, ac: l.open.c, dr: l.open.r, dc: l.open.c, extra: [{ side: 'B', r: l.open.r + 1, c: l.open.c }] }) });
+    assert.equal(pos(k.d), `${col.r + 2},${col.c}`); assert.equal(causes(k).length, 0);
+    k = play({ at: (l) => ({ ar: l.open.r - 1, ac: l.open.c, dr: l.open.r, dc: l.open.c, extra: [{ side: 'B', r: l.open.r + 1, c: l.open.c }, { side: 'B', r: l.open.r + 2, c: l.open.c }] }) });
+    assert.equal(pos(k.d), `${col.r + 3},${col.c}`);
+    // 아군을 지난 도착 칸이 맵 밖 / 적
+    k = play({ at: (l) => ({ ar: l.n - 3, ac: l.edge.c, dr: l.n - 2, dc: l.edge.c, extra: [{ side: 'B', r: l.n - 1, c: l.edge.c }] }) });
+    assert.deepEqual(causes(k), ['retreatBlocked'], '도착 칸이 맵 밖');
+    k = play({ at: (l) => ({ ar: l.open.r - 1, ac: l.open.c, dr: l.open.r, dc: l.open.c, extra: [{ side: 'B', r: l.open.r + 1, c: l.open.c }, { side: 'A', r: l.open.r + 2, c: l.open.c }] }) });
+    assert.deepEqual(causes(k), ['retreatBlocked'], '도착 칸이 적');
+    // 기갑 뒤가 이동 불가 지형 (이 지도에 그런 곳이 있을 때), 아군을 지나가는 칸이 이동 불가 지형이어도 막힘
+    assert.ok(loc0.paddy, `${sid} 지도에 기갑이 못 들어가는 지형 시험 구역이 있어야 함`);
+    {
+      k = play({ type: 'armor', at: (l) => ({ ar: l.paddy.r - l.paddy.dr, ac: l.paddy.c - l.paddy.dc, dr: l.paddy.r, dc: l.paddy.c }) });
+      assert.deepEqual(causes(k), ['retreatBlocked'], '기갑 뒤가 이동 불가 지형');
+      k = play({ type: 'armor', at: (l) => ({ ar: l.paddy.r - l.paddy.dr, ac: l.paddy.c - l.paddy.dc, dr: l.paddy.r, dc: l.paddy.c, extra: [{ side: 'B', r: l.paddy.r + l.paddy.dr, c: l.paddy.c + l.paddy.dc }] }) });
+      assert.deepEqual(causes(k), ['retreatBlocked'], '지나가는 칸이 이동 불가 지형');
+    }
+  });
+
+  test(`[${sid}] 포병: 정중앙은 제압, 주변 4칸은 폭발에서 멀어지는 방향으로 후퇴, 아군 오사는 후퇴·제압 없음`, () => {
+    const g = gState(sid), { st, loc, A, B } = g, { r, c } = loc.open;
+    const art = put(st, { id: g.id(A, 1), side: A, type: 'artillery', r, c: c - 3 });
+    const mk = (k, dr, dc) => put(st, { id: g.id(B, k), side: B, type: 'infantry', r: r + dr, c: c + dc });
+    const ctr = mk(2, 0, 0), up = mk(3, -1, 0), dn = mk(4, 1, 0), lf = mk(5, 0, -1), rt = mk(6, 0, 1);
+    const ev = E.resolveAttack(st, art.id, { r, c }, HIT);
+    assert.equal(pos(ctr), `${r},${c}`); assert.equal(ctr.suppressed, 1);
+    assert.deepEqual([pos(up), pos(dn), pos(lf), pos(rt)], [`${r - 2},${c}`, `${r + 2},${c}`, `${r},${c - 2}`, `${r},${c + 2}`]);
+    assert.equal(evOf(ev, 'suppressed').length, 1); assert.equal(evOf(ev, 'retreat').length, 4);
+    for (const u of [up, dn, lf, rt]) assert.ok(!u.suppressed);
+    // 아군 오사: 자기 진영 포병이 아군을 맞힘 (상대는 후퇴)
+    const g2 = gState(sid);
+    g2.st.turn = g2.B;
+    const art2 = put(g2.st, { id: g2.id(g2.B, 1), side: g2.B, type: 'artillery', r, c: c - 3 });
+    const f1 = put(g2.st, { id: g2.id(g2.B, 2), side: g2.B, type: 'infantry', r, c });
+    const f2 = put(g2.st, { id: g2.id(g2.B, 3), side: g2.B, type: 'infantry', r: r - 1, c });
+    const en = put(g2.st, { id: g2.id(g2.A, 4), side: g2.A, type: 'infantry', r: r + 1, c });
+    E.resolveAttack(g2.st, art2.id, { r, c }, HIT);
+    assert.equal(pos(f1), `${r},${c}`); assert.ok(!f1.suppressed); assert.equal(pos(f2), `${r - 1},${c}`);
+    assert.ok(f1.hp < C().MAX_HP, '오사 피해 자체는 받음');
+    assert.equal(pos(en), `${r + 2},${c}`, '적은 후퇴');
+  });
+
+  test(`[${sid}] 박격포: 직격은 제압(후퇴 없음), 제압 중 재직격은 체력이 남아도 격파, 제압 중 직접 사격은 후퇴하고 제압 유지`, () => {
+    const g = gState(sid), { st, loc, A, B } = g, { r, c } = loc.open;
+    const m = put(st, { id: g.id(A, 1), side: A, type: 'mortar', r, c: c - 3 });
+    const d = put(st, { id: g.id(B, 1), side: B, type: 'infantry', r, c });
+    E.resolveAttack(st, m.id, { r, c }, HIT);
+    assert.equal(pos(d), `${r},${c}`); assert.equal(d.suppressed, 1); assert.equal(d.hp, C().MAX_HP - 1);
+    const a = put(st, { id: g.id(A, 2), side: A, type: 'infantry', r: r - 1, c });
+    E.resolveAttack(st, a.id, { r, c }, HIT);
+    assert.equal(pos(d), `${r + 1},${c}`); assert.equal(d.suppressed, 1, '제압은 유지');
+    const hpBefore = d.hp;
+    const m2 = put(st, { id: g.id(A, 3), side: A, type: 'mortar', r: r + 1, c: c - 3 });
+    const ev = E.resolveAttack(st, m2.id, { r: r + 1, c }, HIT);
+    assert.ok(hpBefore - 1 > 0, '체력이 남은 채');
+    assert.deepEqual(evOf(ev, 'destroyed').map((e) => [e.unitId, e.cause]), [[d.id, 'resuppressed']]);
+    assert.ok(!st.units.includes(d));
+  });
+
+  test(`[${sid}] 후퇴는 행동으로 세지 않음 (활성화 한도·이동 상태), 연속으로 맞으면 맞은 횟수만큼 후퇴하다 맵 끝에서 사라짐`, () => {
+    const g = gState(sid), { st, loc, A, B } = g, { r, c } = loc.edge;
+    const used = st.act ? st.act.used : 0;
+    const col = c;
+    const d = put(st, { id: g.id(B, 1), side: B, type: 'infantry', r: loc.n - 3, c: col });
+    const a1 = put(st, { id: g.id(A, 1), side: A, type: 'infantry', r: loc.n - 4, c: col });
+    E.resolveAttack(st, a1.id, { r: loc.n - 3, c: col }, HIT);
+    assert.equal(pos(d), `${loc.n - 2},${col}`);
+    if (st.act) { assert.equal(st.act.used, used + 1, '공격한 쪽만 행동으로 셈'); assert.ok(!st.act.ids.includes(d.id)); }
+    assert.equal(d.moved, false);
+    const a2 = put(st, { id: g.id(A, 2), side: A, type: 'infantry', r: loc.n - 3, c: col });
+    E.resolveAttack(st, a2.id, { r: loc.n - 2, c: col }, HIT);
+    assert.equal(pos(d), `${loc.n - 1},${col}`, '연속 후퇴');
+    const a3 = put(st, { id: g.id(A, 3), side: A, type: 'infantry', r: loc.n - 2, c: col });
+    const ev = E.resolveAttack(st, a3.id, { r: loc.n - 1, c: col }, HIT);
+    assert.equal(evOf(ev, 'destroyed').length, 1, '맵 끝에서 한 번 더 맞으면 사라짐');
+    assert.ok(!st.units.some((u) => u.id === d.id));
+  });
+
+  test(`[${sid}] 후퇴·제압: 같은 시드 결과가 결정적이고 제압 상태가 복제 뒤에도 유지됨, 안개: 시야 밖 격파·후퇴 이벤트는 시야 규칙의 입력일 뿐 상태 필드가 새지 않음`, () => {
+    E.loadScenario(sid);
+    assert.equal(JSON.stringify(E.simulateGames(2)), JSON.stringify(E.simulateGames(2)));
+    const g = gState(sid), { st, loc, A, B } = g, { r, c } = loc.open;
+    const m = put(st, { id: g.id(A, 1), side: A, type: 'mortar', r, c: c - 3 });
+    const d = put(st, { id: g.id(B, 1), side: B, type: 'infantry', r, c });
+    E.resolveAttack(st, m.id, { r, c }, HIT);
+    assert.equal(E.cloneState(st).units.find((u) => u.id === d.id).suppressed, d.suppressed);
+  });
+}
+
+test('후퇴·제압: 중앙 규칙 상수 한 곳(RULES.RETREAT), 시나리오 데이터에는 retreat 블록이 없음, 대칭 검사는 그대로', () => {
+  assert.deepEqual({ ...C().RETREAT, SUPPRESS_SOURCES: [...C().RETREAT.SUPPRESS_SOURCES] }, { STEPS: 1, SUPPRESS_TURNS: 1, SUPPRESS_SOURCES: ['mortar', 'artillery'] });
+  for (const s of E.SCENARIOS) assert.ok(!('retreat' in s), `${s.id} 에 retreat 블록이 남아 있음`);
+  const sc = JSON.parse(JSON.stringify(E.SCENARIOS.find((x) => x.id === 'symmetric')));
+  assert.deepEqual([...E.validateScenario(sc)], []);
+  sc.activations = { def: 5, att: 4 };
+  assert.ok(E.symmetryErrors(sc).length > 0, '다른 대칭 검사는 그대로');
+  E.loadScenario('hostomel');
 });
 
-test('후퇴: 빗나감·격파는 후퇴하지 않고, 직선이 아닌 위치는 행·열 차이가 큰 축(같으면 세로)', () => {
-  const st = rtState();
-  const a = put(st, { id: 'R1', side: 'ru', type: 'infantry', r: 12, c: 8 });
-  const d = put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  const ev = E.resolveAttack(st, a.id, { r: 13, c: 8 }, MISS);
-  assert.equal(evOf(ev, 'retreat').length, 0); assert.equal(pos(d), '13,8');
-  const st2 = rtState();
-  const a2 = put(st2, { id: 'R1', side: 'ru', type: 'infantry', r: 12, c: 8 });
-  put(st2, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8, hp: 1 });
-  const ev2 = E.resolveAttack(st2, a2.id, { r: 13, c: 8 }, HIT);
-  assert.equal(evOf(ev2, 'destroyed').length, 1); assert.equal(evOf(ev2, 'retreat').length, 0);
+test('후퇴·제압: 직접 사격은 모든 시나리오에서 인접 4방향 직선뿐 (직선이 아닌 사격은 없음)', () => {
+  for (const sid of RT_SCENS) {
+    E.loadScenario(sid);
+    for (const [k, ty] of Object.entries(C().UNIT_TYPES)) if (ty.canAttack && !ty.indirect) assert.ok(ty.rangeMin === 1 && ty.rangeMax === 1, `${sid} ${k}`);
+  }
   const u = { r: 5, c: 5, type: 'infantry', side: 'ua' };
   assert.deepEqual([...E.retreatDir({ r: 4, c: 4 }, u, null, false)], [1, 0], '같으면 세로');
   assert.deepEqual([...E.retreatDir({ r: 4, c: 3 }, u, null, false)], [0, 1], '열 차이가 크면 가로');
   assert.deepEqual([...E.retreatDir({ r: 1, c: 4 }, u, null, false)], [1, 0]);
 });
 
-test('후퇴 막힘: 맵 끝·이동 불가 지형·적 유닛은 격파, 아군은 지나서 뒤로, 도착 칸이 막히면 격파', () => {
-  const run1 = (setup) => {
-    const st = rtState();
-    const a = put(st, { id: 'R1', side: 'ru', type: 'infantry', r: setup.ar, c: setup.ac });
-    const d = put(st, { id: 'U1', side: 'ua', type: setup.type || 'infantry', r: setup.dr, c: setup.dc });
-    (setup.extra || []).forEach((x, i) => put(st, { id: `X${i}`, side: x.side, type: 'infantry', r: x.r, c: x.c }));
-    const ev = E.resolveAttack(st, a.id, { r: setup.dr, c: setup.dc }, HIT);
-    return { st, d, ev };
-  };
-  const causes = (k) => evOf(k.ev, 'destroyed').map((e) => e.cause);
-  let k = run1({ ar: 14, ac: 8, dr: 15, dc: 8 });   // 맵 끝
-  assert.deepEqual(causes(k), ['retreatBlocked']);
-  k = run1({ ar: 2, ac: 5, dr: 3, dc: 5, type: 'armor' });   // 기갑 뒤가 습지
-  assert.deepEqual(causes(k), ['retreatBlocked']);
-  k = run1({ ar: 12, ac: 8, dr: 13, dc: 8, extra: [{ side: 'ru', r: 14, c: 8 }] });   // 뒤가 적
-  assert.deepEqual(causes(k), ['retreatBlocked']);
-  k = run1({ ar: 12, ac: 8, dr: 13, dc: 8, extra: [{ side: 'ua', r: 14, c: 8 }] });   // 아군 한 명을 지남
-  assert.equal(pos(k.d), '15,8'); assert.equal(causes(k).length, 0);
-  k = run1({ ar: 11, ac: 8, dr: 12, dc: 8, extra: [{ side: 'ua', r: 13, c: 8 }, { side: 'ua', r: 14, c: 8 }] });   // 둘 연속
-  assert.equal(pos(k.d), '15,8');
-  k = run1({ ar: 12, ac: 8, dr: 13, dc: 8, extra: [{ side: 'ua', r: 14, c: 8 }, { side: 'ua', r: 15, c: 8 }] });   // 도착 칸이 맵 밖
-  assert.deepEqual(causes(k), ['retreatBlocked']);
-  k = run1({ ar: 12, ac: 8, dr: 13, dc: 8, extra: [{ side: 'ua', r: 14, c: 8 }, { side: 'ru', r: 15, c: 8 }] });   // 도착 칸이 적
-  assert.deepEqual(causes(k), ['retreatBlocked']);
-  k = run1({ ar: 2, ac: 5, dr: 3, dc: 5, type: 'armor', extra: [{ side: 'ua', r: 4, c: 5 }] });   // 지나가는 칸이 습지 → 막힘
-  assert.deepEqual(causes(k), ['retreatBlocked']);
-});
-
-test('포병: 정중앙은 제압, 주변 4칸은 폭발에서 멀어지는 방향으로 후퇴, 아군 오사는 후퇴·제압 없음', () => {
-  const st = rtState();
-  const art = put(st, { id: 'RA', side: 'ru', type: 'artillery', r: 13, c: 4 });
-  const c = put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  const up = put(st, { id: 'U2', side: 'ua', type: 'infantry', r: 12, c: 8 });
-  const dn = put(st, { id: 'U3', side: 'ua', type: 'infantry', r: 14, c: 8 });
-  const lf = put(st, { id: 'U4', side: 'ua', type: 'infantry', r: 13, c: 7 });
-  const rt = put(st, { id: 'U5', side: 'ua', type: 'infantry', r: 13, c: 9 });
-  const ev = E.resolveAttack(st, art.id, { r: 13, c: 8 }, HIT);
-  assert.equal(pos(c), '13,8'); assert.equal(c.suppressed, 1);
-  assert.deepEqual([pos(up), pos(dn), pos(lf), pos(rt)], ['11,8', '15,8', '13,6', '13,10']);
-  assert.equal(evOf(ev, 'suppressed').length, 1); assert.equal(evOf(ev, 'retreat').length, 4);
-  for (const u of [up, dn, lf, rt]) assert.ok(!u.suppressed);
-  // 아군 오사: 자기 진영 포병이 아군을 맞힘
-  const st2 = rtState('ua');
-  const art2 = put(st2, { id: 'UA', side: 'ua', type: 'artillery', r: 13, c: 4 });
-  const f1 = put(st2, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  const f2 = put(st2, { id: 'U2', side: 'ua', type: 'infantry', r: 12, c: 8 });
-  const en = put(st2, { id: 'R1', side: 'ru', type: 'infantry', r: 14, c: 8 });
-  E.resolveAttack(st2, art2.id, { r: 13, c: 8 }, HIT);
-  assert.equal(pos(f1), '13,8'); assert.ok(!f1.suppressed); assert.equal(pos(f2), '12,8');
-  assert.ok(f1.hp < C().MAX_HP, '오사 피해 자체는 받음');
-  assert.equal(pos(en), '15,8', '적은 후퇴');
-});
-
-test('박격포: 직격은 제압(후퇴 없음), 제압 중 재직격은 hp가 남아도 격파, 제압 중 직접 사격은 후퇴하고 제압 유지', () => {
-  const st = rtState();
-  const m = put(st, { id: 'RM', side: 'ru', type: 'mortar', r: 13, c: 5 });
-  const d = put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  E.resolveAttack(st, m.id, { r: 13, c: 8 }, HIT);
-  assert.equal(pos(d), '13,8'); assert.equal(d.suppressed, 1); assert.equal(d.hp, C().MAX_HP - 1);
-  // 직접 사격: 후퇴, 제압 유지
-  const a = put(st, { id: 'R1', side: 'ru', type: 'infantry', r: 12, c: 8 });
-  E.resolveAttack(st, a.id, { r: 13, c: 8 }, HIT);
-  assert.equal(pos(d), '14,8'); assert.equal(d.suppressed, 1);
-  // 재직격 (체력이 남아 있어도 격파)
-  const hpBefore = d.hp;
-  const m2 = put(st, { id: 'RM2', side: 'ru', type: 'mortar', r: 14, c: 4 });
-  const ev = E.resolveAttack(st, m2.id, { r: 14, c: 8 }, HIT);
-  assert.ok(hpBefore - 1 > 0, '체력이 남은 채');
-  assert.deepEqual(evOf(ev, 'destroyed').map((e) => [e.unitId, e.cause]), [['U1', 'resuppressed']]);
-  assert.ok(!st.units.includes(d));
-});
-
-test('제압: 다음 자기 턴에 이동·공격 불가, 점유에는 기여, 활성화 한도 소비 없음, 그 턴이 끝나면 해제', () => {
+test('제압: 다음 자기 턴에 이동·공격 불가, 점유에는 기여, 활성화 한도 소비 없음, 그 턴이 끝나면 해제 (대칭 전장)', () => {
   const st = rtState();
   const obj = st.objectives.find((o) => o.id === 'SL');
   const oc = E.objectiveCells(obj)[0];
@@ -1613,69 +1712,61 @@ test('제압: 다음 자기 턴에 이동·공격 불가, 점유에는 기여, �
   assert.equal(E.canUnitMove(st, d), true);
 });
 
-test('후퇴: 행동으로 세지 않음, 맞은 횟수만큼 연속 후퇴하다 막히면 격파, 거점이 비면 점유 즉시 갱신', () => {
+test('후퇴: 거점이 비면 점유가 즉시 갱신됨 (대칭 전장)', () => {
   const st = rtState();
-  const d = put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  const a1 = put(st, { id: 'R1', side: 'ru', type: 'infantry', r: 12, c: 8 });
-  const used = st.act.used;
-  E.resolveAttack(st, a1.id, { r: 13, c: 8 }, HIT);
-  assert.equal(pos(d), '14,8');
-  assert.equal(st.act.used, used + 1, '공격한 쪽만 행동으로 셈');
-  assert.ok(!st.act.ids.includes('U1'));
-  const a2 = put(st, { id: 'R2', side: 'ru', type: 'infantry', r: 13, c: 8 });
-  E.resolveAttack(st, a2.id, { r: 14, c: 8 }, HIT);
-  assert.equal(pos(d), '15,8', '연속 후퇴');
-  const a3 = put(st, { id: 'R3', side: 'ru', type: 'infantry', r: 14, c: 8 });
-  const ev = E.resolveAttack(st, a3.id, { r: 15, c: 8 }, HIT);
-  assert.ok(d.hp > 0 || evOf(ev, 'destroyed').length === 1);
-  assert.ok(evOf(ev, 'destroyed').length === 1, '맵 끝에서 한 번 더 맞으면 사라짐');
-  // 거점 비움
-  const st2 = rtState();
-  const obj = st2.objectives.find((o) => o.id === 'SL');
-  const d2 = put(st2, { id: 'U1', side: 'ua', type: 'infantry', r: 8, c: 2 });
-  const a = put(st2, { id: 'R1', side: 'ru', type: 'infantry', r: 9, c: 2 });
-  E.updateObjectiveControl(st2);
+  const obj = st.objectives.find((o) => o.id === 'SL');
+  const d2 = put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 8, c: 2 });
+  const a = put(st, { id: 'R1', side: 'ru', type: 'infantry', r: 9, c: 2 });
+  E.updateObjectiveControl(st);
   assert.equal(obj.owner, 'ua');
-  const ev2 = E.resolveAttack(st2, a.id, { r: 8, c: 2 }, HIT);
+  const ev2 = E.resolveAttack(st, a.id, { r: 8, c: 2 }, HIT);
   assert.equal(pos(d2), '7,2'); assert.equal(obj.owner, null);
   assert.equal(evOf(ev2, 'objectiveLost').length, 1);
 });
 
-test('후퇴·제압: 호스토멜·춘천 규칙은 꺼져 있고 그대로, 대칭 전장은 양쪽 같은 규칙으로 검증됨 (한쪽만 다르게 하면 실패)', () => {
-  for (const id of ['hostomel', 'chuncheon']) {
-    const st = fresh(id);
-    assert.equal(C().RETREAT, null);
-    st.units = [];
-    const a = put(st, { id: 'X1', side: st.turn, type: 'infantry', r: 5, c: 5 });
-    const o = put(st, { id: 'Y1', side: other(st.turn), type: 'infantry', r: 5, c: 6 });
-    put(st, { id: 'Y2', side: other(st.turn), type: 'infantry', r: 0, c: 0 });
-    E.resolveAttack(st, a.id, { r: 5, c: 6 }, HIT);
-    assert.equal(pos(o), '5,6'); assert.ok(!('suppressed' in o));
+test('후퇴·제압 (춘천): 포병이 있어 포병 주변 후퇴와 제압도 일어남. 호스토멜: 박격포와 포병 모두', () => {
+  for (const sid of ['hostomel', 'chuncheon']) {
+    E.loadScenario(sid);
+    const has = (ty) => C().ROUND_ORDER.some((s) => C().DEPLOYMENT[s].some((d) => d.type === ty) || C().REINFORCEMENTS.some((g) => g.side === s && g.type === ty));
+    assert.ok(has('artillery'), `${sid} 포병`);
+    assert.equal(has('mortar'), sid === 'hostomel', `${sid} 박격포`);
   }
-  const sc = JSON.parse(JSON.stringify(E.SCENARIOS.find((s) => s.id === 'symmetric')));
-  assert.deepEqual([...E.validateScenario(sc)], []);
-  assert.ok(sc.retreat && sc.retreat.enabled);
-  const a = JSON.parse(JSON.stringify(sc)); a.retreat.ua = { steps: 2 };
-  assert.ok(E.symmetryErrors(a).some((m) => /retreat/.test(m)));
-  assert.ok(E.validateScenario(a).length > 0);
-  const b = JSON.parse(JSON.stringify(sc)); b.retreat.steps = 0;
-  assert.ok(E.validateScenario(b).length > 0);
-  const c = JSON.parse(JSON.stringify(sc)); c.retreat.suppress.sources = ['infantry'];
-  assert.ok(E.validateScenario(c).length > 0);
-  E.loadScenario('symmetric', { retreat: null });
-  assert.equal(C().RETREAT, null, '진단용: 규칙 끔');
-  E.loadScenario('hostomel');
 });
 
-test('후퇴·제압: 같은 시드 결과가 결정적이고 제압 상태가 복제·저장 뒤에도 유지됨', () => {
-  E.loadScenario('symmetric');
-  assert.equal(JSON.stringify(E.simulateGames(3)), JSON.stringify(E.simulateGames(3)));
-  const st = rtState();
-  const m = put(st, { id: 'RM', side: 'ru', type: 'mortar', r: 13, c: 5 });
-  const d = put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 13, c: 8 });
-  E.resolveAttack(st, m.id, { r: 13, c: 8 }, HIT);
-  const copy = E.cloneState(st);
-  assert.equal(copy.units.find((u) => u.id === 'U1').suppressed, d.suppressed);
+test('예전 저장 판 불러오기: 제압 필드가 없어도 불러오고, 규칙 업데이트 안내는 한 번만 (rulesVersion 이 없거나 낮을 때)', () => {
+  const old = { round: 3, turn: 'south', units: [{ id: 'S1', side: 'south', type: 'infantry', r: 5, c: 5, hp: 4 }], objectives: [], rulesVersion: 10 };
+  const r = E.upgradeSavedState(old);
+  assert.equal(r.upgraded, true); assert.ok(r.state && r.state.units.length === 1); assert.ok(!('suppressed' in r.state.units[0]));
+  assert.equal(old.rulesVersion, 10, '원본은 바꾸지 않음');
+  assert.equal(E.upgradeSavedState({ ...old, rulesVersion: undefined }).upgraded, true, '버전 기록 없음 = 옛 판');
+  assert.equal(E.upgradeSavedState({ ...old, rulesVersion: C().RULES_VERSION }).upgraded, false);
+  assert.deepEqual({ ...E.upgradeSavedState(null) }, { state: null, upgraded: false }, '읽을 수 없는 값도 오류 없이');
+  assert.deepEqual({ ...E.upgradeSavedState({ foo: 1 }) }, { state: null, upgraded: false });
+  // 제압 상태가 있는 판은 그대로 유지
+  const withSup = E.upgradeSavedState({ ...old, rulesVersion: C().RULES_VERSION, units: [{ ...old.units[0], suppressed: 1 }] });
+  assert.equal(withSup.state.units[0].suppressed, 1);
+  // 메뉴: 저장 요약에 옛 규칙 표시, 안내는 한 번만
+  const raw = { scenarioId: 'hostomel', round: 2, maxRounds: 12, mode: 'ai', rulesVersion: 11 };
+  const store = (v) => () => ({ getItem: (k) => (k === E.MENU_KEYS.save ? JSON.stringify(v) : null) });
+  const s1 = E.readMenuStore(store(raw)).save;
+  assert.equal(s1.rulesUpdated, true);
+  assert.equal(E.rulesNoticeNeeded(s1, undefined), true, '처음에는 안내');
+  assert.equal(E.rulesNoticeNeeded(s1, C().RULES_VERSION), false, '이미 본 뒤에는 안내 없음');
+  const s2 = E.readMenuStore(store({ ...raw, rulesVersion: C().RULES_VERSION })).save;
+  assert.equal(s2.rulesUpdated, false); assert.equal(E.rulesNoticeNeeded(s2, undefined), false);
+  assert.equal(E.rulesNoticeNeeded(null, undefined), false);
+  const S = run('STRINGS');
+  for (const lang of ['ko', 'en']) assert.ok(S[lang]['save.rulesUpdated'], `${lang} 안내 문구`);
+});
+
+test('규칙 화면: 후퇴와 제압 항목은 모든 시나리오에 있고, 포병·박격포가 없는 구성이면 안내 한 줄로 바뀜 (유닛 구성에서 읽음)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'ui.js'), 'utf8');
+  assert.ok(/const RULE_SECS = \[[^\]]*'retreat'/.test(src), "RULE_SECS 에 'retreat'");
+  assert.ok(!/GAME_CONFIG\.RETREAT\s*\?/.test(src), '시나리오 조건 분기 없음');
+  assert.ok(/R\.SUPPRESS_SOURCES\.some\(scenarioHasType\)/.test(src), '제압·포병 줄은 유닛 구성(scenarioHasType)에서 읽음');
+  const S = run('STRINGS');
+  for (const lang of ['ko', 'en']) for (const k of ['1', '2', '3', '4', '5', 'noIndirect']) assert.ok(S[lang][`rules.retreat.${k}`], `${lang} rules.retreat.${k}`);
+  assert.ok(!/대칭 전장(에서만|만|전용)|이 시나리오에서만/.test(S.ko['rules.retreat.1'] + S.ko['rules.retreat.4']), '시나리오 한정 문구 없음');
 });
 
 /* ---------------- 후퇴·제압 AI (대칭 전장) ---------------- */
@@ -1810,3 +1901,87 @@ test('AI 후퇴: 시뮬레이션이 오류 없이 돌고, 후퇴·제압·후퇴
   }
   assert.ok(retreats > 0 && supp > 0, `후퇴 ${retreats}, 제압 ${supp}, 후퇴 불가 격파 ${blocked}`);
 });
+
+/* ---------------- 후퇴·제압 AI: 호스토멜·춘천의 기존 AI (공통 모듈 재사용) ---------------- */
+const oldCtx = (st, side, level = 'normal') => {
+  const G = run('globalThis.__g = globalThis.__g || {}; __g');
+  G.st = st; G.side = side; G.level = level;
+  G.ctx = run('buildAiContext(__g.st, __g.side, resolveProfile(__g.level))');
+  return { G, ctx: G.ctx };
+};
+const oldGain = (G, ctx, a, t, p = 1) => { G.ctx = ctx; G.a = a; G.t = t; G.p = p; return run('retreatGain(__g.st, __g.ctx, GAME_CONFIG.AI.WEIGHTS, __g.a, __g.a, __g.t, __g.p)'); };
+
+for (const sid of ['hostomel', 'chuncheon']) {
+  test(`[${sid}] AI 후퇴: 물러날 곳이 없는 적을 칠 때 점수가 높고, 기존 사격 점수에 공통 모듈이 더해짐`, () => {
+    const g = gState(sid), { st, loc, A, B } = g;
+    const a1 = put(st, { id: g.id(A, 1), side: A, type: 'infantry', r: loc.n - 2, c: loc.edge.c });
+    const x = put(st, { id: g.id(B, 1), side: B, type: 'infantry', r: loc.n - 1, c: loc.edge.c });     // 뒤가 맵 밖
+    const a2 = put(st, { id: g.id(A, 2), side: A, type: 'infantry', r: loc.open.r - 1, c: loc.open.c });
+    const y = put(st, { id: g.id(B, 2), side: B, type: 'infantry', r: loc.open.r, c: loc.open.c });     // 뒤가 열려 있음
+    const { G, ctx } = oldCtx(st, A);
+    assert.ok(!ctx.v2 && !ctx.neutral, '기존 AI 맥락');
+    const gx = oldGain(G, ctx, a1, x), gy = oldGain(G, ctx, a2, y);
+    assert.ok(gx > gy, `후퇴 불가 ${gx} > 열린 곳 ${gy}`);
+    assert.ok(gx >= C().AI.WEIGHTS.retreatKill * C().AI.UNIT_VALUE.infantry * 0.99, '가중치 = AI_CONFIG.WEIGHTS.retreatKill');
+    // aiScoreAttack 가 그 값을 포함: 같은 병종·지형이라 두 점수의 차가 양수
+    G.ctx = ctx;
+    const sc = (a, t) => { G.a = a; G.tg = { r: t.r, c: t.c, kind: 'visible' }; return run('aiScoreAttack(__g.st, __g.ctx, __g.a, __g.a, __g.tg, false)'); };
+    assert.ok(sc(a1, x) - sc(a2, y) > 0, '같은 병종·지형이라 점수 차는 후퇴 불가 가산에서 옴 (명중 확률을 곱한 값)');
+  });
+
+  test(`[${sid}] AI 위험: 막힌 칸은 열린 칸보다 위험하고, 난이도별 위험 회피 배수(diff.risk)가 곱해짐`, () => {
+    const g = gState(sid), { st, loc, A, B } = g;
+    const me = put(st, { id: g.id(A, 1), side: A, type: 'infantry', r: loc.n - 1, c: loc.edge.c });
+    const mate = put(st, { id: g.id(A, 2), side: A, type: 'infantry', r: loc.open.r, c: loc.open.c });
+    put(st, { id: g.id(B, 1), side: B, type: 'infantry', r: loc.n - 2, c: loc.edge.c + 1 });   // 위협
+    put(st, { id: g.id(B, 2), side: B, type: 'infantry', r: loc.open.r - 1, c: loc.open.c + 1 });
+    const { G, ctx } = oldCtx(st, A);
+    const risk = (u, p) => { G.u = u; G.p = p; return run('aiRetreatRisk(__g.st, __g.ctx, GAME_CONFIG.AI.WEIGHTS, __g.u, __g.p)'); };
+    assert.ok(risk(me, { r: me.r, c: me.c }) > risk(mate, { r: mate.r, c: mate.c }), '맵 끝이 열린 칸보다 위험');
+    const src = fs.readFileSync(path.join(ROOT, 'js', 'engine.js'), 'utf8');
+    assert.ok(/diff\.risk \* aiRetreatRisk\(/.test(src), '난이도 배수: 기존 위협 항과 같은 방식으로 diff.risk 를 곱함');
+    const P = run('TACTIC_PROFILES');
+    assert.ok(P.easy.weights.risk < P.normal.weights.risk && P.normal.weights.risk < P.hard.weights.risk, '난이도 배수 easy < normal < hard');
+  });
+
+  test(`[${sid}] AI 안개: 후퇴 점수는 보이지 않는 칸의 숨은 유닛과 적의 제압 상태를 읽지 않음`, () => {
+    const base = () => {
+      const g = gState(sid);
+      const a = put(g.st, { id: g.id(g.A, 1), side: g.A, type: 'infantry', r: g.loc.open.r - 1, c: g.loc.open.c });
+      const y = put(g.st, { id: g.id(g.B, 1), side: g.B, type: 'infantry', r: g.loc.open.r, c: g.loc.open.c });
+      return { g, a, y };
+    };
+    const hiddenCells = (b) => new Set([idx16(b.g.loc.open.r + 1, b.g.loc.open.c), idx16(b.g.loc.open.r + 2, b.g.loc.open.c)]);
+    const idx16 = (r, c) => r * 16 + c;
+    const one = base();
+    const o1 = oldCtx(one.g.st, one.g.A);
+    o1.ctx.vis = new Set([...o1.ctx.vis].filter((i) => !hiddenCells(one).has(i)));
+    const clean = oldGain(o1.G, o1.ctx, one.a, one.y);
+    const two = base();
+    put(two.g.st, { id: two.g.id(two.g.B, 8), side: two.g.B, type: 'infantry', r: two.g.loc.open.r + 1, c: two.g.loc.open.c });   // 숨은 적 두 명
+    put(two.g.st, { id: two.g.id(two.g.B, 9), side: two.g.B, type: 'infantry', r: two.g.loc.open.r + 2, c: two.g.loc.open.c });
+    two.y.suppressed = 1;   // 적의 제압 상태도 모름
+    const o2 = oldCtx(two.g.st, two.g.A);
+    o2.ctx.vis = new Set([...o2.ctx.vis].filter((i) => !hiddenCells(two).has(i)));
+    assert.equal(oldGain(o2.G, o2.ctx, two.a, two.y), clean);
+  });
+
+  test(`[${sid}] AI: 시뮬레이션이 세 난이도 모두 오류 없이 돌고, 후퇴가 실제로 일어남 (제압 기억은 내 사격 결과로만)`, () => {
+    E.loadScenario(sid);
+    let retreats = 0;
+    for (const level of ['easy', 'normal', 'hard']) {
+      const r = E.simulateGames(3, { att: level, def: level });
+      assert.equal(r.errors, 0, level);
+      const s = 900;
+      const rng = E.createSeededRng(s), dice = E.createSeededRng((s ^ 0x5DEECE66) >>> 0);
+      const st = E.createInitialState(); E.startTurn(st);
+      let guard = 0;
+      while (!st.winner && guard++ < 80) {
+        const acts = E.aiTakeTurn(st, st.turn, rng, level, { diceRng: dice, recordSnapshots: false });
+        for (const a of acts) for (const e of a.events) if (e.type === 'retreat') retreats++;
+        if (!st.winner) E.endTurn(st);
+      }
+    }
+    assert.ok(retreats > 0, `후퇴 ${retreats}`);
+  });
+}
