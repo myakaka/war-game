@@ -5,7 +5,7 @@
 - 시점·안개: `planAttackFx` 가 `sounds:[{id,at}]` 을 그림과 같은 시야 분기에서 만듦(시야 밖 발사는 낙하 소리만, 낙하 소리는 명중·빗나감 같음). `ui.js`: `sfx`(가림막 중 무음), 이동(보이는 구간만)·누름·취소·오류·턴 종료·점수(내 것만)·거점·승패, `syncBgm`, `renderAudioSettings`.
 - UI: 설정에 음악/효과음 켜기·슬라이더(게임 안·메뉴 설정), 음소거 버튼 `#btn-mute`(게임 위 줄)·메뉴 모서리. 저장 `chuncheon1950.audio`. 시나리오 `bgm`·`bgmLoopTrim`(지금 null), `AUDIO.menuBgm`. `sound/credits.md` 는 틀(출처 칸 비움).
 - 검증: test 123 통과(소리 5개), check 21 SAME, layout-check 32 SAME. 브라우저: 첫 입력 전 무음, 17개 로딩 약 0.4초, 포병 발사→낙하 호출, 음소거, 설정 저장.
-- 한계: 파일 없는 소리 5개(shell_whistle·score_up·objective_captured·victory·defeat)와 BGM, 96kHz 24bit wav 33MB(m4a/mp3 로 바꾸면 먼저 찾음), file:// 오디오 태그 경로 미시험, 휴대폰 위 줄 턴 칩이 음소거 버튼 때문에 더 줄어듦, 실제 청취는 사용자 확인.
+- 한계: 파일 없는 소리 5개(shell_whistle·score_up·objective_captured·victory·defeat)와 BGM, wav 11MB(44.1kHz 16bit), file:// 오디오 태그 경로 미시험, 휴대폰 위 줄 턴 칩이 음소거 버튼 때문에 더 줄어듦, 실제 청취는 사용자 확인.
 
 ## 메뉴 개편
 - `showMenu`(`js/menu.js` 의 `menuModel`: 처음 실행이면 튜토리얼 강조), `showIntro`(시나리오 카드 + 시작 설정 + `<이름> 시작 ›`). 이어하기는 저장 기능이 없어 없음(`readMenuStore` 준비만). 제목은 `gameTitle`·`gameSubtitle`.
@@ -19,7 +19,7 @@
 
 ## 내일 이어서 (2026-11-13)
 - 직접 소리 청취 확인(체크리스트는 작업 보고에 있음) 후 필요한 소리 조정(`AUDIO.gain`).
-- `sound/` wav 33MB 정리: m4a/mp3 변환 여부 결정(변환 도구 없음, 새 파일은 사용자가 준비). 없는 소리 5개·BGM 파일 추가.
+- `sound/` wav 는 33MB→11MB 로 줄임(44.1kHz 16bit, 2026-11-13). 더 줄이려면 m4a/mp3(도구 없음). 없는 소리 5개·BGM 파일 추가.
 - 휴대폰 위 줄 턴 칩이 음소거 버튼 때문에 더 줄어드는 것 확인. `file://` 더블클릭 실행에서 오디오 태그 경로 확인.
 - 보류: 이어하기(진행 중인 판 저장), 게임 이름 확정(`gameTitle` 임시값).
 
