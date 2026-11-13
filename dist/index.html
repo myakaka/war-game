@@ -540,6 +540,8 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
 .cool-badge { position: absolute; top: 0; right: 0; z-index: 9; pointer-events: none; display: flex; }
 .cool-badge > span { background: #4B5563; color: #fff; border: 1px solid #F9FAFB; border-radius: 4px; padding: 0 2px; font-weight: 800; line-height: 1.15;
   font-size: max(8px, calc(var(--cell) * 0.27)); white-space: nowrap; word-break: keep-all; }
+.supp-badge { right: auto; left: 0; }
+.supp-badge > span { background: #7F1D1D; }   /* 제압 표식: 내 유닛만 */
 .atk-sheet .sh-chips .chip.ff { font-weight: 800; border-width: 2px; }   /* 포병 오폭 경고 칩: 붉은 색 강조 */
 .notice {
   position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);
@@ -1380,10 +1382,10 @@ const STRINGS = {
     'tut.s6.text': '점선 테두리 4칸이 거점입니다. 보병을 거점 안으로 옮기면 적과 함께 있게 되어 다툼이 됩니다. 그다음 기갑으로 거점 안의 적을 공격해 보세요.',
     'tut.s6.done': '한 칸이라도 있고 적이 없으면 점유, 양쪽이 있으면 아무도 점수를 못 받습니다. 대칭 전장은 거점마다 {symPts}점을 {symWhen} 받습니다.',
     'tut.s7.title': '박격포',
-    'tut.s7.text': '박격포는 {mMin}~{mRange}칸 떨어진 한 칸을 쏩니다. 명중하면 피해 {mDmg}, 쿨다운 {mCd}턴이고 이동한 뒤에도 쏠 수 있습니다. 적을 한 번 쏴 보세요.',
+    'tut.s7.text': '박격포는 {mMin}~{mRange}칸 떨어진 한 칸을 쏩니다. 명중하면 피해 {mDmg}, 쿨다운 {mCd}턴이고 이동한 뒤에도 쏠 수 있습니다. 정중앙에 맞은 적은 물러나지 않고 제압되어 다음 턴에 행동하지 못합니다. 적을 한 번 쏴 보세요.',
     'tut.s7.done': '안개 속 칸도 쏠 수 있지만, 아무도 보고 있지 않은 칸이면 명중률 −{fog}%가 붙습니다.',
     'tut.s8.title': '포병',
-    'tut.s8.text': '포병은 {aMin}~{aRange}칸 거리의 칸을 포격하고, 명중하면 붙은 4칸에도 {splash}만큼 피해가 갑니다. 아군도 맞습니다. 적을 쏘고 턴을 끝낸 뒤 다음 턴에 포병을 다시 눌러 보세요.',
+    'tut.s8.text': '포병은 {aMin}~{aRange}칸 거리의 칸을 포격하고, 명중하면 붙은 4칸에도 {splash}만큼 피해가 가고, 그 칸의 적은 폭발에서 멀어지는 쪽으로 한 칸 물러납니다. 정중앙의 적은 제압됩니다. 아군도 맞지만 물러나거나 제압되지 않습니다. 적을 쏘고 턴을 끝낸 뒤 다음 턴에 포병을 다시 눌러 보세요.',
     'tut.s8.done': '포병은 쏜 뒤 자기 턴 {aCd}번을 쉽니다 (이동은 가능). 상대 포병이 언제 쉬는지는 보이지 않습니다.',
     'tut.ptItem': '{obj} {n}', 'tut.when.ownTurn': '자기 턴을 끝낼 때', 'tut.when.roundEnd': '라운드가 끝날 때',
     'tut.hint': '지금은 {what}: 깜빡이는 곳을 눌러 보세요.', 'tut.hintDone': '이 단계는 끝났습니다. 다음으로 넘어가세요.',
@@ -1399,6 +1401,20 @@ const STRINGS = {
     'rules.sec.zoom': '확대/이동', 'rules.zoom.pc': 'PC: 마우스 휠로 확대·축소(마우스 위치 기준), 왼쪽 버튼을 누른 채 끌어서 이동. 키 + / − / 0.', 'rules.zoom.touch': '휴대폰: 두 손가락으로 벌리거나 오므려 확대·축소, 한 손가락으로 끌어서 이동.', 'rules.zoom.tap': '짧게 누르면 지금처럼 선택·이동·공격, {px}px 이상 끌면 지도만 움직입니다. 배율 {min}~{max}배.', 'rules.zoom.fit': '오른쪽 아래 + / − / 전체 보기 버튼. 확대 중에는 오른쪽 위 작은 지도를 눌러 그 위치로 갈 수 있습니다.',
     // 규칙 화면 (항목별, 수치는 데이터에서)
     'rules.sec.goal': '게임의 목적과 한 라운드', 'rules.sec.move': '이동과 행동 제한', 'rules.sec.hit': '공격과 명중률', 'rules.sec.terrain': '지형',
+    'log.retreat': '{who} 후퇴 {from} → {to}', 'log.retreatFull': '{who} 후퇴 {from} → {to}', 'log.retreatEnemy': '적 {unit} 후퇴',
+    'log.suppressedMine': '{who} 직격으로 제압됨 {pos}', 'log.suppressedEnemy': '적 {unit} 직격 {pos}', 'log.suppressedFull': '{who} 제압 {pos}',
+    'log.destroyedRetreat': '{who} 후퇴 불가로 격파! {pos}', 'log.destroyedRetreatFull': '{who} 후퇴 불가로 격파 {pos}',
+    'log.destroyedResupp': '{who} 재직격으로 격파! {pos}', 'log.destroyedResuppFull': '{who} 재직격으로 격파 {pos}',
+    'card.actSuppressed': '제압됨 (행동 불가)',
+    'aria.suppressed': '제압됨 {n}턴', 'supp.badge': '제압 {n}', 'card.suppressed': '제압됨',
+    'status.suppressedNote': '간접 화력에 정면으로 맞았습니다. 이번 턴에는 이동도 공격도 할 수 없고, 거점 점유에는 계속 기여합니다.',
+    'live.suppressed': '제압됨: 이 유닛은 이번 턴에 행동할 수 없습니다',
+    'rules.sec.retreat': '후퇴와 제압',
+    'rules.retreat.1': '적에게 피해를 받고 살아남은 유닛은 공격자의 반대 방향으로 {steps}칸 물러납니다. 물러나는 것은 행동으로 세지 않아, 그 턴에 그대로 행동할 수 있습니다.',
+    'rules.retreat.2': '물러날 칸이 맵 밖이거나, 그 병종이 들어갈 수 없는 지형이거나, 적 유닛이 있으면 그 유닛은 격파됩니다. 아군이 있는 칸은 지나서 그 뒤로 물러납니다.',
+    'rules.retreat.3': '포병이 쏜 칸에 붙은 4칸의 유닛은 폭발 중심에서 멀어지는 방향으로 물러납니다.',
+    'rules.retreat.4': '박격포나 포병의 정중앙에 맞고 살아남은 유닛은 물러나지 않고 제압됩니다. 제압된 유닛은 자기 다음 턴에 이동도 공격도 할 수 없지만 거점 점유에는 기여합니다. 제압된 유닛이 다시 정중앙에 맞으면 체력이 남아도 격파됩니다.',
+    'rules.retreat.5': '아군이 쏜 포탄에 맞아도 피해는 받지만, 물러나거나 제압되지 않습니다.',
     'rules.sec.fog': '안개와 시야', 'rules.sec.units': '병종', 'rules.sec.obj': '거점과 점수', 'rules.sec.fires': '박격포와 포병', 'rules.sec.terms': '용어',
     'rules.now': '지금 시나리오: {name}',
     'rules.flow': '한 라운드에 양쪽이 한 번씩 턴을 가집니다. 내 턴에는 유닛을 골라 이동하거나 공격하고, 턴 종료를 누르면 상대 턴으로 넘어갑니다.',
@@ -1433,6 +1449,7 @@ const STRINGS = {
     'intro.whoAISym': '당신은 <b class="c-def">{def}</b>, AI는 <b class="c-att">{att}</b>입니다 (양쪽 조건이 같습니다).',
     'intro.whoHotseatSym': '<b class="c-def">{def}</b> 플레이어와 <b class="c-att">{att}</b> 플레이어가 한 화면을 번갈아 씁니다. 턴이 끝나면 가림막이 내려오니 화면을 넘겨 주세요.',
     'scenErr.symmetry': '대칭 검사 실패: {what}',
+    'scenErr.retreat': '후퇴·제압(retreat) 값이 잘못됐습니다: {key} = {v}',
     'scenErr.secondMoverBonus': '후공 보너스(secondMoverBonus)는 0 이상 정수여야 합니다 ({n})',
     'scenErr.objectiveControl': '알 수 없는 거점 점유 방식 {v}',
     'scenErr.aiProfile': '알 수 없는 AI 모드 {v}',
@@ -1815,10 +1832,10 @@ const STRINGS = {
     'tut.s6.text': 'The four dashed tiles are an objective. Move the infantry into it: with an enemy also inside, it becomes contested. Then attack the enemy inside with the armor.',
     'tut.s6.done': 'A side holds it with any unit inside and no enemy; contested objectives score for nobody. In the symmetric field the objectives give {symPts} points {symWhen}.',
     'tut.s7.title': 'Mortar',
-    'tut.s7.text': 'Mortars hit one tile {mMin}–{mRange} tiles away for {mDmg} damage, cooldown {mCd}, and can fire after moving. Fire once at the enemy.',
+    'tut.s7.text': 'Mortars hit one tile {mMin}–{mRange} tiles away for {mDmg} damage, cooldown {mCd}, and can fire after moving. An enemy hit dead centre is suppressed instead of falling back and cannot act next turn. Fire once at the enemy.',
     'tut.s7.done': 'You can fire into fog too, but a tile no friendly unit can see costs −{fog}% hit chance.',
     'tut.s8.title': 'Artillery',
-    'tut.s8.text': 'Artillery shells a tile {aMin}–{aRange} tiles away; a hit also deals {splash} damage to the 4 adjacent tiles, friendlies included. Fire at the enemy, end the turn, then tap the artillery again next turn.',
+    'tut.s8.text': 'Artillery shells a tile {aMin}–{aRange} tiles away; a hit also deals {splash} damage to the 4 adjacent tiles, friendlies included; enemies there fall back one tile away from the blast and the one at the centre is suppressed. Your own units are hurt but never fall back or get suppressed. Fire at the enemy, end the turn, then tap the artillery again next turn.',
     'tut.s8.done': 'After firing, artillery rests for {aCd} of its own turns (it can still move). You cannot see when enemy artillery is resting.',
     'tut.ptItem': '{obj} {n}', 'tut.when.ownTurn': 'when each side ends its own turn', 'tut.when.roundEnd': 'at the end of each round',
     'tut.hint': 'Now: {what}. Tap the blinking spot.', 'tut.hintDone': 'This step is done. Go to Next.',
@@ -1833,6 +1850,20 @@ const STRINGS = {
     'aria.logFold': 'Collapse/expand combat log (L)', 'aria.zoom': 'Map zoom', 'aria.zoomIn': 'Zoom in (+)', 'aria.zoomOut': 'Zoom out (−)', 'aria.zoomFit': 'Fit whole map (0)', 'aria.minimap': 'Overview map: tap or drag to move there',
     'rules.sec.zoom': 'Zoom & pan', 'rules.zoom.pc': 'PC: mouse wheel zooms around the pointer; drag with the left button to pan. Keys + / − / 0.', 'rules.zoom.touch': 'Phone: pinch to zoom, drag with one finger to pan.', 'rules.zoom.tap': 'A short tap still selects, moves and attacks; dragging {px}px or more only moves the map. Zoom {min}x to {max}x.', 'rules.zoom.fit': 'Use + / − / fit buttons at the lower right. While zoomed, tap the small map at the upper right to jump there.',
     'rules.sec.goal': 'Goal and the round', 'rules.sec.move': 'Movement and activation limit', 'rules.sec.hit': 'Attacks and hit chance', 'rules.sec.terrain': 'Terrain',
+    'log.retreat': '{who} retreated {from} → {to}', 'log.retreatFull': '{who} retreated {from} → {to}', 'log.retreatEnemy': 'Enemy {unit} retreated',
+    'log.suppressedMine': '{who} suppressed by a direct hit {pos}', 'log.suppressedEnemy': 'Enemy {unit} direct hit {pos}', 'log.suppressedFull': '{who} suppressed {pos}',
+    'log.destroyedRetreat': '{who} destroyed, no room to retreat! {pos}', 'log.destroyedRetreatFull': '{who} destroyed, no room to retreat {pos}',
+    'log.destroyedResupp': '{who} destroyed by a second direct hit! {pos}', 'log.destroyedResuppFull': '{who} destroyed by a second direct hit {pos}',
+    'card.actSuppressed': 'Suppressed (cannot act)',
+    'aria.suppressed': 'suppressed {n} turn', 'supp.badge': 'SUP {n}', 'card.suppressed': 'Suppressed',
+    'status.suppressedNote': 'Hit dead centre by indirect fire. This unit cannot move or attack this turn, but still counts toward holding an objective.',
+    'live.suppressed': 'Suppressed: this unit cannot act this turn',
+    'rules.sec.retreat': 'Retreat and suppression',
+    'rules.retreat.1': 'A unit that takes damage from the enemy and survives falls back {steps} tile directly away from the attacker. Falling back does not count as an action, so the unit can still act that turn.',
+    'rules.retreat.2': 'If the tile behind is off the map, terrain that unit type cannot enter, or holds an enemy unit, the unit is destroyed. Friendly units are passed over: it falls back to the next tile behind them.',
+    'rules.retreat.3': 'Units on the 4 tiles next to an artillery hit fall back away from the blast centre.',
+    'rules.retreat.4': 'A unit that survives a direct hit at the centre of a mortar or artillery shot is suppressed instead of falling back. A suppressed unit cannot move or attack on its own next turn, but still counts toward holding an objective. Hit at the centre again while suppressed, it is destroyed even with health left.',
+    'rules.retreat.5': 'Shells fired by your own side still do damage, but never make a unit fall back or become suppressed.',
     'rules.sec.fog': 'Fog and sight', 'rules.sec.units': 'Unit types', 'rules.sec.obj': 'Objectives and score', 'rules.sec.fires': 'Mortars and artillery', 'rules.sec.terms': 'Terms',
     'rules.now': 'Current scenario: {name}',
     'rules.flow': 'In each round both sides take one turn. On your turn, pick units to move or attack, then press End turn to pass to the opponent.',
@@ -1867,6 +1898,7 @@ const STRINGS = {
     'intro.whoAISym': 'You are <b class="c-def">{def}</b>; the AI is <b class="c-att">{att}</b> (both sides have the same conditions).',
     'intro.whoHotseatSym': 'A <b class="c-def">{def}</b> player and a <b class="c-att">{att}</b> player share one screen. A curtain drops at the end of each turn — pass the device.',
     'scenErr.symmetry': 'Symmetry check failed: {what}',
+    'scenErr.retreat': 'Invalid retreat value: {key} = {v}',
     'scenErr.secondMoverBonus': 'secondMoverBonus must be an integer of 0 or more ({n})',
     'scenErr.objectiveControl': 'Unknown objective control mode {v}',
     'scenErr.aiProfile': 'Unknown AI mode {v}',
@@ -1910,7 +1942,7 @@ function t(key, params) {
    ===================================================================== */
 const RULES = {
   MAX_HP: 4,
-  RULES_VERSION: 10,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로)
+  RULES_VERSION: 11,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로) · 11: 대칭 전장 후퇴·제압 (시나리오 retreat: 적에게 피해를 받으면 뒤로 1칸 후퇴, 막히면 격파, 간접 화력 정중앙은 제압. retreat 가 없는 시나리오는 v10 그대로)
   ENABLE_ACTIVATION_LIMIT: true,            // true: 시나리오 activations 의 진영별 행동 한도 적용 · false: 한도 무시 (v5 와 완전히 같은 동작)
   ATTACK_AFTER_MOVE: false,                 // (ENABLE_MOVE_ATTACK 가 false 일 때만 사용) false: 한 유닛은 한 턴에 이동 또는 공격 중 하나만 (포병은 항상 false)
   ENABLE_MOVE_ATTACK: true,                 // true: 남은 이동력 >= 공격 비용이면 이동 후 공격 가능 (포병·통신 제외)
@@ -2173,6 +2205,13 @@ const AI_CONFIG = {
       artyCover: 1.5,          // 포병·박격포 위치: 사거리 안의 (내 것이 아닌) 거점 칸 1개당 (최대 4)
       artyIntelCover: 1.5,     // 포병·박격포 위치: 사거리 안의 기억한 적 (가중치 합, 최대 3)
       artyReach: 2.5,          // 포병·박격포: 가장 가까운 (내 것이 아닌) 거점 칸이 최대 사거리보다 1칸 멀 때마다 감점
+      // 후퇴·제압 (시나리오 retreat 가 켜졌을 때만 쓰임)
+      retreatKill: 7,          // 공격: 후퇴할 곳이 없어 피해를 입히면 격파되는 적 (병종 가치 × 명중 확률)
+      retreatClear: 4,         // 공격: 거점 수비 유닛을 밀어내 거점이 비게 됨 (거점 점수 1당)
+      suppress: 3,             // 공격: 간접 화력 정중앙 직격으로 적을 제압 (병종 가치 × 명중 확률)
+      resuppressKill: 9,       // 공격: 이번 턴 내가 이미 제압한 적을 다시 정중앙 직격 = 격파
+      noRetreat: 6,            // 위치: 물러날 곳이 막힌 방향 비율 × 피격 기대 (즉사 위험)
+      suppressRisk: 3,         // 위치: 간접 화력에 맞아 다음 턴 행동 불가가 될 위험
       indirectHoldCut: 0.8,    // 포병·박격포가 거점 칸에 설 때 점령·유지 점수에서 덜어 내는 비율   // 간접 사격 후보 가산 (보이는 적 / 기억한 위치 / 올 가능성이 높은 칸)
       // 난이도별 (프로필 id → 등급: easy / normal / hard·hardSpread)
       LEVELS: {
@@ -2447,6 +2486,18 @@ SCENARIOS.push({
     mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
     artillery: { range: 5, cooldown: 1 },
   },
+  // 후퇴·제압 (v11): 적에게 피해를 받으면 뒤로 후퇴(막히면 격파), 간접 화력 정중앙은 제압. 양쪽 같은 규칙 (진영별 값을 두면 대칭 검사 실패)
+  retreat: {
+    enabled: true,
+    cause: 'enemyDamage',          // 적이 입힌 피해(직접, 박격포, 포병)만. 자기 진영이 쏜 간접 화력 피해는 제외
+    direct: 'awayFromAttacker',    // 직접 사격: 공격자 반대 방향
+    indirect: 'awayFromImpact',    // 포병 주변 4칸: 폭발 중심에서 멀어지는 방향
+    steps: 1,
+    repeatPerHit: true,            // 한 턴에 여러 번 맞으면 맞은 횟수만큼 연속 후퇴
+    blockedIsDeath: true,          // 후퇴할 수 없으면 격파
+    passThroughFriendly: true,     // 후퇴 칸에 아군이 있으면 지나서 그 뒤로
+    suppress: { byImpactCenter: true, sources: ['mortar', 'artillery'], duration: 1, repeatIsDeath: true },
+  },
   // 점수제 (v10): 점유한 거점의 점수가 쌓임. 측면 두 거점은 같은 값이어야 함 (대칭 검사)
   objectivePoints: { SL: 1, SC: 2, SR: 1 },
   scoreTiming: 'ownTurnEnd',             // 'ownTurnEnd' 자기 턴을 끝낼 때 자기 점유만 · 'roundEnd' 라운드 끝에 양쪽 동시
@@ -2483,6 +2534,11 @@ const TUTORIAL_FIRES = {
   blindFire: true,
   mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
   artillery: { range: 5, cooldown: 1 },
+};
+const TUTORIAL_RETREAT = {   // 후퇴·제압: 대칭 전장과 같은 규칙 (가르치는 내용이 실제 규칙과 같게)
+  enabled: true, cause: 'enemyDamage', direct: 'awayFromAttacker', indirect: 'awayFromImpact', steps: 1,
+  repeatPerHit: true, blockedIsDeath: true, passThroughFriendly: true,
+  suppress: { byImpactCenter: true, sources: ['mortar', 'artillery'], duration: 1, repeatIsDeath: true },
 };
 const TUTORIAL_ART = {
   terrain: {
@@ -2635,6 +2691,7 @@ SCENARIOS.push({
   objectiveCheckAfter: null,
   activations: { def: 3, att: 3 },
   fires: TUTORIAL_FIRES,
+  retreat: TUTORIAL_RETREAT,
   victory: {
     ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
     enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
@@ -2694,6 +2751,7 @@ SCENARIOS.push({
   objectiveCheckAfter: null,
   activations: { def: 3, att: 3 },
   fires: TUTORIAL_FIRES,
+  retreat: TUTORIAL_RETREAT,
   victory: {
     ally: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
     enemy: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
@@ -2946,6 +3004,26 @@ function validateScenario(s) {
       }
     }
   }
+  if (s.retreat != null) {
+    const R = s.retreat, bad = (k, v) => E('scenErr.retreat', { key: k, v: String(v) });
+    if (typeof R !== 'object' || Array.isArray(R)) bad('retreat', R);
+    else {
+      if (typeof R.enabled !== 'boolean') bad('enabled', R.enabled);
+      if (R.cause !== 'enemyDamage') bad('cause', R.cause);
+      if (R.direct !== 'awayFromAttacker') bad('direct', R.direct);
+      if (R.indirect !== 'awayFromImpact') bad('indirect', R.indirect);
+      if (!(Number.isInteger(R.steps) && R.steps >= 1)) bad('steps', R.steps);
+      for (const k of ['repeatPerHit', 'blockedIsDeath', 'passThroughFriendly']) if (typeof R[k] !== 'boolean') bad(k, R[k]);
+      const sp = R.suppress;
+      if (sp != null) {
+        if (typeof sp !== 'object' || typeof sp.byImpactCenter !== 'boolean' || typeof sp.repeatIsDeath !== 'boolean') bad('suppress', sp);
+        else {
+          if (!(Number.isInteger(sp.duration) && sp.duration >= 1)) bad('suppress.duration', sp.duration);
+          if (!(Array.isArray(sp.sources) && sp.sources.every((k) => UNIT_TYPES[k] && UNIT_TYPES[k].indirect))) bad('suppress.sources', sp.sources);
+        }
+      }
+    }
+  }
   if (s.symmetric) for (const m of symmetryErrors(s)) E('scenErr.symmetry', { what: m });
   return errs;
 }
@@ -2990,6 +3068,10 @@ function symmetryErrors(s) {
   }
   if (s.activations && s.activations.def !== s.activations.att) out.push('activations');
   if (s.fires) for (const k of Object.keys(s.fires)) if (sides.includes(k) || k === 'def' || k === 'att') out.push(`fires.${k}`);
+  if (s.retreat) {   // 후퇴·제압은 양 진영에 같은 규칙: 진영·역할 키를 둘 수 없음
+    const walk = (o, path) => { if (o && typeof o === 'object') for (const k of Object.keys(o)) { if (sides.includes(k) || k === 'def' || k === 'att') out.push(`retreat.${path}${k}`); walk(o[k], `${path}${k}.`); } };
+    walk(s.retreat, '');
+  }
   if (s.unitTypes || s.unitOverrides || s.sideStats) out.push('unit stats');   // 진영별 병종 보정은 두지 않음
   return out;
 }
@@ -3085,6 +3167,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.ARRIVAL_RADIUS = s.arrivalRadius ?? RULES.ARRIVAL_RADIUS;
   C.ACTIVATIONS = s.activations ? { def: s.activations.def ?? null, att: s.activations.att ?? null } : null;   // 역할별 행동 한도 (null = 제한 없음)
   C.FIRES = s.fires ? JSON.parse(JSON.stringify(s.fires)) : null;   // 간접 화력 설정 (null = v6 규칙)
+  C.RETREAT = s.retreat && s.retreat.enabled ? JSON.parse(JSON.stringify(s.retreat)) : null;   // 후퇴·제압 (규칙 v11, null = 이전 규칙 그대로)
   C.ANCHORS = {};
   for (const side of C.ROUND_ORDER) {
     const pts = norm.filter((d) => d.side === side).flatMap((d) => d.cells);
@@ -3418,6 +3501,7 @@ function endTurn(state) {
   const order = GAME_CONFIG.ROUND_ORDER;
   const pos = order.indexOf(state.turn);
   const roundEnd = pos === order.length - 1;
+  if (GAME_CONFIG.RETREAT) for (const u of state.units) if (u.side === state.turn && u.suppressed > 0 && --u.suppressed <= 0) delete u.suppressed;   // 제압: 제압된 유닛의 자기 턴이 끝나면 해제
   const checkSide = GAME_CONFIG.OBJECTIVE_CHECK_AFTER || order[order.length - 1];
   if (roundEnd) recordObjectiveTimeline(state);
   if (GAME_CONFIG.OBJECTIVE_POINTS) {   // 점수제: 자기 턴 끝(ownTurnEnd) 또는 라운드 끝(roundEnd, 양쪽 동시)에 지금 점유한 거점의 점수
@@ -3629,10 +3713,11 @@ function updateMemory(state) {
 }
 
 /* =========================== 6. 이동 =========================== */
-function canUnitMove(state, u) { return !!u && u.side === state.turn && !u.moved && !u.acted && !state.winner && !activationBlocked(state, u); }
+function canUnitMove(state, u) { return !!u && u.side === state.turn && !u.moved && !u.acted && !state.winner && !activationBlocked(state, u) && !(u.suppressed > 0); }
 function canUnitAttack(state, u) {
   if (!u || u.side !== state.turn || u.acted || state.winner) return false;
   if (activationBlocked(state, u)) return false;
+  if (u.suppressed > 0) return false;   // 제압됨 (후퇴·제압 규칙)
   const t = unitType(u);
   if (!t.canAttack) return false;
   if (onCooldown(state, u)) return false;   // 간접 화력 쿨다운 (fires 가 없으면 항상 false)
@@ -3770,6 +3855,63 @@ function getAttackableTiles(state, unitId) {
   return out;
 }
 
+/* ---------- 후퇴·제압 (시나리오 retreat, 규칙 v11) ----------
+ * GAME_CONFIG.RETREAT 가 null 이면 이 코드는 실행되지 않는다 (이전 규칙과 정확히 같음).
+ * 적이 입힌 피해로 살아남은 유닛은 뒤로 물러나고(막히면 격파), 간접 화력 정중앙에 맞은 유닛은 제압된다 (u.suppressed = 남은 자기 턴 수).
+ * 자기 진영이 쏜 간접 화력 피해는 후퇴도 제압도 없다. 후퇴는 행동으로 세지 않아 moved·acted·moveLeft 를 건드리지 않는다.
+ */
+const sgn = (x) => (x > 0) - (x < 0);
+/** 후퇴 방향 [dr, dc]. 직접 사격: 공격자 반대 (행·열 차이 중 큰 쪽 축, 같으면 세로). 포병 주변 칸: 폭발 중심에서 멀어지는 방향 */
+function retreatDir(attacker, u, impact, splash) {
+  if (splash) return [sgn(u.r - impact.r), sgn(u.c - impact.c)];
+  const dr = u.r - attacker.r, dc = u.c - attacker.c;
+  return Math.abs(dr) >= Math.abs(dc) ? [sgn(dr), 0] : [0, sgn(dc)];
+}
+/** 후퇴 도착 칸. 막히면 null (격파). 맵 밖·병종이 못 들어가는 지형·적 유닛은 막힘, 아군은 지나서 같은 방향의 다음 칸 */
+function retreatTarget(state, u, dir, steps, passFriendly) {
+  let pos = { r: u.r, c: u.c };
+  for (let k = 0; k < steps; k++) {
+    let r = pos.r + dir[0], c = pos.c + dir[1];
+    for (;;) {
+      if (!inBounds(r, c)) return null;
+      const ter = terrainAt(r, c);
+      if (ter.impassableFor && ter.impassableFor.includes(u.type)) return null;
+      const o = getUnitAt(state, r, c);
+      if (!o || o.id === u.id) break;
+      if (o.side !== u.side || !passFriendly) return null;
+      r += dir[0]; c += dir[1];
+    }
+    pos = { r, c };
+  }
+  return pos;
+}
+/** 이번 공격의 피해(hits)를 받은 유닛들의 후퇴·제압 처리. 순서는 hits 순서 (정중앙 → 위·아래·왼쪽·오른쪽) 로 고정 */
+function resolveRetreats(state, attacker, impact, hits) {
+  const R = GAME_CONFIG.RETREAT, events = [];
+  const at = unitType(attacker);
+  const kill = (u, cause) => {
+    events.push({ type: 'destroyed', unitId: u.id, side: u.side, unitType: u.type, pos: { r: u.r, c: u.c }, cause });
+    state.units = state.units.filter((x) => x !== u);
+  };
+  for (const h of hits) {
+    const u = h.unit;
+    if (u.hp <= 0 || u.side === attacker.side || !(h.amount > 0)) continue;   // 격파됨 · 아군 오사 · 피해 없음
+    const sp = R.suppress;
+    if (at.indirect && !h.splash && sp && sp.byImpactCenter && sp.sources.includes(attacker.type)) {
+      if (u.suppressed > 0 && sp.repeatIsDeath) kill(u, 'resuppressed');
+      else { u.suppressed = sp.duration; events.push({ type: 'suppressed', unitId: u.id, side: u.side, unitType: u.type, pos: { r: u.r, c: u.c }, turns: sp.duration }); }
+      continue;
+    }
+    const dir = retreatDir(attacker, u, impact, at.indirect && h.splash);
+    const from = { r: u.r, c: u.c };
+    const to = retreatTarget(state, u, dir, R.steps, R.passThroughFriendly);
+    if (!to) { if (R.blockedIsDeath) kill(u, 'retreatBlocked'); continue; }
+    u.r = to.r; u.c = to.c;
+    events.push({ type: 'retreat', unitId: u.id, side: u.side, unitType: u.type, hp: u.hp, from, to: { ...to }, splash: !!h.splash });
+  }
+  return events;
+}
+
 /** 공격 실행. 이벤트 목록 반환 */
 function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   const a = getUnit(state, attackerId);
@@ -3807,6 +3949,11 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
       if (h.unit.hp <= 0) events.push({ type: 'destroyed', unitId: h.unit.id, side: h.unit.side, unitType: h.unit.type, pos: { r: h.unit.r, c: h.unit.c } });
     }
     state.units = state.units.filter((u) => u.hp > 0);
+    if (GAME_CONFIG.RETREAT) {
+      const rev = resolveRetreats(state, a, targetPos, hits);   // 후퇴·제압 (피해를 모두 적용한 뒤)
+      events.push(...rev);
+      if (state.aiIntel) intelOnSuppress(state, a, rev);   // 내 사격 결과: 시야 안에서 제압한 적 (ai-intel.js)
+    }
     if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence') events.push(...updateObjectiveControl(state));
   }
   if (state.aiIntel && t.indirect) intelOnIndirectFire(state, a, targetPos, events);   // 맞은 진영의 간접 사격 단서
@@ -4647,7 +4794,7 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
     }
     if (!ctx.isAttacker && C.CROSSINGS.some((x) => manhattan(x, tg) <= 1)) s += W.crossingFire;
   }
-  if (ctx.v2 && target) s += symV2Attack(state, ctx, u, target, p, tg.kind);   // 위협 제거·마무리·집중 (ai-intel.js)
+  if (ctx.v2 && target) s += symV2Attack(state, ctx, u, target, p, tg.kind, from);   // 위협 제거·마무리·집중 (ai-intel.js)
   return s;
 }
 
@@ -5675,6 +5822,7 @@ if (typeof module !== 'undefined' && module.exports) {
     diagnoseSymmetric, diagnoseSymmetricAI, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
     roundLimitType, heldPoints, awardPoints, pointsLimitResult, limitResultNow, scoreTargetResult, diagnoseScoring, SCORING_COMBOS,
     diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
+    retreatDir, retreatTarget, canUnitMove, canUnitAttack,
   };
 }
 </script>
@@ -6081,6 +6229,7 @@ function symV2Position(state, ctx, u, pos) {
     const o = objectiveAt(state, pos.r, pos.c);
     if (o) s -= V.indirectHoldCut * (o.owner !== side ? GAME_CONFIG.AI.WEIGHTS.capture : GAME_CONFIG.AI.SYMMETRIC.HOLD);
   }
+  if (GAME_CONFIG.RETREAT) s -= symV2RetreatRisk(state, ctx, u, pos, loss, mult);   // 한 번 맞으면 물러날 곳이 없는 칸·제압 위험 (retreat 규칙이 켜진 시나리오만)
   // 최소 수비: 점유 중인 거점의 마지막 수비 유닛은 떠나지 않음
   const o0 = objectiveAt(state, u.r, u.c);
   if (o0 && o0.owner === side && moving) {
@@ -6114,8 +6263,104 @@ function symV2Position(state, ctx, u, pos) {
   return s;
 }
 
+/* ---------- 후퇴·제압 (시나리오 retreat) 을 아는 점수 항목 ----------
+ * AI 가 쓰는 정보: 지형(공개), 맵 크기, 자기 유닛, 내 시야 안의 적 유닛, 내가 이번 턴에 제압한 유닛 id (내 사격 결과).
+ * 안 보이는 칸은 비어 있다고 가정하고, 적의 제압 상태·체력 밖의 숨은 정보는 읽지 않는다.
+ */
+/** victim 이 dir 방향으로 후퇴할 때의 결과 { dies, to }: 규칙(retreatTarget)과 같은 판정이지만 아는 유닛만 본다 */
+function symRetreatOutcome(state, ctx, aiSide, victim, dir) {
+  const R = GAME_CONFIG.RETREAT;
+  let r = victim.r, c = victim.c;
+  for (let k = 0; k < R.steps; k++) {
+    r += dir[0]; c += dir[1];
+    for (;;) {
+      if (!inBounds(r, c)) return { dies: true };
+      const ter = terrainAt(r, c);
+      if (ter.impassableFor && ter.impassableFor.includes(victim.type)) return { dies: true };
+      const o = getUnitAt(state, r, c);
+      const known = o && o.id !== victim.id && (o.side === aiSide || ctx.vis.has(idx(r, c)));
+      if (!known) break;
+      if (o.side !== victim.side || !R.passThroughFriendly) return { dies: true };
+      r += dir[0]; c += dir[1];
+    }
+  }
+  return { dies: false, to: { r, c } };
+}
+
+/** 내가 이번 턴에 제압한 적 유닛인가 (내 사격 결과로 안 것) */
+function symKnowsSuppressed(state, side, unitId) {
+  const sp = state.aiIntel && state.aiIntel[side] && state.aiIntel[side].supp;
+  return !!sp && sp[unitId] === state.round && state.turn === side;
+}
+
+/** 내 사격 결과 기록 (resolveAttack 끝): 시야 안에서 제압한 적 유닛 id 를 이번 라운드에 기억 */
+function intelOnSuppress(state, attacker, events) {
+  if (!state.aiIntel || !state.aiIntel[attacker.side]) return;
+  let vis = null;
+  for (const ev of events) {
+    if (ev.type !== 'suppressed' || ev.side === attacker.side) continue;
+    vis = vis || getVisibleTiles(state, attacker.side);
+    if (!vis.has(idx(ev.pos.r, ev.pos.c))) continue;
+    const ai = state.aiIntel[attacker.side];
+    (ai.supp || (ai.supp = {}))[ev.unitId] = state.round;
+  }
+}
+
+/** 이 사격이 (명중하면) 가져올 후퇴·제압 효과의 가치. 보이는 표적과 그 파편 칸의 적만 센다 */
+function symV2RetreatGain(state, ctx, u, from, target, p) {
+  const X = ctx.v2, V = X.V, R = GAME_CONFIG.RETREAT, UV = GAME_CONFIG.AI.UNIT_VALUE;
+  const t = unitType(u);
+  const victims = [{ unit: target, splash: false, amount: t.fixedDamage != null ? t.fixedDamage : calcDamage(u, target) }];
+  if (t.indirect && t.splash !== false) {
+    for (const [dr, dc] of DIRS) {
+      const o = getUnitAt(state, target.r + dr, target.c + dc);
+      if (o && o.side !== u.side && ctx.vis.has(idx(o.r, o.c))) victims.push({ unit: o, splash: true, amount: GAME_CONFIG.COMBAT.splashDamage });
+    }
+  }
+  let s = 0;
+  for (const v of victims) {
+    const o = v.unit;
+    if (o.side === u.side || o.hp <= v.amount) continue;   // 아군 오사는 후퇴·제압 없음 · 피해로 격파되면 기존 항목이 셈
+    const val = UV[o.type] || 1;
+    const sp = R.suppress;
+    if (t.indirect && !v.splash && sp && sp.byImpactCenter && sp.sources.includes(u.type)) {
+      s += (symKnowsSuppressed(state, u.side, o.id) && sp.repeatIsDeath ? V.resuppressKill : V.suppress) * val * p;
+      continue;
+    }
+    const out = symRetreatOutcome(state, ctx, u.side, o, retreatDir(from, o, target, t.indirect && v.splash));
+    if (out.dies) { s += V.retreatKill * val * p; continue; }
+    // 거점 수비 유닛을 밀어내 거점이 비면 (그 거점 안에 남는 같은 편이 없을 때)
+    const obj = objectiveAt(state, o.r, o.c);
+    if (obj && !objectiveCells(obj).some((q) => (q.r !== o.r || q.c !== o.c) && ctx.vis.has(idx(q.r, q.c)) && (getUnitAt(state, q.r, q.c) || {}).side === o.side)
+        && !objectiveCells(obj).some((q) => q.r === out.to.r && q.c === out.to.c)) {
+      const pts = GAME_CONFIG.OBJECTIVE_POINTS ? GAME_CONFIG.OBJECTIVE_POINTS[obj.id] || 1 : 1;
+      s += V.retreatClear * pts * p;
+    }
+  }
+  return s;
+}
+
+/** 칸 pos 에 u 를 두었을 때의 후퇴·제압 위험 (감점 크기, 0 이상). loss: 그 칸의 기대 손실 비율, mult: 병종·체력 가중 */
+function symV2RetreatRisk(state, ctx, u, pos, loss, mult) {
+  const X = ctx.v2, V = X.V;
+  const m = X.maps(u.type), i = idx(pos.r, pos.c);
+  // 맞았을 때 물러날 칸이 막힌 방향 비율 (맵 끝·이동 불가 지형·보이는 적). 아군은 지나갈 수 있으므로 막힘이 아님
+  let blocked = 0;
+  for (const [dr, dc] of DIRS) {
+    const r = pos.r + dr, c = pos.c + dc;
+    if (!inBounds(r, c)) { blocked++; continue; }
+    const ter = terrainAt(r, c);
+    if (ter.impassableFor && ter.impassableFor.includes(u.type)) { blocked++; continue; }
+    const o = getUnitAt(state, r, c);
+    if (o && o.side !== u.side && ctx.vis.has(idx(r, c))) blocked++;
+  }
+  const exposure = Math.min(1, (m.direct[i] + 0.5 * m.artyP[i] * GAME_CONFIG.COMBAT.splashDamage) / Math.max(1, u.hp));
+  const indirectLoss = Math.min(1, Math.max(0, m.dmg[i] - m.direct[i]));   // 간접 화력에 맞을 기대치 (제압 위험)
+  return V.noRetreat * mult * (blocked / 4) * exposure + V.suppressRisk * mult * indirectLoss;
+}
+
 /** 공격 점수 추가 항목: 위협 제거, 마무리, 집중 사격. target 은 보이는 적 또는 기억으로 만든 가상 표적 */
-function symV2Attack(state, ctx, u, target, p, kind = 'visible') {
+function symV2Attack(state, ctx, u, target, p, kind = 'visible', from = u) {
   const X = ctx.v2, V = X.V;
   const rec = (target.id && X.recById.get(target.id)) || { type: target.type, r: target.r, c: target.c, hp: target.hp, conf: 1, radius: 0 };
   const ts = threatScore({ ...rec, hp: target.hp }, X.objCells, X.K);
@@ -6129,6 +6374,7 @@ function symV2Attack(state, ctx, u, target, p, kind = 'visible') {
   let adj = 0;
   if (t.indirect && t.splash !== false) for (const [dr, dc] of DIRS) { const a = getUnitAt(state, target.r + dr, target.c + dc); if (a && a.side === u.side) adj++; }
   if (t.indirect) s += adj ? -V.ffAdjacent * adj : (V.fireReady[kind] || 0) * (u.hp / GAME_CONFIG.MAX_HP);
+  if (GAME_CONFIG.RETREAT && kind === 'visible') s += symV2RetreatGain(state, ctx, u, from, target, p);   // 후퇴 불가 격파·거점 비우기·제압 (retreat 규칙이 켜진 시나리오만)
   return s;
 }
 
@@ -7654,6 +7900,7 @@ const RICH_MAP = (() => {
     fx: {
       speed: { slow: 1.5, normal: 1, fast: 0.5 },
       stepMs: 230, stepMsRM: 120, fadeInMs: 260,
+      retreatMs: 240,                                  // 후퇴: 옆 칸으로 짧게 미끄러짐 (0.25초 이내, 연출 속도 배율 적용)
       path: { line: '#2E6FD0', w: 2.2, dash: '3 4', opacity: 0.8, fadeMs: 500 },
       shake: { ms: 280, amp: 3.4 },
       hitRingRM: { ms: 450, line: '#D32F2F', w: 2.6 },
@@ -8528,7 +8775,11 @@ const RICH_MAP = (() => {
     // 쿨다운: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 사격 대기는 표시하지 않음)
     const cool = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer ? cooldownTurnsLeft(ui.view, u) : 0;
     if (cool) label += ', ' + t('aria.cooldown', { n: cool });
-    const coolHtml = cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '';
+    // 제압: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 제압 상태는 표시하지 않음)
+    const supp = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer && u.suppressed > 0 ? u.suppressed : 0;
+    if (supp) label += ', ' + t('aria.suppressed', { n: supp });
+    const suppHtml = supp ? `<div class="cool-badge supp-badge" aria-hidden="true"><span>${esc(t('supp.badge', { n: supp }))}</span></div>` : '';
+    const coolHtml = suppHtml + (cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '');
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
       const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0 });
       return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
@@ -8871,7 +9122,10 @@ const RICH_MAP = (() => {
     const MA = GAME_CONFIG.ENABLE_MOVE_ATTACK;
     let note, chip;
     const cool = !u.acted && cooldownTurnsLeft(ui.view, u);
-    if (!u.acted && activationBlocked(ui.view, u)) {
+    if (u.suppressed > 0) {   // 제압 (후퇴·제압 규칙): 내 유닛만
+      chip = { text: t('card.suppressed'), cls: 'chip orange' };
+      note = t('status.suppressedNote');
+    } else if (!u.acted && activationBlocked(ui.view, u)) {
       chip = { text: t('card.actSpent'), cls: 'chip orange' };
       note = t('status.actSpentNote');
     } else if (cool) {   // 간접 화력 쿨다운 (내 유닛): 이동은 가능
@@ -8953,6 +9207,7 @@ const RICH_MAP = (() => {
     const st = ui.view, me = ui.viewer;
     if (!st || u.side !== me || !activationStatus(st, me)) return '';
     if (u.acted) return t('card.actDone');
+    if (u.suppressed > 0) return t('card.actSuppressed');
     if (hasActivated(st, u)) return t('card.actActive');
     if (activationBlocked(st, u)) return t('card.actSpent');
     return t('card.actReady');
@@ -8976,6 +9231,7 @@ const RICH_MAP = (() => {
       const sg = signalState(u);
       if (sg !== 'na') bits.push(t(sg === 'on' ? 'card.sumSigOn' : 'card.sumSigOff', { n: GAME_CONFIG.COMBAT.signalBonus }));
       if (!u.acted && activationBlocked(ui.view, u)) bits.unshift(t('card.actSpent'));
+      if (u.suppressed > 0) bits.unshift(t('card.suppressed'));
     } else bits.push(P(u), terName(ter));
     return `${symHtml(u.side, u.type)}<span class="sum-main"><span class="sum-top"><span class="uc-name tx" style="font-size:14px;color:${nameColor(u.side)}">${esc(whoName(u.side, u.type))}</span>${pipsHtml(u.hp, u.side)}</span>`
       + `<span class="sum-sub tx">${esc(bits.join(' · '))}</span></span><span class="chev" aria-hidden="true">▲</span>`;
@@ -9008,7 +9264,7 @@ const RICH_MAP = (() => {
     if (ui.wide || ui.deploy || !st || st.winner || !me || me === 'all' || st.turn !== me) return false;
     const act = activationStatus(st, me);
     if (!act || act.left === 0) return false;   // 행동 제한이 꺼져 있거나 다 쓴 경우: 한 번에 종료
-    return st.units.some((x) => x.side === me && !x.acted && !activationBlocked(st, x));
+    return st.units.some((x) => x.side === me && !x.acted && !activationBlocked(st, x) && !(x.suppressed > 0));
   }
   function disarmEnd(redraw = true) {
     clearTimeout(ui.endArmTimer);
@@ -9040,7 +9296,7 @@ const RICH_MAP = (() => {
     } else {
       label = t('btn.endTurn');
       enabled = playerCanAct();
-      if (st && me && st.turn === me) n = st.units.filter((x) => x.side === me && !x.acted && !activationBlocked(st, x)).length;
+      if (st && me && st.turn === me) n = st.units.filter((x) => x.side === me && !x.acted && !activationBlocked(st, x) && !(x.suppressed > 0)).length;
     }
     // 행동 한도를 다 쓰면 턴 종료 버튼 강조 (연출 줄이기: 움직임 없이 테두리만)
     const act = !ui.deploy && st && !st.winner && me && me !== 'all' ? activationStatus(st, me) : null;
@@ -9132,7 +9388,8 @@ const RICH_MAP = (() => {
   /** 이벤트가 화면에서 가리키는 칸들 */
   function eventCells(ev) {
     switch (ev.type) {
-      case 'move': return [ev.from, ev.to];
+      case 'move': case 'retreat': return [ev.from, ev.to];
+      case 'suppressed': return [ev.pos];
       case 'ambush': return [ev.at];
       case 'diceRoll': return [ev.target];
       case 'damage': case 'splashDamage': case 'destroyed': case 'captured': case 'objectiveLost': case 'arrival': return [ev.pos];
@@ -9150,7 +9407,7 @@ const RICH_MAP = (() => {
     // 로그 색 막대: 사건의 진영. 시야 밖에서 온 공격과 그 피해는 'unk' (출처 불명, 주황)
     const roll = fresh.find((e) => e.type === 'diceRoll');
     const unseenSrc = (s) => !!roll && roll.side !== s && !visMap[s].has(idx(roll.from.r, roll.from.c));
-    const hitTypes = ['diceRoll', 'damage', 'splashDamage', 'destroyed'];
+    const hitTypes = ['diceRoll', 'damage', 'splashDamage', 'destroyed', 'retreat', 'suppressed'];
     for (const ev of fresh) {
       for (const s of Object.keys(ev.descBy)) {
         const d = ev.descBy[s];
@@ -9189,6 +9446,8 @@ const RICH_MAP = (() => {
   const VERB = (ev) => ({ t: ev.indirect ? 'verb.fire' : 'verb.attack' });
   const RES = (ev) => ({ t: ev.hit ? 'res.hit' : 'res.miss' });
 
+  /** 격파 로그 문구 키: 후퇴 불가·재직격은 원인을 함께 */
+  const DESTROY_KEY = (ev, full) => (ev.cause === 'retreatBlocked' ? 'log.destroyedRetreat' : ev.cause === 'resuppressed' ? 'log.destroyedResupp' : 'log.destroyed') + (full ? 'Full' : '');
   /** 전체 공개용 기록 (전투 되돌아보기) */
   function describeFull(ev) {
     switch (ev.type) {
@@ -9197,7 +9456,9 @@ const RICH_MAP = (() => {
       case 'diceRoll': return M('log.attackFull', { who: WHO(ev.side, ev.unitType), from: P(ev.from), target: P(ev.target), verb: VERB(ev), dice: diceLog(ev), res: RES(ev) }, ev.side);
       case 'damage': case 'splashDamage':
         return M('log.damage', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos), n: ev.amount, splash: ev.type === 'splashDamage' ? { t: 'log.splash' } : '', hp: ev.hp }, '');
-      case 'destroyed': return M('log.destroyedFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
+      case 'destroyed': return M(DESTROY_KEY(ev, true), { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
+      case 'retreat': return M('log.retreatFull', { who: WHO(ev.side, ev.unitType), from: P(ev.from), to: P(ev.to) }, ev.side);
+      case 'suppressed': return M('log.suppressedFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, ev.side);
       case 'scored': return ev.pts ? M('log.scoredMine', { n: ev.round, side: S(ev.side), pts: ev.pts, list: SCORE_LIST(ev.by) }, ev.side) : null;
       case 'captured': return M('log.capturedFull', { side: S(ev.side), obj: OB(ev.objectiveId), pos: P(ev.pos) }, 'sys');
       case 'objectiveLost': return M(ev.contested ? 'log.objContested' : 'log.objLost', { obj: OB(ev.objectiveId) }, 'sys');
@@ -9245,7 +9506,17 @@ const RICH_MAP = (() => {
         }
         return null;
       case 'destroyed':
-        if (mine || seen(ev.pos)) return M('log.destroyed', { who: REL(mine, ev.unitType), pos: P(ev.pos) }, mine ? 'bad' : 'sys');
+        if (mine || seen(ev.pos)) return M(DESTROY_KEY(ev, false), { who: REL(mine, ev.unitType), pos: P(ev.pos) }, mine ? 'bad' : 'sys');
+        return null;
+      case 'retreat':
+        // 내 유닛은 칸까지, 적은 출발·도착 중 한 곳이라도 보일 때만 병종만 (후퇴 방향·칸은 알리지 않음)
+        if (mine) return M('log.retreat', { who: WHO(ev.side, ev.unitType), from: P(ev.from), to: P(ev.to) }, 'bad');
+        if (seen(ev.from) || seen(ev.to)) return M('log.retreatEnemy', { unit: U(ev.unitType) }, '');
+        return null;
+      case 'suppressed':
+        // 내 유닛이 맞은 것, 또는 내가 쏜 포격이 시야 안의 적을 맞힌 결과 로그만 (적의 제압 상태를 따로 표시하지 않음)
+        if (mine) return M('log.suppressedMine', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
+        if (seen(ev.pos)) return M('log.suppressedEnemy', { unit: U(ev.unitType), pos: P(ev.pos) }, '');
         return null;
       case 'captured':
         if (hs && !mine && !seen(ev.pos)) return null;
@@ -9683,8 +9954,30 @@ const RICH_MAP = (() => {
     await Promise.all(plan.units.map((u) => wait(u.at - plan.hitAt).then(() => (ui.reduceMotion ? shakeFx(u.pos) : unitHitFx(u.pos, u.push)))));
     if (faced) turnUnit(faced, 0, DESIGN.rich.face.backMs);   // 공격 연출이 끝나면 원래 방향으로 (기다리지 않음)
     if (token !== ui.gameId) return;
+    // 후퇴: 출발·도착 칸이 모두 보이는 유닛만 미끄러짐을 그림 (피해 연출이 끝난 뒤). 하나라도 시야 밖이면 그림 없이 결과 상태만
+    const slides = ui.reduceMotion ? [] : events.filter((e) => e.type === 'retreat' && vis.has(idx(e.from.r, e.from.c)) && vis.has(idx(e.to.r, e.to.c)));
+    for (const e of slides) ui.anim.hideUnits.add(e.unitId);
     ui.view = post; render();   // 체력 숫자는 번쩍임 직후에 바뀜
+    const cs0 = slides.length ? cellPx() : 0;
+    const slideEls = slides.map((e) => {
+      const el = fxUnitEl(cs0);
+      el.innerHTML = fxUnitHtml(e.side, e.unitType, e.hp);
+      el.style.transform = `translate(${e.from.c * cs0}px, ${e.from.r * cs0}px)`;
+      fxLayer.appendChild(el);
+      return el;
+    });
     await Promise.all([...dmg.map((e) => damageNumberFx(e.pos, e.amount, e.side === ev.side)), ...dead.map(destroyFx)]);
+    if (slides.length) {
+      const mv = sfx(moveSoundOf(slides[0].unitType));
+      await tween(DESIGN.fx.retreatMs * speedMul(), (p) => {
+        const q = easeOut(p);
+        slides.forEach((e, k) => { slideEls[k].style.transform = `translate(${(e.from.c + (e.to.c - e.from.c) * q) * cs0}px, ${(e.from.r + (e.to.r - e.from.r) * q) * cs0}px)`; });
+      }, token);
+      audio.stopVoice(mv, 120);
+      slideEls.forEach((el) => el.remove());
+      for (const e of slides) ui.anim.hideUnits.delete(e.unitId);
+      if (token === ui.gameId) render();
+    }
   }
 
   /** 실제로 지나간 경로: 이동 가능 칸 경로에서 최종 칸까지 (매복으로 멈춘 경우 그 앞까지) */
@@ -9708,7 +10001,8 @@ const RICH_MAP = (() => {
     if (ui.tut) tutRecord({ kind: 'select', unit: id }, []);
     render();
     const u = getUnit(ui.state, id);
-    if (u && !u.acted && activationBlocked(ui.state, u)) announce(t('live.actSpent'));   // 하이라이트 없음 + 카드에 '행동 한도 소진'
+    if (u && u.suppressed > 0) announce(t('live.suppressed'));   // 이동·공격 하이라이트 없음 + 카드에 '제압됨'
+    else if (u && !u.acted && activationBlocked(ui.state, u)) announce(t('live.actSpent'));   // 하이라이트 없음 + 카드에 '행동 한도 소진'
   }
 
   function onCellClick(i) {
@@ -11143,6 +11437,8 @@ const RICH_MAP = (() => {
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
   }
   const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'zoom', 'terms'];
+  /** 이 시나리오에서 보이는 규칙 항목 (후퇴와 제압은 그 규칙이 켜진 시나리오만, '박격포와 포병' 다음) */
+  const ruleSecs = () => (GAME_CONFIG.RETREAT ? RULE_SECS.flatMap((id) => (id === 'fires' ? [id, 'retreat'] : [id])) : RULE_SECS);
   /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
   function ruleSectionHtml(id) {
     const C = GAME_CONFIG, CB = C.COMBAT;
@@ -11189,6 +11485,10 @@ const RICH_MAP = (() => {
         const art = C.UNIT_TYPES.artillery;
         return `<ul>${li(t('intro.arty', { range: rangeText(art, { side: PLAYER, type: 'artillery' }), splash: CB.splashDamage }))}${introFireRuleHtml()}${C.FIRES ? li(esc(t('rules.enemyCd'))) : ''}</ul>`;
       }
+      case 'retreat': {
+        const R = C.RETREAT;
+        return `<ul>${['1', '2', '3', '4', '5'].map((k) => li(esc(t('rules.retreat.' + k, { steps: R ? R.steps : 1 })))).join('')}</ul>`;
+      }
       case 'terms':
         return `<ul>${['range', 'cooldown', 'contest', 'fog', 'action', 'moveAttack', 'splash'].map((k) => li(esc(t('rules.term.' + k)))).join('')}</ul>`;
       default: return '';
@@ -11200,11 +11500,12 @@ const RICH_MAP = (() => {
    */
   function showRules(back, kind = 'rules') {
     const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
-    const open = RULE_SECS.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
+    const secs = ruleSecs();
+    const open = secs.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
     showOverlay(`<div class="rules-sheet">
       <div class="rules-head"><h2>${esc(t('rules.title'))}</h2><button class="x-btn rules-x" id="btn-rules-x" aria-label="${esc(t('aria.close'))}">×</button></div>
       <div class="rules-now hint">${esc(t('rules.now', { name: { t: sc.nameKey } }))}</div>
-      <div class="rules-list">${RULE_SECS.map((id) => `<details class="rule-sec" data-sec="${id}"${id === open ? ' open' : ''}><summary>${esc(t('rules.sec.' + id))}</summary><div class="rule-body">${ruleSectionHtml(id)}</div></details>`).join('')}</div>
+      <div class="rules-list">${secs.map((id) => `<details class="rule-sec" data-sec="${id}"${id === open ? ' open' : ''}><summary>${esc(t('rules.sec.' + id))}</summary><div class="rule-body">${ruleSectionHtml(id)}</div></details>`).join('')}</div>
       <div class="btn-row"><button class="primary" id="btn-rules-back">${esc(t('btn.back'))}</button></div>
     </div>`, () => showRules(back, kind), kind);
     const close = () => { ui.rulesBack = null; back(); };

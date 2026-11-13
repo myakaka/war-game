@@ -532,6 +532,8 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
 .cool-badge { position: absolute; top: 0; right: 0; z-index: 9; pointer-events: none; display: flex; }
 .cool-badge > span { background: #4B5563; color: #fff; border: 1px solid #F9FAFB; border-radius: 4px; padding: 0 2px; font-weight: 800; line-height: 1.15;
   font-size: max(8px, calc(var(--cell) * 0.27)); white-space: nowrap; word-break: keep-all; }
+.supp-badge { right: auto; left: 0; }
+.supp-badge > span { background: #7F1D1D; }   /* 제압 표식: 내 유닛만 */
 .atk-sheet .sh-chips .chip.ff { font-weight: 800; border-width: 2px; }   /* 포병 오폭 경고 칩: 붉은 색 강조 */
 .notice {
   position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; max-width: calc(100vw - 32px);

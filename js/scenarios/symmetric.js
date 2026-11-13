@@ -85,6 +85,18 @@ SCENARIOS.push({
     mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
     artillery: { range: 5, cooldown: 1 },
   },
+  // 후퇴·제압 (v11): 적에게 피해를 받으면 뒤로 후퇴(막히면 격파), 간접 화력 정중앙은 제압. 양쪽 같은 규칙 (진영별 값을 두면 대칭 검사 실패)
+  retreat: {
+    enabled: true,
+    cause: 'enemyDamage',          // 적이 입힌 피해(직접, 박격포, 포병)만. 자기 진영이 쏜 간접 화력 피해는 제외
+    direct: 'awayFromAttacker',    // 직접 사격: 공격자 반대 방향
+    indirect: 'awayFromImpact',    // 포병 주변 4칸: 폭발 중심에서 멀어지는 방향
+    steps: 1,
+    repeatPerHit: true,            // 한 턴에 여러 번 맞으면 맞은 횟수만큼 연속 후퇴
+    blockedIsDeath: true,          // 후퇴할 수 없으면 격파
+    passThroughFriendly: true,     // 후퇴 칸에 아군이 있으면 지나서 그 뒤로
+    suppress: { byImpactCenter: true, sources: ['mortar', 'artillery'], duration: 1, repeatIsDeath: true },
+  },
   // 점수제 (v10): 점유한 거점의 점수가 쌓임. 측면 두 거점은 같은 값이어야 함 (대칭 검사)
   objectivePoints: { SL: 1, SC: 2, SR: 1 },
   scoreTiming: 'ownTurnEnd',             // 'ownTurnEnd' 자기 턴을 끝낼 때 자기 점유만 · 'roundEnd' 라운드 끝에 양쪽 동시

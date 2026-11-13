@@ -400,6 +400,7 @@ function symV2Position(state, ctx, u, pos) {
     const o = objectiveAt(state, pos.r, pos.c);
     if (o) s -= V.indirectHoldCut * (o.owner !== side ? GAME_CONFIG.AI.WEIGHTS.capture : GAME_CONFIG.AI.SYMMETRIC.HOLD);
   }
+  if (GAME_CONFIG.RETREAT) s -= symV2RetreatRisk(state, ctx, u, pos, loss, mult);   // 한 번 맞으면 물러날 곳이 없는 칸·제압 위험 (retreat 규칙이 켜진 시나리오만)
   // 최소 수비: 점유 중인 거점의 마지막 수비 유닛은 떠나지 않음
   const o0 = objectiveAt(state, u.r, u.c);
   if (o0 && o0.owner === side && moving) {
@@ -433,8 +434,104 @@ function symV2Position(state, ctx, u, pos) {
   return s;
 }
 
+/* ---------- 후퇴·제압 (시나리오 retreat) 을 아는 점수 항목 ----------
+ * AI 가 쓰는 정보: 지형(공개), 맵 크기, 자기 유닛, 내 시야 안의 적 유닛, 내가 이번 턴에 제압한 유닛 id (내 사격 결과).
+ * 안 보이는 칸은 비어 있다고 가정하고, 적의 제압 상태·체력 밖의 숨은 정보는 읽지 않는다.
+ */
+/** victim 이 dir 방향으로 후퇴할 때의 결과 { dies, to }: 규칙(retreatTarget)과 같은 판정이지만 아는 유닛만 본다 */
+function symRetreatOutcome(state, ctx, aiSide, victim, dir) {
+  const R = GAME_CONFIG.RETREAT;
+  let r = victim.r, c = victim.c;
+  for (let k = 0; k < R.steps; k++) {
+    r += dir[0]; c += dir[1];
+    for (;;) {
+      if (!inBounds(r, c)) return { dies: true };
+      const ter = terrainAt(r, c);
+      if (ter.impassableFor && ter.impassableFor.includes(victim.type)) return { dies: true };
+      const o = getUnitAt(state, r, c);
+      const known = o && o.id !== victim.id && (o.side === aiSide || ctx.vis.has(idx(r, c)));
+      if (!known) break;
+      if (o.side !== victim.side || !R.passThroughFriendly) return { dies: true };
+      r += dir[0]; c += dir[1];
+    }
+  }
+  return { dies: false, to: { r, c } };
+}
+
+/** 내가 이번 턴에 제압한 적 유닛인가 (내 사격 결과로 안 것) */
+function symKnowsSuppressed(state, side, unitId) {
+  const sp = state.aiIntel && state.aiIntel[side] && state.aiIntel[side].supp;
+  return !!sp && sp[unitId] === state.round && state.turn === side;
+}
+
+/** 내 사격 결과 기록 (resolveAttack 끝): 시야 안에서 제압한 적 유닛 id 를 이번 라운드에 기억 */
+function intelOnSuppress(state, attacker, events) {
+  if (!state.aiIntel || !state.aiIntel[attacker.side]) return;
+  let vis = null;
+  for (const ev of events) {
+    if (ev.type !== 'suppressed' || ev.side === attacker.side) continue;
+    vis = vis || getVisibleTiles(state, attacker.side);
+    if (!vis.has(idx(ev.pos.r, ev.pos.c))) continue;
+    const ai = state.aiIntel[attacker.side];
+    (ai.supp || (ai.supp = {}))[ev.unitId] = state.round;
+  }
+}
+
+/** 이 사격이 (명중하면) 가져올 후퇴·제압 효과의 가치. 보이는 표적과 그 파편 칸의 적만 센다 */
+function symV2RetreatGain(state, ctx, u, from, target, p) {
+  const X = ctx.v2, V = X.V, R = GAME_CONFIG.RETREAT, UV = GAME_CONFIG.AI.UNIT_VALUE;
+  const t = unitType(u);
+  const victims = [{ unit: target, splash: false, amount: t.fixedDamage != null ? t.fixedDamage : calcDamage(u, target) }];
+  if (t.indirect && t.splash !== false) {
+    for (const [dr, dc] of DIRS) {
+      const o = getUnitAt(state, target.r + dr, target.c + dc);
+      if (o && o.side !== u.side && ctx.vis.has(idx(o.r, o.c))) victims.push({ unit: o, splash: true, amount: GAME_CONFIG.COMBAT.splashDamage });
+    }
+  }
+  let s = 0;
+  for (const v of victims) {
+    const o = v.unit;
+    if (o.side === u.side || o.hp <= v.amount) continue;   // 아군 오사는 후퇴·제압 없음 · 피해로 격파되면 기존 항목이 셈
+    const val = UV[o.type] || 1;
+    const sp = R.suppress;
+    if (t.indirect && !v.splash && sp && sp.byImpactCenter && sp.sources.includes(u.type)) {
+      s += (symKnowsSuppressed(state, u.side, o.id) && sp.repeatIsDeath ? V.resuppressKill : V.suppress) * val * p;
+      continue;
+    }
+    const out = symRetreatOutcome(state, ctx, u.side, o, retreatDir(from, o, target, t.indirect && v.splash));
+    if (out.dies) { s += V.retreatKill * val * p; continue; }
+    // 거점 수비 유닛을 밀어내 거점이 비면 (그 거점 안에 남는 같은 편이 없을 때)
+    const obj = objectiveAt(state, o.r, o.c);
+    if (obj && !objectiveCells(obj).some((q) => (q.r !== o.r || q.c !== o.c) && ctx.vis.has(idx(q.r, q.c)) && (getUnitAt(state, q.r, q.c) || {}).side === o.side)
+        && !objectiveCells(obj).some((q) => q.r === out.to.r && q.c === out.to.c)) {
+      const pts = GAME_CONFIG.OBJECTIVE_POINTS ? GAME_CONFIG.OBJECTIVE_POINTS[obj.id] || 1 : 1;
+      s += V.retreatClear * pts * p;
+    }
+  }
+  return s;
+}
+
+/** 칸 pos 에 u 를 두었을 때의 후퇴·제압 위험 (감점 크기, 0 이상). loss: 그 칸의 기대 손실 비율, mult: 병종·체력 가중 */
+function symV2RetreatRisk(state, ctx, u, pos, loss, mult) {
+  const X = ctx.v2, V = X.V;
+  const m = X.maps(u.type), i = idx(pos.r, pos.c);
+  // 맞았을 때 물러날 칸이 막힌 방향 비율 (맵 끝·이동 불가 지형·보이는 적). 아군은 지나갈 수 있으므로 막힘이 아님
+  let blocked = 0;
+  for (const [dr, dc] of DIRS) {
+    const r = pos.r + dr, c = pos.c + dc;
+    if (!inBounds(r, c)) { blocked++; continue; }
+    const ter = terrainAt(r, c);
+    if (ter.impassableFor && ter.impassableFor.includes(u.type)) { blocked++; continue; }
+    const o = getUnitAt(state, r, c);
+    if (o && o.side !== u.side && ctx.vis.has(idx(r, c))) blocked++;
+  }
+  const exposure = Math.min(1, (m.direct[i] + 0.5 * m.artyP[i] * GAME_CONFIG.COMBAT.splashDamage) / Math.max(1, u.hp));
+  const indirectLoss = Math.min(1, Math.max(0, m.dmg[i] - m.direct[i]));   // 간접 화력에 맞을 기대치 (제압 위험)
+  return V.noRetreat * mult * (blocked / 4) * exposure + V.suppressRisk * mult * indirectLoss;
+}
+
 /** 공격 점수 추가 항목: 위협 제거, 마무리, 집중 사격. target 은 보이는 적 또는 기억으로 만든 가상 표적 */
-function symV2Attack(state, ctx, u, target, p, kind = 'visible') {
+function symV2Attack(state, ctx, u, target, p, kind = 'visible', from = u) {
   const X = ctx.v2, V = X.V;
   const rec = (target.id && X.recById.get(target.id)) || { type: target.type, r: target.r, c: target.c, hp: target.hp, conf: 1, radius: 0 };
   const ts = threatScore({ ...rec, hp: target.hp }, X.objCells, X.K);
@@ -448,6 +545,7 @@ function symV2Attack(state, ctx, u, target, p, kind = 'visible') {
   let adj = 0;
   if (t.indirect && t.splash !== false) for (const [dr, dc] of DIRS) { const a = getUnitAt(state, target.r + dr, target.c + dc); if (a && a.side === u.side) adj++; }
   if (t.indirect) s += adj ? -V.ffAdjacent * adj : (V.fireReady[kind] || 0) * (u.hp / GAME_CONFIG.MAX_HP);
+  if (GAME_CONFIG.RETREAT && kind === 'visible') s += symV2RetreatGain(state, ctx, u, from, target, p);   // 후퇴 불가 격파·거점 비우기·제압 (retreat 규칙이 켜진 시나리오만)
   return s;
 }
 

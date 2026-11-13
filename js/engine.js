@@ -239,6 +239,26 @@ function validateScenario(s) {
       }
     }
   }
+  if (s.retreat != null) {
+    const R = s.retreat, bad = (k, v) => E('scenErr.retreat', { key: k, v: String(v) });
+    if (typeof R !== 'object' || Array.isArray(R)) bad('retreat', R);
+    else {
+      if (typeof R.enabled !== 'boolean') bad('enabled', R.enabled);
+      if (R.cause !== 'enemyDamage') bad('cause', R.cause);
+      if (R.direct !== 'awayFromAttacker') bad('direct', R.direct);
+      if (R.indirect !== 'awayFromImpact') bad('indirect', R.indirect);
+      if (!(Number.isInteger(R.steps) && R.steps >= 1)) bad('steps', R.steps);
+      for (const k of ['repeatPerHit', 'blockedIsDeath', 'passThroughFriendly']) if (typeof R[k] !== 'boolean') bad(k, R[k]);
+      const sp = R.suppress;
+      if (sp != null) {
+        if (typeof sp !== 'object' || typeof sp.byImpactCenter !== 'boolean' || typeof sp.repeatIsDeath !== 'boolean') bad('suppress', sp);
+        else {
+          if (!(Number.isInteger(sp.duration) && sp.duration >= 1)) bad('suppress.duration', sp.duration);
+          if (!(Array.isArray(sp.sources) && sp.sources.every((k) => UNIT_TYPES[k] && UNIT_TYPES[k].indirect))) bad('suppress.sources', sp.sources);
+        }
+      }
+    }
+  }
   if (s.symmetric) for (const m of symmetryErrors(s)) E('scenErr.symmetry', { what: m });
   return errs;
 }
@@ -283,6 +303,10 @@ function symmetryErrors(s) {
   }
   if (s.activations && s.activations.def !== s.activations.att) out.push('activations');
   if (s.fires) for (const k of Object.keys(s.fires)) if (sides.includes(k) || k === 'def' || k === 'att') out.push(`fires.${k}`);
+  if (s.retreat) {   // 후퇴·제압은 양 진영에 같은 규칙: 진영·역할 키를 둘 수 없음
+    const walk = (o, path) => { if (o && typeof o === 'object') for (const k of Object.keys(o)) { if (sides.includes(k) || k === 'def' || k === 'att') out.push(`retreat.${path}${k}`); walk(o[k], `${path}${k}.`); } };
+    walk(s.retreat, '');
+  }
   if (s.unitTypes || s.unitOverrides || s.sideStats) out.push('unit stats');   // 진영별 병종 보정은 두지 않음
   return out;
 }
@@ -378,6 +402,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.ARRIVAL_RADIUS = s.arrivalRadius ?? RULES.ARRIVAL_RADIUS;
   C.ACTIVATIONS = s.activations ? { def: s.activations.def ?? null, att: s.activations.att ?? null } : null;   // 역할별 행동 한도 (null = 제한 없음)
   C.FIRES = s.fires ? JSON.parse(JSON.stringify(s.fires)) : null;   // 간접 화력 설정 (null = v6 규칙)
+  C.RETREAT = s.retreat && s.retreat.enabled ? JSON.parse(JSON.stringify(s.retreat)) : null;   // 후퇴·제압 (규칙 v11, null = 이전 규칙 그대로)
   C.ANCHORS = {};
   for (const side of C.ROUND_ORDER) {
     const pts = norm.filter((d) => d.side === side).flatMap((d) => d.cells);
@@ -711,6 +736,7 @@ function endTurn(state) {
   const order = GAME_CONFIG.ROUND_ORDER;
   const pos = order.indexOf(state.turn);
   const roundEnd = pos === order.length - 1;
+  if (GAME_CONFIG.RETREAT) for (const u of state.units) if (u.side === state.turn && u.suppressed > 0 && --u.suppressed <= 0) delete u.suppressed;   // 제압: 제압된 유닛의 자기 턴이 끝나면 해제
   const checkSide = GAME_CONFIG.OBJECTIVE_CHECK_AFTER || order[order.length - 1];
   if (roundEnd) recordObjectiveTimeline(state);
   if (GAME_CONFIG.OBJECTIVE_POINTS) {   // 점수제: 자기 턴 끝(ownTurnEnd) 또는 라운드 끝(roundEnd, 양쪽 동시)에 지금 점유한 거점의 점수
@@ -922,10 +948,11 @@ function updateMemory(state) {
 }
 
 /* =========================== 6. 이동 =========================== */
-function canUnitMove(state, u) { return !!u && u.side === state.turn && !u.moved && !u.acted && !state.winner && !activationBlocked(state, u); }
+function canUnitMove(state, u) { return !!u && u.side === state.turn && !u.moved && !u.acted && !state.winner && !activationBlocked(state, u) && !(u.suppressed > 0); }
 function canUnitAttack(state, u) {
   if (!u || u.side !== state.turn || u.acted || state.winner) return false;
   if (activationBlocked(state, u)) return false;
+  if (u.suppressed > 0) return false;   // 제압됨 (후퇴·제압 규칙)
   const t = unitType(u);
   if (!t.canAttack) return false;
   if (onCooldown(state, u)) return false;   // 간접 화력 쿨다운 (fires 가 없으면 항상 false)
@@ -1063,6 +1090,63 @@ function getAttackableTiles(state, unitId) {
   return out;
 }
 
+/* ---------- 후퇴·제압 (시나리오 retreat, 규칙 v11) ----------
+ * GAME_CONFIG.RETREAT 가 null 이면 이 코드는 실행되지 않는다 (이전 규칙과 정확히 같음).
+ * 적이 입힌 피해로 살아남은 유닛은 뒤로 물러나고(막히면 격파), 간접 화력 정중앙에 맞은 유닛은 제압된다 (u.suppressed = 남은 자기 턴 수).
+ * 자기 진영이 쏜 간접 화력 피해는 후퇴도 제압도 없다. 후퇴는 행동으로 세지 않아 moved·acted·moveLeft 를 건드리지 않는다.
+ */
+const sgn = (x) => (x > 0) - (x < 0);
+/** 후퇴 방향 [dr, dc]. 직접 사격: 공격자 반대 (행·열 차이 중 큰 쪽 축, 같으면 세로). 포병 주변 칸: 폭발 중심에서 멀어지는 방향 */
+function retreatDir(attacker, u, impact, splash) {
+  if (splash) return [sgn(u.r - impact.r), sgn(u.c - impact.c)];
+  const dr = u.r - attacker.r, dc = u.c - attacker.c;
+  return Math.abs(dr) >= Math.abs(dc) ? [sgn(dr), 0] : [0, sgn(dc)];
+}
+/** 후퇴 도착 칸. 막히면 null (격파). 맵 밖·병종이 못 들어가는 지형·적 유닛은 막힘, 아군은 지나서 같은 방향의 다음 칸 */
+function retreatTarget(state, u, dir, steps, passFriendly) {
+  let pos = { r: u.r, c: u.c };
+  for (let k = 0; k < steps; k++) {
+    let r = pos.r + dir[0], c = pos.c + dir[1];
+    for (;;) {
+      if (!inBounds(r, c)) return null;
+      const ter = terrainAt(r, c);
+      if (ter.impassableFor && ter.impassableFor.includes(u.type)) return null;
+      const o = getUnitAt(state, r, c);
+      if (!o || o.id === u.id) break;
+      if (o.side !== u.side || !passFriendly) return null;
+      r += dir[0]; c += dir[1];
+    }
+    pos = { r, c };
+  }
+  return pos;
+}
+/** 이번 공격의 피해(hits)를 받은 유닛들의 후퇴·제압 처리. 순서는 hits 순서 (정중앙 → 위·아래·왼쪽·오른쪽) 로 고정 */
+function resolveRetreats(state, attacker, impact, hits) {
+  const R = GAME_CONFIG.RETREAT, events = [];
+  const at = unitType(attacker);
+  const kill = (u, cause) => {
+    events.push({ type: 'destroyed', unitId: u.id, side: u.side, unitType: u.type, pos: { r: u.r, c: u.c }, cause });
+    state.units = state.units.filter((x) => x !== u);
+  };
+  for (const h of hits) {
+    const u = h.unit;
+    if (u.hp <= 0 || u.side === attacker.side || !(h.amount > 0)) continue;   // 격파됨 · 아군 오사 · 피해 없음
+    const sp = R.suppress;
+    if (at.indirect && !h.splash && sp && sp.byImpactCenter && sp.sources.includes(attacker.type)) {
+      if (u.suppressed > 0 && sp.repeatIsDeath) kill(u, 'resuppressed');
+      else { u.suppressed = sp.duration; events.push({ type: 'suppressed', unitId: u.id, side: u.side, unitType: u.type, pos: { r: u.r, c: u.c }, turns: sp.duration }); }
+      continue;
+    }
+    const dir = retreatDir(attacker, u, impact, at.indirect && h.splash);
+    const from = { r: u.r, c: u.c };
+    const to = retreatTarget(state, u, dir, R.steps, R.passThroughFriendly);
+    if (!to) { if (R.blockedIsDeath) kill(u, 'retreatBlocked'); continue; }
+    u.r = to.r; u.c = to.c;
+    events.push({ type: 'retreat', unitId: u.id, side: u.side, unitType: u.type, hp: u.hp, from, to: { ...to }, splash: !!h.splash });
+  }
+  return events;
+}
+
 /** 공격 실행. 이벤트 목록 반환 */
 function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   const a = getUnit(state, attackerId);
@@ -1100,6 +1184,11 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
       if (h.unit.hp <= 0) events.push({ type: 'destroyed', unitId: h.unit.id, side: h.unit.side, unitType: h.unit.type, pos: { r: h.unit.r, c: h.unit.c } });
     }
     state.units = state.units.filter((u) => u.hp > 0);
+    if (GAME_CONFIG.RETREAT) {
+      const rev = resolveRetreats(state, a, targetPos, hits);   // 후퇴·제압 (피해를 모두 적용한 뒤)
+      events.push(...rev);
+      if (state.aiIntel) intelOnSuppress(state, a, rev);   // 내 사격 결과: 시야 안에서 제압한 적 (ai-intel.js)
+    }
     if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence') events.push(...updateObjectiveControl(state));
   }
   if (state.aiIntel && t.indirect) intelOnIndirectFire(state, a, targetPos, events);   // 맞은 진영의 간접 사격 단서
@@ -1940,7 +2029,7 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
     }
     if (!ctx.isAttacker && C.CROSSINGS.some((x) => manhattan(x, tg) <= 1)) s += W.crossingFire;
   }
-  if (ctx.v2 && target) s += symV2Attack(state, ctx, u, target, p, tg.kind);   // 위협 제거·마무리·집중 (ai-intel.js)
+  if (ctx.v2 && target) s += symV2Attack(state, ctx, u, target, p, tg.kind, from);   // 위협 제거·마무리·집중 (ai-intel.js)
   return s;
 }
 
@@ -2968,5 +3057,6 @@ if (typeof module !== 'undefined' && module.exports) {
     diagnoseSymmetric, diagnoseSymmetricAI, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
     roundLimitType, heldPoints, awardPoints, pointsLimitResult, limitResultNow, scoreTargetResult, diagnoseScoring, SCORING_COMBOS,
     diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
+    retreatDir, retreatTarget, canUnitMove, canUnitAttack,
   };
 }

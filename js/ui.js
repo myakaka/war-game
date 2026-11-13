@@ -54,6 +54,7 @@
     fx: {
       speed: { slow: 1.5, normal: 1, fast: 0.5 },
       stepMs: 230, stepMsRM: 120, fadeInMs: 260,
+      retreatMs: 240,                                  // 후퇴: 옆 칸으로 짧게 미끄러짐 (0.25초 이내, 연출 속도 배율 적용)
       path: { line: '#2E6FD0', w: 2.2, dash: '3 4', opacity: 0.8, fadeMs: 500 },
       shake: { ms: 280, amp: 3.4 },
       hitRingRM: { ms: 450, line: '#D32F2F', w: 2.6 },
@@ -928,7 +929,11 @@
     // 쿨다운: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 사격 대기는 표시하지 않음)
     const cool = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer ? cooldownTurnsLeft(ui.view, u) : 0;
     if (cool) label += ', ' + t('aria.cooldown', { n: cool });
-    const coolHtml = cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '';
+    // 제압: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 제압 상태는 표시하지 않음)
+    const supp = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer && u.suppressed > 0 ? u.suppressed : 0;
+    if (supp) label += ', ' + t('aria.suppressed', { n: supp });
+    const suppHtml = supp ? `<div class="cool-badge supp-badge" aria-hidden="true"><span>${esc(t('supp.badge', { n: supp }))}</span></div>` : '';
+    const coolHtml = suppHtml + (cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '');
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
       const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0 });
       return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
@@ -1271,7 +1276,10 @@
     const MA = GAME_CONFIG.ENABLE_MOVE_ATTACK;
     let note, chip;
     const cool = !u.acted && cooldownTurnsLeft(ui.view, u);
-    if (!u.acted && activationBlocked(ui.view, u)) {
+    if (u.suppressed > 0) {   // 제압 (후퇴·제압 규칙): 내 유닛만
+      chip = { text: t('card.suppressed'), cls: 'chip orange' };
+      note = t('status.suppressedNote');
+    } else if (!u.acted && activationBlocked(ui.view, u)) {
       chip = { text: t('card.actSpent'), cls: 'chip orange' };
       note = t('status.actSpentNote');
     } else if (cool) {   // 간접 화력 쿨다운 (내 유닛): 이동은 가능
@@ -1353,6 +1361,7 @@
     const st = ui.view, me = ui.viewer;
     if (!st || u.side !== me || !activationStatus(st, me)) return '';
     if (u.acted) return t('card.actDone');
+    if (u.suppressed > 0) return t('card.actSuppressed');
     if (hasActivated(st, u)) return t('card.actActive');
     if (activationBlocked(st, u)) return t('card.actSpent');
     return t('card.actReady');
@@ -1376,6 +1385,7 @@
       const sg = signalState(u);
       if (sg !== 'na') bits.push(t(sg === 'on' ? 'card.sumSigOn' : 'card.sumSigOff', { n: GAME_CONFIG.COMBAT.signalBonus }));
       if (!u.acted && activationBlocked(ui.view, u)) bits.unshift(t('card.actSpent'));
+      if (u.suppressed > 0) bits.unshift(t('card.suppressed'));
     } else bits.push(P(u), terName(ter));
     return `${symHtml(u.side, u.type)}<span class="sum-main"><span class="sum-top"><span class="uc-name tx" style="font-size:14px;color:${nameColor(u.side)}">${esc(whoName(u.side, u.type))}</span>${pipsHtml(u.hp, u.side)}</span>`
       + `<span class="sum-sub tx">${esc(bits.join(' · '))}</span></span><span class="chev" aria-hidden="true">▲</span>`;
@@ -1408,7 +1418,7 @@
     if (ui.wide || ui.deploy || !st || st.winner || !me || me === 'all' || st.turn !== me) return false;
     const act = activationStatus(st, me);
     if (!act || act.left === 0) return false;   // 행동 제한이 꺼져 있거나 다 쓴 경우: 한 번에 종료
-    return st.units.some((x) => x.side === me && !x.acted && !activationBlocked(st, x));
+    return st.units.some((x) => x.side === me && !x.acted && !activationBlocked(st, x) && !(x.suppressed > 0));
   }
   function disarmEnd(redraw = true) {
     clearTimeout(ui.endArmTimer);
@@ -1440,7 +1450,7 @@
     } else {
       label = t('btn.endTurn');
       enabled = playerCanAct();
-      if (st && me && st.turn === me) n = st.units.filter((x) => x.side === me && !x.acted && !activationBlocked(st, x)).length;
+      if (st && me && st.turn === me) n = st.units.filter((x) => x.side === me && !x.acted && !activationBlocked(st, x) && !(x.suppressed > 0)).length;
     }
     // 행동 한도를 다 쓰면 턴 종료 버튼 강조 (연출 줄이기: 움직임 없이 테두리만)
     const act = !ui.deploy && st && !st.winner && me && me !== 'all' ? activationStatus(st, me) : null;
@@ -1532,7 +1542,8 @@
   /** 이벤트가 화면에서 가리키는 칸들 */
   function eventCells(ev) {
     switch (ev.type) {
-      case 'move': return [ev.from, ev.to];
+      case 'move': case 'retreat': return [ev.from, ev.to];
+      case 'suppressed': return [ev.pos];
       case 'ambush': return [ev.at];
       case 'diceRoll': return [ev.target];
       case 'damage': case 'splashDamage': case 'destroyed': case 'captured': case 'objectiveLost': case 'arrival': return [ev.pos];
@@ -1550,7 +1561,7 @@
     // 로그 색 막대: 사건의 진영. 시야 밖에서 온 공격과 그 피해는 'unk' (출처 불명, 주황)
     const roll = fresh.find((e) => e.type === 'diceRoll');
     const unseenSrc = (s) => !!roll && roll.side !== s && !visMap[s].has(idx(roll.from.r, roll.from.c));
-    const hitTypes = ['diceRoll', 'damage', 'splashDamage', 'destroyed'];
+    const hitTypes = ['diceRoll', 'damage', 'splashDamage', 'destroyed', 'retreat', 'suppressed'];
     for (const ev of fresh) {
       for (const s of Object.keys(ev.descBy)) {
         const d = ev.descBy[s];
@@ -1589,6 +1600,8 @@
   const VERB = (ev) => ({ t: ev.indirect ? 'verb.fire' : 'verb.attack' });
   const RES = (ev) => ({ t: ev.hit ? 'res.hit' : 'res.miss' });
 
+  /** 격파 로그 문구 키: 후퇴 불가·재직격은 원인을 함께 */
+  const DESTROY_KEY = (ev, full) => (ev.cause === 'retreatBlocked' ? 'log.destroyedRetreat' : ev.cause === 'resuppressed' ? 'log.destroyedResupp' : 'log.destroyed') + (full ? 'Full' : '');
   /** 전체 공개용 기록 (전투 되돌아보기) */
   function describeFull(ev) {
     switch (ev.type) {
@@ -1597,7 +1610,9 @@
       case 'diceRoll': return M('log.attackFull', { who: WHO(ev.side, ev.unitType), from: P(ev.from), target: P(ev.target), verb: VERB(ev), dice: diceLog(ev), res: RES(ev) }, ev.side);
       case 'damage': case 'splashDamage':
         return M('log.damage', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos), n: ev.amount, splash: ev.type === 'splashDamage' ? { t: 'log.splash' } : '', hp: ev.hp }, '');
-      case 'destroyed': return M('log.destroyedFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
+      case 'destroyed': return M(DESTROY_KEY(ev, true), { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
+      case 'retreat': return M('log.retreatFull', { who: WHO(ev.side, ev.unitType), from: P(ev.from), to: P(ev.to) }, ev.side);
+      case 'suppressed': return M('log.suppressedFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, ev.side);
       case 'scored': return ev.pts ? M('log.scoredMine', { n: ev.round, side: S(ev.side), pts: ev.pts, list: SCORE_LIST(ev.by) }, ev.side) : null;
       case 'captured': return M('log.capturedFull', { side: S(ev.side), obj: OB(ev.objectiveId), pos: P(ev.pos) }, 'sys');
       case 'objectiveLost': return M(ev.contested ? 'log.objContested' : 'log.objLost', { obj: OB(ev.objectiveId) }, 'sys');
@@ -1645,7 +1660,17 @@
         }
         return null;
       case 'destroyed':
-        if (mine || seen(ev.pos)) return M('log.destroyed', { who: REL(mine, ev.unitType), pos: P(ev.pos) }, mine ? 'bad' : 'sys');
+        if (mine || seen(ev.pos)) return M(DESTROY_KEY(ev, false), { who: REL(mine, ev.unitType), pos: P(ev.pos) }, mine ? 'bad' : 'sys');
+        return null;
+      case 'retreat':
+        // 내 유닛은 칸까지, 적은 출발·도착 중 한 곳이라도 보일 때만 병종만 (후퇴 방향·칸은 알리지 않음)
+        if (mine) return M('log.retreat', { who: WHO(ev.side, ev.unitType), from: P(ev.from), to: P(ev.to) }, 'bad');
+        if (seen(ev.from) || seen(ev.to)) return M('log.retreatEnemy', { unit: U(ev.unitType) }, '');
+        return null;
+      case 'suppressed':
+        // 내 유닛이 맞은 것, 또는 내가 쏜 포격이 시야 안의 적을 맞힌 결과 로그만 (적의 제압 상태를 따로 표시하지 않음)
+        if (mine) return M('log.suppressedMine', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
+        if (seen(ev.pos)) return M('log.suppressedEnemy', { unit: U(ev.unitType), pos: P(ev.pos) }, '');
         return null;
       case 'captured':
         if (hs && !mine && !seen(ev.pos)) return null;
@@ -2083,8 +2108,30 @@
     await Promise.all(plan.units.map((u) => wait(u.at - plan.hitAt).then(() => (ui.reduceMotion ? shakeFx(u.pos) : unitHitFx(u.pos, u.push)))));
     if (faced) turnUnit(faced, 0, DESIGN.rich.face.backMs);   // 공격 연출이 끝나면 원래 방향으로 (기다리지 않음)
     if (token !== ui.gameId) return;
+    // 후퇴: 출발·도착 칸이 모두 보이는 유닛만 미끄러짐을 그림 (피해 연출이 끝난 뒤). 하나라도 시야 밖이면 그림 없이 결과 상태만
+    const slides = ui.reduceMotion ? [] : events.filter((e) => e.type === 'retreat' && vis.has(idx(e.from.r, e.from.c)) && vis.has(idx(e.to.r, e.to.c)));
+    for (const e of slides) ui.anim.hideUnits.add(e.unitId);
     ui.view = post; render();   // 체력 숫자는 번쩍임 직후에 바뀜
+    const cs0 = slides.length ? cellPx() : 0;
+    const slideEls = slides.map((e) => {
+      const el = fxUnitEl(cs0);
+      el.innerHTML = fxUnitHtml(e.side, e.unitType, e.hp);
+      el.style.transform = `translate(${e.from.c * cs0}px, ${e.from.r * cs0}px)`;
+      fxLayer.appendChild(el);
+      return el;
+    });
     await Promise.all([...dmg.map((e) => damageNumberFx(e.pos, e.amount, e.side === ev.side)), ...dead.map(destroyFx)]);
+    if (slides.length) {
+      const mv = sfx(moveSoundOf(slides[0].unitType));
+      await tween(DESIGN.fx.retreatMs * speedMul(), (p) => {
+        const q = easeOut(p);
+        slides.forEach((e, k) => { slideEls[k].style.transform = `translate(${(e.from.c + (e.to.c - e.from.c) * q) * cs0}px, ${(e.from.r + (e.to.r - e.from.r) * q) * cs0}px)`; });
+      }, token);
+      audio.stopVoice(mv, 120);
+      slideEls.forEach((el) => el.remove());
+      for (const e of slides) ui.anim.hideUnits.delete(e.unitId);
+      if (token === ui.gameId) render();
+    }
   }
 
   /** 실제로 지나간 경로: 이동 가능 칸 경로에서 최종 칸까지 (매복으로 멈춘 경우 그 앞까지) */
@@ -2108,7 +2155,8 @@
     if (ui.tut) tutRecord({ kind: 'select', unit: id }, []);
     render();
     const u = getUnit(ui.state, id);
-    if (u && !u.acted && activationBlocked(ui.state, u)) announce(t('live.actSpent'));   // 하이라이트 없음 + 카드에 '행동 한도 소진'
+    if (u && u.suppressed > 0) announce(t('live.suppressed'));   // 이동·공격 하이라이트 없음 + 카드에 '제압됨'
+    else if (u && !u.acted && activationBlocked(ui.state, u)) announce(t('live.actSpent'));   // 하이라이트 없음 + 카드에 '행동 한도 소진'
   }
 
   function onCellClick(i) {
@@ -3543,6 +3591,8 @@
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
   }
   const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'zoom', 'terms'];
+  /** 이 시나리오에서 보이는 규칙 항목 (후퇴와 제압은 그 규칙이 켜진 시나리오만, '박격포와 포병' 다음) */
+  const ruleSecs = () => (GAME_CONFIG.RETREAT ? RULE_SECS.flatMap((id) => (id === 'fires' ? [id, 'retreat'] : [id])) : RULE_SECS);
   /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
   function ruleSectionHtml(id) {
     const C = GAME_CONFIG, CB = C.COMBAT;
@@ -3589,6 +3639,10 @@
         const art = C.UNIT_TYPES.artillery;
         return `<ul>${li(t('intro.arty', { range: rangeText(art, { side: PLAYER, type: 'artillery' }), splash: CB.splashDamage }))}${introFireRuleHtml()}${C.FIRES ? li(esc(t('rules.enemyCd'))) : ''}</ul>`;
       }
+      case 'retreat': {
+        const R = C.RETREAT;
+        return `<ul>${['1', '2', '3', '4', '5'].map((k) => li(esc(t('rules.retreat.' + k, { steps: R ? R.steps : 1 })))).join('')}</ul>`;
+      }
       case 'terms':
         return `<ul>${['range', 'cooldown', 'contest', 'fog', 'action', 'moveAttack', 'splash'].map((k) => li(esc(t('rules.term.' + k)))).join('')}</ul>`;
       default: return '';
@@ -3600,11 +3654,12 @@
    */
   function showRules(back, kind = 'rules') {
     const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
-    const open = RULE_SECS.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
+    const secs = ruleSecs();
+    const open = secs.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
     showOverlay(`<div class="rules-sheet">
       <div class="rules-head"><h2>${esc(t('rules.title'))}</h2><button class="x-btn rules-x" id="btn-rules-x" aria-label="${esc(t('aria.close'))}">×</button></div>
       <div class="rules-now hint">${esc(t('rules.now', { name: { t: sc.nameKey } }))}</div>
-      <div class="rules-list">${RULE_SECS.map((id) => `<details class="rule-sec" data-sec="${id}"${id === open ? ' open' : ''}><summary>${esc(t('rules.sec.' + id))}</summary><div class="rule-body">${ruleSectionHtml(id)}</div></details>`).join('')}</div>
+      <div class="rules-list">${secs.map((id) => `<details class="rule-sec" data-sec="${id}"${id === open ? ' open' : ''}><summary>${esc(t('rules.sec.' + id))}</summary><div class="rule-body">${ruleSectionHtml(id)}</div></details>`).join('')}</div>
       <div class="btn-row"><button class="primary" id="btn-rules-back">${esc(t('btn.back'))}</button></div>
     </div>`, () => showRules(back, kind), kind);
     const close = () => { ui.rulesBack = null; back(); };
