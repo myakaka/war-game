@@ -49,24 +49,20 @@ SCENARIOS.push({
     { id: 'SR', nameKey: 'obj.SR', shortNameKey: 'obj.SR.short', cells: [[7, 13]], startOwner: null },
   ],
   deployments: [
-    // 러시아군 (위쪽) 시작 배치
-    { round: 0, side: 'ru', type: 'infantry', pos: [3, 2] }, { round: 0, side: 'ru', type: 'infantry', pos: [3, 6] },
-    { round: 0, side: 'ru', type: 'infantry', pos: [3, 10] }, { round: 0, side: 'ru', type: 'infantry', pos: [2, 13] },
+    // 러시아군 (위쪽) 시작 배치 (7기)
+    { round: 0, side: 'ru', type: 'infantry', pos: [3, 6] }, { round: 0, side: 'ru', type: 'infantry', pos: [3, 10] },
     { round: 0, side: 'ru', type: 'antitank', pos: [2, 7] },
     { round: 0, side: 'ru', type: 'artillery', pos: [1, 8] },
     { round: 0, side: 'ru', type: 'mortar', pos: [1, 11] },
     { round: 0, side: 'ru', type: 'signal', pos: [1, 5] },
-    { round: 0, side: 'ru', type: 'recon', pos: [3, 4] },
-    { round: 0, side: 'ru', type: 'armor', pos: [2, 4] }, { round: 0, side: 'ru', type: 'armor', pos: [2, 11] },
+    { round: 0, side: 'ru', type: 'armor', pos: [2, 4] },
     // 우크라이나군 (아래쪽) 시작 배치 = 러시아군 칸 (r,c) → (15-r, 15-c)
-    { round: 0, side: 'ua', type: 'infantry', pos: [12, 13] }, { round: 0, side: 'ua', type: 'infantry', pos: [12, 9] },
-    { round: 0, side: 'ua', type: 'infantry', pos: [12, 5] }, { round: 0, side: 'ua', type: 'infantry', pos: [13, 2] },
+    { round: 0, side: 'ua', type: 'infantry', pos: [12, 9] }, { round: 0, side: 'ua', type: 'infantry', pos: [12, 5] },
     { round: 0, side: 'ua', type: 'antitank', pos: [13, 8] },
     { round: 0, side: 'ua', type: 'artillery', pos: [14, 7] },
     { round: 0, side: 'ua', type: 'mortar', pos: [14, 4] },
     { round: 0, side: 'ua', type: 'signal', pos: [14, 10] },
-    { round: 0, side: 'ua', type: 'recon', pos: [12, 11] },
-    { round: 0, side: 'ua', type: 'armor', pos: [13, 11] }, { round: 0, side: 'ua', type: 'armor', pos: [13, 4] },
+    { round: 0, side: 'ua', type: 'armor', pos: [13, 11] },
     // 증원 (양쪽 같음, 자기 턴 시작에 등장)
     { round: 4, side: 'ru', type: 'infantry', count: 2, cells: [[0, 4], [0, 5]] },
     { round: 4, side: 'ua', type: 'infantry', count: 2, cells: [[15, 11], [15, 10]] },
@@ -74,6 +70,23 @@ SCENARIOS.push({
     { round: 8, side: 'ua', type: 'armor', pos: [15, 12] }, { round: 8, side: 'ua', type: 'infantry', pos: [15, 9] },
   ],
   placementZones: { ua: { rows: [12, 15] }, ru: { rows: [0, 3] } },   // 직접 배치: 자기 쪽 끝 4행 (회전 대칭)
+  // 직접 편성 (시작 옵션): 포인트 안에서 병종을 골라 시작 부대를 짬. '기본' 편성이면 아래 값은 쓰이지 않음. 가격·예산은 임시값 (사용자가 조절)
+  // 증원(위 deployments 의 round 4·8)은 직접 편성에서도 그대로 (양쪽 같음)
+  draft: {
+    enabled: true,
+    costs: { infantry: 2, recon: 2, signal: 2, antitank: 3, mortar: 3, armor: 10, artillery: 5 },
+    budget: 27,                                   // 기본 편성의 비용 합계 (테스트가 검증)
+    limits: { signal: 1, armor: 1 },              // 병종별 최대 수 (없으면 제한 없음). 통신 보너스는 겹치지 않으므로 1, 기갑은 상위 호환이라 기본 편성 수(1)로 제한
+    minUnits: 1,
+    deployRows: { ua: [12, 15], ru: [0, 3] },     // 자동 배치 구역 (= placementZones 와 같아야 함)
+    // AI 가 고르는 편성. 쉬움 = 첫 번째(balanced)만, 보통·어려움 = 무작위
+    presets: [
+      { id: 'balanced', nameKey: 'draft.preset.balanced', counts: { infantry: 2, antitank: 1, artillery: 1, mortar: 1, signal: 1, armor: 1 } },
+      { id: 'armor', nameKey: 'draft.preset.armor', counts: { infantry: 3, antitank: 2, signal: 1, recon: 1, armor: 1 } },
+      { id: 'fires', nameKey: 'draft.preset.fires', counts: { infantry: 3, artillery: 2, mortar: 2, signal: 1, recon: 1 } },
+      { id: 'infantry', nameKey: 'draft.preset.infantry', counts: { infantry: 8, antitank: 2, mortar: 1, signal: 1 } },
+    ],
+  },
   zoneLabelKey: null,
   river: null,
   aiConstants: {},

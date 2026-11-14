@@ -22,7 +22,7 @@ function intelInit(state) {
 /** 상대 시작 배치 (공개 설정): [{ id, type, r, c }] (createInitialState 의 id 규칙) */
 function intelSetupOf(enemy) {
   const prefix = enemy[0].toUpperCase();
-  return GAME_CONFIG.DEPLOYMENT[enemy].map((d, i) => ({ id: prefix + (i + 1), type: d.type, r: d.r, c: d.c }));
+  return publicSetup(enemy).map((d, i) => ({ id: prefix + (i + 1), type: d.type, r: d.r, c: d.c }));
 }
 
 /**
@@ -69,7 +69,7 @@ function intelOnIndirectFire(state, attacker, target, events) {
 function intelEnemyCount(state, side, type) {
   const enemy = enemyOf(side);
   const C = GAME_CONFIG;
-  let n = C.DEPLOYMENT[enemy].filter((d) => d.type === type).length
+  let n = publicSetup(enemy).filter((d) => d.type === type).length
     + C.REINFORCEMENTS.filter((g) => g.side === enemy && g.type === type).reduce((k, g) => k + g.count, 0);
   const dead = (state.intel && state.intel[side] && state.intel[side].destroyed) || {};
   const mem = state.memory[side];

@@ -939,8 +939,8 @@
     // 쿨다운: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 사격 대기는 표시하지 않음)
     const cool = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer ? cooldownTurnsLeft(ui.view, u) : 0;
     if (cool) label += ', ' + t('aria.cooldown', { n: cool });
-    // 제압: 화면을 보는 진영 자신의 유닛만 (상대 유닛의 제압 상태는 표시하지 않음)
-    const supp = ui.viewer && ui.viewer !== 'all' && u.side === ui.viewer && u.suppressed > 0 ? u.suppressed : 0;
+    // 제압: 시야 안에 있는 유닛이면 적도 표시 (시야 밖에서 맞은 적은 유닛 자체가 그려지지 않으므로 안 보이고, 제압 중에 시야에 들어오면 다시 보임)
+    const supp = ui.viewer && ui.viewer !== 'all' && u.suppressed > 0 ? u.suppressed : 0;
     if (supp) label += ', ' + t('aria.suppressed', { n: supp });
     const suppHtml = supp ? `<div class="cool-badge supp-badge" aria-hidden="true"><span>${esc(t('supp.badge', { n: supp }))}</span></div>` : '';
     const coolHtml = suppHtml + (cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '');
@@ -1313,6 +1313,7 @@
   /** 상태 칩과 안내 문장 (기존 상태 문구 재사용) */
   function unitStatus(u, sel) {
     const me = ui.viewer;
+    if (u.side !== me && u.suppressed > 0) return { chip: { text: t('card.suppressed'), cls: 'chip orange' }, note: '' };   // 적 제압: 내 포격으로만 걸리고 시야 안 유닛만 카드가 열림
     if (u.side !== me || !sel) return { chip: { text: t(u.side === me ? 'card.ally' : 'card.enemy'), cls: u.side === me ? 'chip' : 'chip red' }, note: '' };
     const ty = GAME_CONFIG.UNIT_TYPES[u.type];
     const MA = GAME_CONFIG.ENABLE_MOVE_ATTACK;
@@ -2867,7 +2868,7 @@
     renderHeader();
     renderLog();
     const draw = () => {
-      const chip = o.round ? t('hud.round', { n: ui.state.round, max: GAME_CONFIG.MAX_ROUNDS }) : t('curtain.deployChip');
+      const chip = o.chip ? t(o.chip) : o.round ? t('hud.round', { n: ui.state.round, max: GAME_CONFIG.MAX_ROUNDS }) : t('curtain.deployChip');
       showOverlay(`<div class="curtain-card"><span class="chip"><span class="tx">${esc(chip)}</span></span>
         <h2 class="curtain-who" style="color:${nameColor(o.side)}">${esc(t('curtain.turnOf', { side: S(o.side) }))}</h2>
         <p>${esc(o.line())}</p><p>${esc(t('curtain.pass', { side: S(o.side) }))}</p>
@@ -2991,10 +2992,103 @@
     playArrivals(ownArrivals);
   }
 
+  /* ---------- 직접 편성 (시나리오 draft). 시작 설정 → (2인 대전은 가림막) → 편성 화면 → 게임 시작 ----------
+   * 화면은 지금 편성하는 사람의 것만 그림: 상대 편성은 DOM·로그·툴팁 어디에도 없음. AI 편성은 확정 뒤 엔진(draftAiComp)이 고름.
+   * 이어하기 기능이 아직 없어서, 편성 도중에 닫으면 편성 처음부터 다시 시작 (복원 없음). */
+  function startDraft() {
+    ui.draft = { queue: hotseat() ? GAME_CONFIG.ROUND_ORDER.slice() : [PLAYER], comps: {}, cur: null };
+    beginDraftSide(true);
+  }
+  function beginDraftSide(first) {
+    const d = ui.draft, side = d.queue[0];
+    d.cur = {};
+    if (!hotseat()) { showDraftScreen(side, true); return; }
+    clearScreen();
+    const reveal = () => showDraftScreen(side, first);
+    if (!ui.useCurtain) { reveal(); return; }
+    showCurtain({ side, round: false, chip: 'draft.chip', line: () => t(first ? 'curtain.draftFirstLine' : 'curtain.draftNextLine', { side: S(side) }) }, reveal);
+  }
+  function leaveDraft() {
+    ui.draft = null;
+    ui.draftBack = null;
+    hideOverlay();
+    clearScreen();
+    setScreen('start');
+    showIntro();
+  }
+  function finishDraft() {
+    const d = ui.draft, comps = { ...d.comps };
+    if (!hotseat()) comps[AI_SIDE] = draftAiComp(ui.difficulty, Math.floor(Math.random() * 0x7fffffff));   // 실제 플레이는 Math.random (시뮬레이션만 시드 고정)
+    ui.draftComps = comps;
+    ui.draft = null;
+    ui.draftBack = null;
+    newGame();
+  }
+  function showDraftScreen(side, canBack) {
+    const d = ui.draft;
+    if (!d) return;
+    const D = GAME_CONFIG.DRAFT, comp = d.cur;
+    if (hotseat()) { setScreen('curtain'); ui.viewer = null; } else if (ui.screen !== 'start') setScreen('start');
+    ui.draftBack = canBack ? leaveDraft : null;
+    const types = draftTypeList();
+    const draw = (focus = null) => {
+      const oldList = $('.draft-list'), keep = oldList ? oldList.scrollTop : 0;
+      const used = draftCost(comp), left = D.budget - used, n = draftCount(comp), err = draftError(comp);
+      const rows = types.map((k) => {
+        const ty = GAME_CONFIG.UNIT_TYPES[k], cnt = comp[k] || 0, block = draftBlock(comp, k), lim = D.limits && D.limits[k];
+        const why = block === 'budget' ? t('draft.noPoints') : block === 'limit' ? t('draft.atMax') : '';
+        return `<div class="draft-row" role="group" aria-label="${esc(t(ty.nameKey))}">
+          ${symHtml(side, k)}
+          <div class="draft-info"><div class="draft-name"><span class="tx">${esc(t(ty.nameKey))}</span>${lim != null ? `<span class="chip sm"><span class="tx">${esc(t('draft.max', { n: lim }))}</span></span>` : ''}</div>
+            <div class="draft-desc">${esc(t('rules.th.mv'))} ${ty.move} · ${esc(t('rules.th.rng'))} ${esc(rangeText(ty))} — ${esc(t('unitDesc.' + k))}</div>
+            <div class="draft-why" role="status">${esc(why)}</div></div>
+          <span class="draft-price">${esc(t('draft.price', { n: D.costs[k] }))}</span>
+          <div class="stepper" role="group">
+            <button type="button" data-dec="${k}" aria-label="${esc(t('draft.remove', { unit: U(k) }))}"${cnt ? '' : ' aria-disabled="true" class="is-off"'}>−</button>
+            <output class="draft-n" aria-live="polite">${cnt}</output>
+            <button type="button" data-inc="${k}" aria-label="${esc(t('draft.add', { unit: U(k) }))}"${block ? ' aria-disabled="true" class="is-off"' : ''}>+</button>
+          </div></div>`;
+      }).join('');
+      const sum = types.filter((k) => comp[k]).map((k) => `<li>${symHtml(side, k)}<span class="tx">${esc(t(GAME_CONFIG.UNIT_TYPES[k].nameKey))} ×${comp[k]}</span><span class="draft-sub">${esc(t('draft.price', { n: comp[k] * D.costs[k] }))}</span></li>`).join('');
+      showOverlay(`<div class="draft-card">
+        <div class="draft-head"><h2 class="draft-title" style="color:${nameColor(side)}">${esc(t('draft.title'))} · ${esc(t(sideNameKey(side)))}</h2>${canBack ? `<button class="link" id="draft-back">${esc(t('btn.backShort'))}</button>` : ''}</div>
+        <div class="draft-bar"><span class="draft-points" role="status"><span class="tx">${esc(t('draft.points', { left, total: D.budget }))}</span></span><span class="chip"><span class="tx">${esc(t('draft.units', { n }))}</span></span></div>
+        <div class="draft-body">
+          <div class="draft-list" tabindex="-1">${rows}</div>
+          <aside class="draft-sum" aria-label="${esc(t('draft.summary'))}"><div class="sec-lbl">${esc(t('draft.summary'))}</div>${sum ? `<ul>${sum}</ul>` : `<div class="hint">${esc(t('draft.empty'))}</div>`}</aside>
+        </div>
+        <div class="draft-actions"><button type="button" id="draft-fill"><span class="tx">${esc(t('draft.fillDefault'))}</span></button><button type="button" id="draft-clear"><span class="tx">${esc(t('draft.clear'))}</span></button>
+          <button type="button" class="primary${err ? ' is-off' : ''}" id="draft-ok"${err ? ' aria-disabled="true"' : ''}><span class="tx">${esc(t('draft.confirm'))}</span></button></div>
+        ${err ? `<div class="hint draft-hint" role="status">${esc(t(err.k, err.p))}</div>` : ''}
+      </div>`, () => draw(), 'draft');
+      const modal = $('#modal');
+      const nl = modal.querySelector('.draft-list');
+      if (nl) nl.scrollTop = keep;
+      const act = (k, delta) => { if (delta > 0 ? draftBlock(comp, k) : !comp[k]) return; comp[k] = (comp[k] || 0) + delta; if (!comp[k]) delete comp[k]; draw(`[${delta > 0 ? 'data-inc' : 'data-dec'}="${k}"]`); };
+      modal.querySelectorAll('[data-inc]').forEach((b) => { b.onclick = () => act(b.dataset.inc, 1); });
+      modal.querySelectorAll('[data-dec]').forEach((b) => { b.onclick = () => act(b.dataset.dec, -1); });
+      $('#draft-fill').onclick = () => { for (const k of Object.keys(comp)) delete comp[k]; Object.assign(comp, draftDefaultComp()); draw('#draft-fill'); };
+      $('#draft-clear').onclick = () => { for (const k of Object.keys(comp)) delete comp[k]; draw('#draft-clear'); };
+      $('#draft-ok').onclick = () => {
+        if (draftError(comp)) return;
+        d.comps[side] = { ...comp };
+        d.queue.shift();
+        if (d.queue.length) beginDraftSide(false); else finishDraft();
+      };
+      if ($('#draft-back')) $('#draft-back').onclick = leaveDraft;
+      const fo = focus && modal.querySelector(focus);
+      (fo || modal.querySelector('#draft-ok')).focus({ preventScroll: true });
+    };
+    draw();
+  }
+
   /* ---------- 시작 / 결과 ---------- */
   /** 새 게임: 직접 배치를 고르면 배치 단계 (AI 모드는 국군만, 2인 모드는 라운드 순서대로 양쪽), 아니면 기본 배치로 바로 시작 */
   function newGame() {
     ui.gameId++;
+    if (GAME_CONFIG.DRAFT) {   // 직접 편성: 고른 편성을 시작 부대로 (기본 편성이면 기본 배치로 되돌림)
+      try { setDraft(ui.draftComps || null); } catch (err) { console.error(err); ui.draftComps = null; setDraft(null); }
+    }
     ui.state = createInitialState();   // 기본 배치에서 출발
     ui.view = ui.state;
     ui.selectedId = null;
@@ -3052,7 +3146,7 @@
   /* ---------- 시작 전 배치 (유닛 트레이 → 초록 구역의 칸) ---------- */
   const DEPLOY_KEY = 'chuncheon1950.lastDeployment';
   /** 지난 배치 저장 칸: 춘천은 예전 키(진영 id) 그대로, 다른 시나리오는 '시나리오:진영' */
-  const deploySlot = (side) => (GAME_CONFIG.SCENARIO_ID === DEFAULT_SCENARIO_ID ? side : `${GAME_CONFIG.SCENARIO_ID}:${side}`);
+  const deploySlot = (side) => (GAME_CONFIG.SCENARIO_ID === DEFAULT_SCENARIO_ID ? side : `${GAME_CONFIG.SCENARIO_ID}:${side}${GAME_CONFIG.DRAFT_ACTIVE ? ':draft' : ''}`);   // 직접 편성 판은 따로 기억
   function loadLastDeployment(side) {
     try {
       const v = JSON.parse(localStorage.getItem(DEPLOY_KEY) || '{}');
@@ -3276,7 +3370,7 @@
   }
 
   /* ---------- 오버레이 (공격 확인·시작·승패·가림막·요약). 열려 있는 동안 포커스를 안에 가둠 ---------- */
-  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain', 'sheet', 'rules', 'at-map'];
+  const OVERLAY_KINDS = ['confirm', 'start', 'result', 'summary', 'curtain', 'sheet', 'rules', 'at-map', 'draft'];
   /** redraw: 언어를 바꿨을 때 이 창을 현재 언어로 다시 그리는 함수. kind: 배경 종류 */
   function showOverlay(html, redraw = null, kind = 'confirm') {
     const ov = $('#overlay');
@@ -3338,6 +3432,7 @@
   /** 시나리오 적용: 설정·플레이어 진영·지도·빈 상태를 바꿈 (시작 화면에서만 호출) */
   function applyScenario(id, save = true) {
     loadScenario(id);
+    ui.draftComps = null;
     PLAYER = GAME_CONFIG.PLAYER_SIDE;
     AI_SIDE = enemyOf(PLAYER);
     ui.logs = emptyLogs();
@@ -3527,7 +3622,7 @@
   function showIntro() {
     if (ui.screen !== 'start') setScreen('start');
     render();
-    const sel = { mode: ui.mode, diff: resolveProfile(ui.difficulty).id, open: false };
+    const sel = { mode: ui.mode, diff: resolveProfile(ui.difficulty).id, open: false, draft: 'default' };   // 편성은 열 때마다 기본
     const draw = (focusSel = null, fade = false) => {
       const hs = sel.mode === 'hotseat';
       sel.diff = fitDifficulty(sel.diff);   // 시나리오를 바꾸면 그 시나리오 목록 안으로
@@ -3547,6 +3642,8 @@
         ${hs ? '' : `<div><div class="sec-lbl">${esc(t('lbl.aiDifficulty'))}</div><div class="diff-grid${listTacticProfiles().length === 3 ? ' n3' : ''}" role="group" aria-label="${esc(t('lbl.aiDifficulty'))}">`
           + listTacticProfiles().map((p) => `<button data-diff="${esc(p.id)}" aria-pressed="${p.id === prof.id}" title="${esc(p.name)}"><span class="tx">${esc(p.name)}</span></button>`).join('')
           + `</div><div class="desc-box" id="intro-diff-desc">${esc(prof.description)}</div></div>`}
+        ${GAME_CONFIG.DRAFT ? `<div><div class="sec-lbl">${esc(t('draft.label'))}</div><div class="diff-grid" role="group" aria-label="${esc(t('draft.label'))}">`
+          + ['default', 'custom'].map((k) => `<button data-draft="${k}" aria-pressed="${sel.draft === k}"><span class="tx">${esc(t('draft.' + k))}</span></button>`).join('') + '</div></div>' : ''}
         <div class="opt-list">${GAME_CONFIG.ROUND_ORDER.some((x) => GAME_CONFIG.DEPLOY_ZONES[x] && GAME_CONFIG.DEPLOYMENT[x].length) ? `<label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>` : ''}
           ${hs ? `<label class="opt"><input type="checkbox" id="opt-curtain"${ui.useCurtain ? ' checked' : ''}><span class="tx">${esc(t('start.optCurtain'))}</span></label>` : ''}</div>
         <button class="primary btn-go" id="btn-start"><span class="tx">${esc(t('btn.startScen', { name }))}</span></button>
@@ -3577,6 +3674,7 @@
         };
       });
       modal.querySelectorAll('[data-diff]').forEach((b) => { b.onclick = () => { sel.diff = b.dataset.diff; draw(`[data-diff="${sel.diff}"]`); }; });
+      modal.querySelectorAll('[data-draft]').forEach((b) => { b.onclick = () => { sel.draft = b.dataset.draft; draw(`[data-draft="${sel.draft}"]`); }; });
       if ($('#opt-deploy')) $('#opt-deploy').onchange = (e) => { ui.manualDeploy = e.target.checked; savePref(OPT_DEPLOY_KEY, ui.manualDeploy); };   // 배치 구역이 없는 시나리오(고정 배치)는 항목 없음
       if ($('#opt-curtain')) $('#opt-curtain').onchange = (e) => { ui.useCurtain = e.target.checked; savePref(OPT_CURTAIN_KEY, ui.useCurtain); };
       $('#btn-menu-back').onclick = () => showMenu('#menu-new');
@@ -3586,7 +3684,8 @@
         ui.difficulty = sel.diff;
         $('#difficulty-select').value = ui.difficulty;
         $('#difficulty-select').title = resolveProfile(ui.difficulty).description;
-        newGame();
+        ui.draftComps = null;
+        if (GAME_CONFIG.DRAFT && sel.draft === 'custom') startDraft(); else newGame();
       };
       const fo = focusSel && modal.querySelector(focusSel);
       (fo || modal.querySelector(`[data-scen="${GAME_CONFIG.SCENARIO_ID}"]`) || $('#btn-menu-back')).focus({ preventScroll: !!sel.open && !focusSel });
@@ -3635,13 +3734,15 @@
         <li>${t(hasHq ? 'intro.hqLoss' : 'intro.annihilation')}</li>
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
   }
-  const RULE_SECS = ['goal', 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'retreat', 'zoom', 'terms'];
+  const ruleSecs = () => ['goal', ...(GAME_CONFIG.DRAFT ? ['draft'] : []), 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'retreat', 'zoom', 'terms'];   // 편성 항목은 직접 편성이 있는 시나리오(대칭 전장)만
   /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
   function ruleSectionHtml(id) {
     const C = GAME_CONFIG, CB = C.COMBAT;
     const li = (s) => `<li>${s}</li>`;
     const pct = (v) => `${v > 0 ? '+' : ''}${v}%`;
     switch (id) {
+      case 'draft':
+        return `<ul>${li(esc(t('rules.draft')))}</ul>`;
       case 'zoom':
         return `<ul>${['pc', 'touch', 'tap', 'fit'].map((k) => li(esc(t('rules.zoom.' + k, { px: ZOOM.dragPx, min: ZOOM.minZoom, max: ZOOM.maxZoom })))).join('')}</ul>`;
       case 'goal':
@@ -3698,7 +3799,7 @@
    */
   function showRules(back, kind = 'rules') {
     const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
-    const secs = RULE_SECS;
+    const secs = ruleSecs();
     const open = secs.includes(ui.rulesOpen) ? ui.rulesOpen : 'goal';
     showOverlay(`<div class="rules-sheet">
       <div class="rules-head"><h2>${esc(t('rules.title'))}</h2><button class="x-btn rules-x" id="btn-rules-x" aria-label="${esc(t('aria.close'))}">×</button></div>
@@ -4355,7 +4456,13 @@
   /* ---------- 행동 제한 설정 (시나리오별 localStorage). 값은 그 진영의 다음 턴부터 적용 ---------- */
   const ACT_KEY = 'chuncheon1950.activationLimits';
   const ROLES = ['def', 'att'];
-  const actMax = (role) => sideTotalUnits(sideByRole(role));   // 그 진영의 최대 유닛 수 (증원 포함)
+  // 그 진영의 최대 유닛 수 (증원 포함). 직접 편성 판은 상대 병력 수를 알려 주지 않도록 편성 가능한 최대 수(공개 값)로
+  const actMax = (role) => {
+    const side = sideByRole(role);
+    if (!GAME_CONFIG.DRAFT_ACTIVE) return sideTotalUnits(side);
+    const D = GAME_CONFIG.DRAFT, cheap = Math.min(...draftTypeList().map((k) => D.costs[k]));
+    return Math.floor(D.budget / cheap) + GAME_CONFIG.REINFORCEMENTS.filter((g) => g.side === side).reduce((n, g) => n + g.count, 0);
+  };
   function actDefaults() {
     const a = GAME_CONFIG.ACTIVATIONS;
     return { on: !!GAME_CONFIG.ENABLE_ACTIVATION_LIMIT, def: a ? a.def ?? null : null, att: a ? a.att ?? null : null };
@@ -4435,7 +4542,7 @@
 
   /* ---------- 화력 설정 (fires 시나리오, 시나리오별 localStorage). 값은 그 진영의 다음 턴부터 적용 ---------- */
   const FIRE_KEY = 'chuncheon1950.fires';
-  const scenarioHasType = (type) => GAME_CONFIG.ROUND_ORDER.some((s) => GAME_CONFIG.DEPLOYMENT[s].some((d) => d.type === type) || GAME_CONFIG.REINFORCEMENTS.some((g) => g.side === s && g.type === type));
+  const scenarioHasType = (type) => (GAME_CONFIG.DRAFT_ACTIVE && GAME_CONFIG.DRAFT.costs[type] != null) || GAME_CONFIG.ROUND_ORDER.some((s) => GAME_CONFIG.DEPLOYMENT[s].some((d) => d.type === type) || GAME_CONFIG.REINFORCEMENTS.some((g) => g.side === s && g.type === type));
   const fireItems = () => (GAME_CONFIG.FIRES ? DESIGN.fireSettings.filter((it) => GAME_CONFIG.FIRES[it.type] && scenarioHasType(it.type)) : []);
   function fireDefaults() {
     const F = GAME_CONFIG.FIRES || {}, p = {};
@@ -4607,6 +4714,7 @@
       return;
     }
     if (ui.rulesBack && e.key === 'Escape') { e.preventDefault(); ui.rulesBack(); return; }
+    if (ui.draftBack && e.key === 'Escape') { e.preventDefault(); ui.draftBack(); return; }   // 편성 화면 → 시작 설정
     if (ui.menuBack && ui.screen === 'start' && e.key === 'Escape') { e.preventDefault(); ui.menuBack(); return; }   // 시나리오·설정 화면 → 메뉴
     if ($('#overlay').classList.contains('show')) return;   // 시작·승패·가림막·요약 창이 떠 있을 때는 단축키 없음
     if (ui.screen !== 'game' && ui.screen !== 'deploy') return;

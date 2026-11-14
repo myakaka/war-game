@@ -9,7 +9,7 @@ const MENU_KEYS = { tutorial: 'chuncheon1950.tutorial', records: 'chuncheon1950.
 
 /**
  * getStorage(): localStorage 를 돌려주는 함수 (접근 자체가 오류를 낼 수 있어 함수로 받음).
- * 반환 { ok, firstRun, save }. save 는 공개 정보만: { scenarioId, round, maxRounds, mode, turn(2인 대전만) } 또는 null
+ * 반환 { ok, firstRun, save }. save 는 공개 정보만: { scenarioId, round, maxRounds, mode, draft('default'|'custom', 편성 내용은 넣지 않음), turn(2인 대전만) } 또는 null
  */
 function readMenuStore(getStorage) {
   try {
@@ -25,7 +25,7 @@ function readMenuStore(getStorage) {
       const mode = s.mode === 'hotseat' ? 'hotseat' : 'ai';
       // rulesUpdated: 지금 규칙보다 앞선 버전(또는 버전 기록 없음)으로 저장된 판 → 이어하기 때 규칙 업데이트 안내 (upgradeSavedState)
       const rulesUpdated = !(Number.isInteger(s.rulesVersion) && s.rulesVersion >= RULES.RULES_VERSION);
-      save = { scenarioId: s.scenarioId, round: s.round, maxRounds: s.maxRounds, mode, turn: mode === 'hotseat' && typeof s.turn === 'string' ? s.turn : null, rulesUpdated };
+      save = { scenarioId: s.scenarioId, round: s.round, maxRounds: s.maxRounds, mode, draft: s.draft === 'custom' ? 'custom' : 'default', turn: mode === 'hotseat' && typeof s.turn === 'string' ? s.turn : null, rulesUpdated };
     }
     return { ok: true, firstRun: !seenTut && !played && !save, save };
   } catch (e) {

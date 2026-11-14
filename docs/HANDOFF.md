@@ -1,24 +1,16 @@
-# HANDOFF (2026-11-14) — 우글레다르 시나리오 추가 (작업 전 태그 `stable-before-vuhledar`) · 그 전: 후퇴·제압 전역화 (rulesVersion 12)
+# HANDOFF (2026-11-14) — 대칭 전장 직접 편성 (작업 전 태그 `stable-before-draft`)
 
-## 우글레다르 (최근, 새 시나리오 데이터만. 규칙·엔진·AI 로직 변경 없음)
-- `js/scenarios/vuhledar.js` + `index.html` script 한 줄. 진영 `ua`(방어, 파랑, 아래쪽)·`ru`(공격, 빨강, 위쪽), 이름은 기존 `side.ua/side.ru` 글자뿐. 16x16, 거점 = 아래쪽 마을 2x2 묶음(`presence`), 10라운드, 공격 선공, 행동 한도 방어 4·공격 6, 증원 없음, `fires` 는 병종별 한 세트(러시아군은 포병 유닛이 없어 박격포만), 방어군만 배치 구역 9~15행. 승리: 공격 `holdObjectives` 1(방어 턴 끝난 뒤 확인) / 방어 `surviveRounds` 10 / 전멸. 병력·배치·한도·라운드는 임시값(사용자가 조절).
-- 그림(PC 리치, 모두 `art` 데이터로 켜짐, 다른 시나리오는 그대로): `rich-map.js` 에 `art.dryField`(평지에 노이즈로 섞는 마른 밭, 30%), `art.fields`(밀밭, 채도 55%·밝기 85%, 가장자리 흐림, 평지 칸에만), `art.decor`(`strip` 방풍림·흙길 + 그림자, `scar` 포격 자국 5개), `art.terrain.city` 교체(파괴된 마을은 이 시나리오만), 로더는 `decor` 이미지. 방어가 아래쪽이라 `flipFacing` 은 쓰지 않음(기능은 남아 있음, `richBaseDeg`). 처음엔 방어가 위쪽이었고 지도를 위아래 반전함.
-- 그림 파일: `assets/` 루트의 한글 이름 8장 중 7장을 `assets/vuhledar/` 영문 이름으로 `git mv`(ruined-town, dry-field, wheat, windbreak, dirt-road, scorch-impact, crater). `평행 고랑이 이어진 경작지.png` 는 용도 없어 그대로. 포격 자국 그림은 2종뿐이라 5개에 돌려 씀(요청은 3종). 7장은 WebP(q82, 원래 크기)로 변환해 19.3MB → 2.9MB(원본 PNG 는 git 기록에 있음).
-- 문구: `scen.vuhledar.*`, `obj.VT`, 태그 `tag.armorArty`·`tag.diff3`. 카드 미리보기는 `art.terrain` 으로 자동. BGM `null`.
-- 검증: test 200 통과(우글레다르 데이터·검증·simulateGames 3난이도·승리 조건·그림 데이터·안개, 후퇴·구 AI 파라미터화에 포함), check: 기존 세 시나리오 21항목 SAME, 우글레다르 7항목은 기준선 없음→`--save` 로 추가, layout-check 32 SAME. 브라우저(PC 리치, 휴대폰 리치·기본): 카드·시작 시트·배치·게임 화면, 방향 옵션(방어 180도), 호스토멜 그대로 확인.
-- 진단(n=40, 난이도별 `tools/vuhledar-diag-*.json`): 생성 `node tools/retreat-diag.js vuhledar <난이도> 40 <out>`. 관찰: 러시아군 보병은 느려서 9라운드에도 10~11행(기갑이 앞서감), 러시아군 보병 손실 0, 공격군 점유는 평균 9~9.4라운드에 시작.
-- 시작 배치(보고만): 러시아군 13기 중 9기가 15행(맵 끝: 보병 4·기갑 3·박격포 1·통신 1), 위에서 맞으면 후퇴할 곳이 없어 격파. 우크라이나군은 맵 끝·이동 불가 지형 옆 0기. 증원 칸 없음.
-- 알려진 것: 방풍림 가로 줄 `(10행, 11~14열)` 은 지도상 숲이 아니라 장식만. 시나리오 `scaleMeters` 250 은 가정값. 큰 이미지 때문에 첫 로딩이 느릴 수 있음.
+## 대칭 전장 시작 병력 11→7기 + 직접 편성 (규칙·수치·전투·AI 판단 변경 없음, rulesVersion 12 그대로. 기본 배치가 바뀌어 대칭 시드 기준선만 갱신: 7 DIFF, 오류 0, 14라운드)
+- 기본 배치: 보병 2·대전차·포병·박격포·통신·기갑 1 (정찰 빼고 양쪽 7기). 행동 한도 5, 증원은 그대로.
+- 데이터: `symmetric.js` 의 `draft`(costs 임시값, budget 27 = 기본 편성 합계, 가격 기갑 10·포병 5·대전차/박격포 3·나머지 2, limits signal 1·armor 1, minUnits 1, deployRows, presets 4종 balanced/armor/fires/infantry). 병종 키는 `signal`(통신). 증원(4·8라운드)은 직접 편성에서도 그대로.
+- 엔진(`engine.js`): `setDraft(comps)`(DEPLOYMENT 교체, null 이면 기본 복귀, `DEPLOYMENT_BASE` 보관), `draftError/Block/Cost/Count/AiComp/AutoPlace`, `draftDataErrors`(validateScenario 가 호출), `restoreDraft(saved)`, `publicSetup(side)`(직접 편성 판은 [] → AI 의 상대 포병 추정·ai-intel 의 시작 배치 추정이 꺼짐), `simulateGames(opts.draft)`, `state.draft`(직접 편성 판만), 게임 기록 `rec.draft`.
+- 화면(`ui.js`): 시작 설정의 `편성` 선택, `startDraft/showDraftScreen`(2인은 가림막 뒤 한 명씩), 규칙 화면 `편성` 항목(`ruleSecs()`), 행동 한도 최대치·`scenarioHasType` 은 상대 병력을 알려 주지 않도록 직접 편성 판에서 공개 값으로. CSS `.draft-*`. 메뉴 저장 요약에 `draft` 코드값만.
+- 결정: 편성 `+/−` 는 `aria-disabled`(포커스 유지). AI 편성은 확정 뒤 `Math.random` 시드(실제 플레이)로 고름. 다시 시작은 같은 편성 재사용.
+- 검증: test 235 중 217 통과·18 건너뜀·실패 0(편성 14개 추가), check 대칭 외 SAME(대칭은 의도한 변경으로 기준선 갱신), layout-check 32 SAME(7기 변경 전). 브라우저: PC(리치)·휴대폰 390x844 설정·편성·핫시트 가림막·배치 단계·게임 시작, 영어 편성 화면.
+- 제압 표시: 시야 안의 적도 카드 칩·지도 배지·로그("적 ○○ 제압")로 표시(화면만, 엔진 무변경). 시야 밖에서 맞은 적은 안 그려져 안 보이고, 제압 중 시야에 들어오면 다시 보임. 브라우저 확인은 아직.
+- 알려진 것: 이어하기 저장 기능이 아직 없어 편성 화면 복원은 없음(편성 처음부터). 직접 편성 판의 AI 는 상대 포병 사전 추정이 없어 포병 경계가 약함. 가격표 점검은 구현 보고 참고.
+- 다음에 볼 곳: 이어하기 UI 를 만들 때 `state.draft`·`restoreDraft` 연결, 가격·예산 조정(임시값), 우글레다르 등 다른 시나리오에 `draft` 켜기.
 
-## 후퇴·제압 전역화 (그 전)
-- 규칙 `docs/rules.md` 후퇴와 제압, 수치 `RULES.RETREAT`, AI 공통 모듈 `ai-intel.js`. 이어하기 UI 는 아직 없음(`upgradeSavedState`·`rulesNoticeNeeded` 준비됨).
-- 포격 자국(보기 전용): `fx.js` `planImpactMark/markShape/addMark`, `ui.js` `recordImpactMark/marksHtml/ui.marks`(진영별, 본 낙하만), `art.impactMarks`(우글레다르만). 엔진·규칙·저장 무관.
-
-- 포탄 모양(그리기 전용, `fx.js` `drawShell`): 포병=길쭉한 포탄+연기 띠+잔상, 박격포=날개 달린 물방울 몸통(낙하 때 커짐). 직접 사격 예광탄은 그대로.
-- 그림: 우글레다르 PNG 7장 → WebP(q82) 19.3MB → 2.9MB. `check.js --only <id>` 옵션 추가(시나리오 데이터만 바꿨을 때 그 시나리오만).
-- 우글레다르는 우크라이나(방어)가 아래쪽으로 확정(지도 위아래 반전, `flipFacing` 은 쓰지 않음). 기준선은 우글레다르 7개만 갱신, 나머지 21개 그대로.
-
-## 다음에 볼 곳 (2026-11-14 기준, 푸시 완료 670f0f4)
-- 파일 필요: 없는 소리 5개(shell_whistle, score_up, objective_captured, victory, defeat), BGM.
-- 결정 필요: 이어하기(포격 자국 저장·규칙 업데이트 안내 연결 포함), 게임 이름, 우글레다르 균형(임시값, 뒤집은 뒤 방어 승리 늘어남).
-- 선택: sound 11MB 추가 축소, 우글레다르 그림 75% 해상도(1.8MB), 쓰지 않는 `assets/평행 고랑이 이어진 경작지.png` 삭제, 포격 자국 그림 3종(지금 2종).
+## 이전 작업 요약
+- 우글레다르 시나리오(데이터 전용)·후퇴·제압 전역화(v12)·포탄 모양·WebP 변환은 git 기록 참고(커밋 670f0f4 이전).
+- 파일 필요: 없는 소리 5개(shell_whistle, score_up, objective_captured, victory, defeat), BGM. 결정 필요: 이어하기, 게임 이름, 우글레다르 균형.

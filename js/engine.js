@@ -240,6 +240,7 @@ function validateScenario(s) {
     }
   }
   if (s.symmetric) for (const m of symmetryErrors(s)) E('scenErr.symmetry', { what: m });
+  if (s.draft != null) for (const m of draftDataErrors(s)) E('scenErr.draft', { what: m });
   return errs;
 }
 
@@ -357,6 +358,10 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   const norm = (s.deployments || []).map(normalizeDeployment);
   C.DEPLOYMENT = {};
   for (const side of C.ROUND_ORDER) C.DEPLOYMENT[side] = norm.filter((d) => d.side === side && d.round === 0).map((d) => ({ type: d.type, r: d.cells[0].r, c: d.cells[0].c }));
+  C.DEPLOYMENT_BASE = C.DEPLOYMENT;   // 직접 편성(setDraft)이 바꾸기 전의 기본 시작 배치
+  C.DRAFT = s.draft && s.draft.enabled ? JSON.parse(JSON.stringify(s.draft)) : null;
+  C.DRAFT_ACTIVE = false;
+  C.DRAFT_COMPS = null;
   C.REINFORCEMENTS = norm.filter((d) => d.round >= 1);
   C.DEPLOY_ZONES = {};
   for (const side of C.ROUND_ORDER) {
@@ -466,6 +471,154 @@ function deploymentError(side, positions) {
   return null;
 }
 
+/* ---------- 직접 편성 (시나리오 draft, 시작 옵션) ----------
+ * 편성(comp) = { 병종: 수 }. 포인트 예산 안에서 병종별 가격·상한을 지킴. 규칙·전투·AI 판단은 그대로이고 시작 부대 목록(DEPLOYMENT)만 바뀐다.
+ * setDraft(comps) 가 DEPLOYMENT[진영] 을 편성대로 바꾸고 자동 배치함 (comps[진영] 이 없으면 그 진영은 기본 편성).
+ * 직접 편성 판(DRAFT_ACTIVE)은 상대 편성이 비공개라서, AI 의 '시나리오 기본 배치로 상대 추정'을 쓰지 않는다 (publicSetup).
+ * 기본 편성이면 이 블록은 실행되지 않아 동작이 완전히 같다.
+ */
+const draftTypeList = () => (GAME_CONFIG.DRAFT ? Object.keys(UNIT_TYPES).filter((k) => GAME_CONFIG.DRAFT.costs[k] != null) : []);
+const draftCostIn = (D, comp) => Object.keys(comp).reduce((n, k) => n + (comp[k] || 0) * (D.costs[k] || 0), 0);
+const draftCost = (comp) => draftCostIn(GAME_CONFIG.DRAFT, comp);
+const draftCount = (comp) => draftTypeList().reduce((n, k) => n + (comp[k] || 0), 0);
+/** 이 진영의 상대가 알 수 있는 시작 배치 (공개 정보). 직접 편성 판에서는 없음 */
+const publicSetup = (side) => (GAME_CONFIG.DRAFT_ACTIVE ? [] : GAME_CONFIG.DEPLOYMENT[side]);
+/** 기본 편성 (시나리오 기본 배치의 병종별 수) */
+function draftDefaultComp() {
+  const C = GAME_CONFIG, comp = {};
+  const base = C.DEPLOYMENT_BASE[C.ROUND_ORDER[0]];
+  for (const d of base) comp[d.type] = (comp[d.type] || 0) + 1;
+  return comp;
+}
+/** 편성이 draft 설정 D 에 맞는가: 문제가 있으면 { k, p } (문자열 키 + 파라미터), 없으면 null */
+function draftErrorIn(D, comp) {
+  if (!D || !comp || typeof comp !== 'object') return { k: 'draftErr.data' };
+  for (const [k, v] of Object.entries(comp)) {
+    if (D.costs[k] == null) return { k: 'draftErr.type', p: { type: k } };
+    if (!Number.isInteger(v) || v < 0) return { k: 'draftErr.count', p: { type: k, n: v } };
+    if (D.limits && D.limits[k] != null && v > D.limits[k]) return { k: 'draftErr.limit', p: { type: k, max: D.limits[k] } };
+  }
+  if (draftCostIn(D, comp) > D.budget) return { k: 'draftErr.budget', p: { used: draftCostIn(D, comp), budget: D.budget } };
+  if (Object.values(comp).reduce((n, v) => n + v, 0) < (D.minUnits || 1)) return { k: 'draftErr.min', p: { n: D.minUnits || 1 } };
+  return null;
+}
+const draftError = (comp) => draftErrorIn(GAME_CONFIG.DRAFT, comp);
+/** 시나리오 데이터의 draft 블록 검사: 오류 설명 목록 (없으면 빈 배열) */
+function draftDataErrors(s) {
+  const D = s.draft, out = [];
+  if (!D || typeof D !== 'object') return ['draft'];
+  if (typeof D.enabled !== 'boolean') out.push('enabled');
+  if (!D.costs || typeof D.costs !== 'object') return out.concat('costs');
+  for (const [k, v] of Object.entries(D.costs)) if (!UNIT_TYPES[k] || !Number.isInteger(v) || v < 1) out.push(`costs.${k}`);
+  const sides = Object.keys(s.sides || {});
+  const baseComp = (side) => { const c = {}; for (const d of s.deployments || []) if (d.side === side && !(d.round || 0)) c[d.type] = (c[d.type] || 0) + 1; return c; };
+  for (const side of sides) for (const k of Object.keys(baseComp(side))) if (D.costs[k] == null) out.push(`costs.${k} (price missing)`);
+  if (!Number.isInteger(D.budget) || D.budget < 1) out.push('budget');
+  else for (const side of sides) if (draftCostIn(D, baseComp(side)) > D.budget) out.push(`budget < default composition (${side})`);
+  if (D.limits != null) for (const [k, v] of Object.entries(D.limits)) if (D.costs[k] == null || !Number.isInteger(v) || v < 1) out.push(`limits.${k}`);
+  if (!Number.isInteger(D.minUnits) || D.minUnits < 1) out.push('minUnits');
+  for (const side of sides) {
+    const z = s.placementZones && s.placementZones[side], r = D.deployRows && D.deployRows[side];
+    if (!z || !Array.isArray(r) || r.join(',') !== z.rows.join(',')) out.push(`deployRows.${side} != placementZones`);
+  }
+  if (!Array.isArray(D.presets) || !D.presets.length) out.push('presets');
+  else D.presets.forEach((p, i) => {
+    if (!p || !p.id || !p.nameKey || !p.counts) { out.push(`presets[${i}] shape`); return; }
+    const e = draftErrorIn(D, p.counts);
+    if (e) out.push(`presets[${i}] ${p.id}: ${e.k}`);
+  });
+  return out;
+}
+/** 이 병종을 하나 더 넣을 수 있는가: null = 가능, 'limit' = 상한, 'budget' = 포인트 부족 */
+function draftBlock(comp, type) {
+  const D = GAME_CONFIG.DRAFT;
+  if (D.limits && D.limits[type] != null && (comp[type] || 0) >= D.limits[type]) return 'limit';
+  if (draftCost(comp) + D.costs[type] > D.budget) return 'budget';
+  return null;
+}
+/** 이 판 하나의 AI 편성: preset 중 하나. easy = 첫 번째만, 그 외 = 판 시드에서 뽑은 별도 난수로 무작위 (게임 난수와 분리) */
+function draftAiComp(profileId, seed) {
+  const list = GAME_CONFIG.DRAFT.presets;
+  if (String(profileId).startsWith('easy')) return { ...list[0].counts };
+  const rng = createSeededRng(((seed >>> 0) ^ 0x44524654) >>> 0);
+  return { ...list[Math.floor(rng() * list.length)].counts };
+}
+/**
+ * 자동 배치 (양쪽 같은 규칙, 회전 대칭): 앞줄 기갑·보병 → 중간 대전차·정찰 → 뒷줄 포병·박격포·통신.
+ * 줄 안에서는 병종을 번갈아 놓고 칸 사이를 고르게 벌림. 구역(배치 구역 행)이 모자라면 null (구역을 넓히지 않음).
+ * 돌려주는 목록은 병종 순서(UNIT_TYPES) — 유닛 id 순서
+ */
+function draftAutoPlace(side, comp) {
+  const C = GAME_CONFIG, z = C.DEPLOY_ZONES[side];
+  if (!z) return null;
+  const rows = []; for (let r = z.rows[0]; r <= z.rows[1]; r++) rows.push(r);
+  const frontMax = (z.rows[0] + z.rows[1]) / 2 < (N - 1) / 2;   // 구역이 위쪽이면 가장 큰 행이 앞줄, 아래쪽이면 가장 작은 행
+  const depthRow = (d) => (frontMax ? z.rows[1] - d : z.rows[0] + d);
+  const colOf = (x) => (frontMax ? x : N - 1 - x);              // 아래쪽 진영은 180도 회전한 칸
+  const c0 = z.cols ? z.cols[0] : 0, c1 = z.cols ? z.cols[1] : N - 1, W = c1 - c0 + 1;
+  const bands = [['armor', 'infantry'], ['antitank', 'recon'], ['artillery', 'mortar', 'signal']];
+  const used = new Set(), out = {};
+  const free = (type, d, x) => { const r = depthRow(d), c = colOf(c0 + x); return !used.has(idx(r, c)) && canDeployAt(side, type, r, c); };
+  bands.forEach((types, bi) => {
+    const queue = [];   // 병종을 번갈아 (예: 보병, 기갑, 보병, 기갑 …)
+    const left = Object.fromEntries(types.map((k) => [k, comp[k] || 0]));
+    while (types.some((k) => left[k] > 0)) for (const k of types) if (left[k] > 0) { queue.push(k); left[k]--; }
+    // 이 줄의 시작 깊이부터 뒤로, 더 갈 곳이 없으면 앞쪽으로
+    const depths = []; for (let d = bi; d < rows.length; d++) depths.push(d); for (let d = bi - 1; d >= 0; d--) depths.push(d);
+    for (const d of depths) {
+      if (!queue.length) break;
+      const open = []; for (let x = 0; x < W; x++) open.push(x);
+      const take = Math.min(queue.length, open.filter((x) => free(queue[0], d, x)).length);
+      if (!take) continue;
+      const batch = queue.splice(0, take);
+      batch.forEach((type, j) => {
+        const want = Math.round(((j + 0.5) * W) / take - 0.5);
+        let best = -1;
+        for (let x = 0; x < W; x++) if (free(type, d, x) && (best < 0 || Math.abs(x - want) < Math.abs(best - want))) best = x;
+        if (best < 0) { queue.unshift(type); return; }
+        const r = depthRow(d), c = colOf(c0 + best);
+        used.add(idx(r, c));
+        (out[type] || (out[type] = [])).push({ r, c });
+      });
+    }
+    if (queue.length) { out.__fail = true; }
+  });
+  if (out.__fail) return null;
+  const list = [];
+  for (const k of draftTypeList()) for (const p of out[k] || []) list.push({ type: k, r: p.r, c: p.c });
+  return list;
+}
+/**
+ * 편성 적용: comps = { 진영: 편성 | null }. 호출할 때마다 기본 배치(DEPLOYMENT_BASE)에서 다시 시작하므로 setDraft(null) 이 기본으로 되돌림.
+ * 편성이 규칙에 맞지 않거나 자동 배치가 안 되면 오류를 던지고 아무것도 바꾸지 않는다. 증원(REINFORCEMENTS)은 그대로.
+ */
+function setDraft(comps) {
+  const C = GAME_CONFIG;
+  const next = {};
+  for (const side of C.ROUND_ORDER) next[side] = C.DEPLOYMENT_BASE[side];
+  let active = false;
+  for (const side of C.ROUND_ORDER) {
+    const comp = comps && comps[side];
+    if (!comp) continue;
+    if (!C.DRAFT) throw new Error(t('draftErr.off'));
+    const err = draftError(comp);
+    if (err) throw new Error(t('draftErr.prefix', { side: { t: sideNameKey(side) }, msg: { t: err.k, p: err.p } }));
+    const placed = draftAutoPlace(side, comp);
+    if (!placed) throw new Error(t('draftErr.prefix', { side: { t: sideNameKey(side) }, msg: { t: 'draftErr.noRoom' } }));
+    next[side] = placed;
+    active = true;
+  }
+  C.DEPLOYMENT = next;
+  C.DRAFT_ACTIVE = active;
+  C.DRAFT_COMPS = active ? JSON.parse(JSON.stringify(comps)) : null;
+  return active;
+}
+
+/** 저장된 판을 이어할 때: 판에 기록된 편성을 다시 적용 (기록이 없는 예전 저장은 기본 편성) */
+function restoreDraft(saved) {
+  return setDraft(saved && saved.draft && saved.draft.mode === 'custom' ? saved.draft.comps : null);
+}
+
 /* =========================== 3. 상태 =========================== */
 /**
  * deploy: { [side]: [{r,c}] } 로 진영별 배치를 덮어씀 (없는 진영은 기본 배치).
@@ -510,6 +663,7 @@ function createInitialState(deploy = null) {
     state.score = Object.fromEntries(C.ROUND_ORDER.map((s) => [s, 0]));
     state.scoreLog = [];      // { round, side, pts, by: { 거점 id: 점수 } }
   }
+  if (C.DRAFT_ACTIVE) state.draft = { mode: 'custom', comps: JSON.parse(JSON.stringify(C.DRAFT_COMPS)) };   // 직접 편성 판만 (저장용. 화면에 보이지 않음). 기본 편성이면 키가 없음
   if (C.OBJECTIVE_CONTROL === 'presence') updateObjectiveControl(state);
   if (C.AI_MODE === 'symmetric') intelInit(state);   // ai-intel.js: 대칭 시나리오만 state.aiIntel
   updateMemory(state);
@@ -1410,7 +1564,7 @@ function aiEnemyArtillery(state, side, vis, T) {
   const mem = state.memory[side];
   const dead = (state.intel && state.intel[side] && state.intel[side].destroyed) || {};
   const out = [];
-  GAME_CONFIG.DEPLOYMENT[enemy].forEach((d, i) => {
+  publicSetup(enemy).forEach((d, i) => {
     if (d.type !== 'artillery') return;
     const id = prefix + (i + 1);   // createInitialState 의 id 규칙
     if (dead[id]) return;
@@ -1423,7 +1577,7 @@ function aiEnemyArtillery(state, side, vis, T) {
     }
   });
   // 시작 배치에 없던 포병 (예약 투입으로 나타난 유닛): 목격한 기억이 있을 때만. 도착 일정은 모름 (안개)
-  const startIds = new Set(GAME_CONFIG.DEPLOYMENT[enemy].map((d, i) => prefix + (i + 1)));
+  const startIds = new Set(publicSetup(enemy).map((d, i) => prefix + (i + 1)));
   for (const m of Object.values(mem)) {
     if (m.type !== 'artillery' || startIds.has(m.id) || dead[m.id]) continue;
     if (m.vacated || state.round - m.round > T.ARTY_MEMORY_AGE) continue;
@@ -1561,7 +1715,7 @@ function aiShellCover(state, ctx) {
   const sigNear = (p) => signals.some((g) => manhattan(g, p) <= C.COMBAT.signalRange);
   const sources = [];
   let unknown = 0, precise = 0;
-  C.DEPLOYMENT[enemy].forEach((d, i) => {
+  publicSetup(enemy).forEach((d, i) => {
     if (d.type !== 'artillery') return;
     const id = prefix + (i + 1);
     if (dead[id]) return;
@@ -2345,6 +2499,8 @@ function simulateGames(n = 100, opts = {}) {
     const rng = createSeededRng(gameSeed);                                         // AI 노이즈
     const diceRng = splitRng ? createSeededRng((gameSeed ^ 0x5DEECE66) >>> 0) : rng;   // 주사위
     try {
+      // 직접 편성 (opts.draft: { 진영: 편성 } 또는 (게임 시드, 번호) => 그 객체). 없으면 이 줄은 아무 일도 하지 않음
+      if (opts.draft) setDraft(typeof opts.draft === 'function' ? opts.draft(gameSeed, i) : opts.draft);
       const st = createInitialState();
       if (!detail) startTurn(st);
       let guard = 0, firstCapture = null;
@@ -2633,6 +2789,7 @@ function simulateGames(n = 100, opts = {}) {
     for (const s of SIDES) lines.push(`   ${name(s)}: ${res.avgSurvivors[s]} / ${initial[s]}`);
     console.log(lines.join('\n'));
   }
+  if (opts.draft) setDraft(null);   // 편성 시험이 끝나면 기본 배치로 되돌림
   return res;
 }
 
@@ -3010,6 +3167,7 @@ function buildGameRecord(state, difficulty, mode = 'ai') {
   const norm = lim ? { def: Number.isInteger(lim.def) ? lim.def : null, att: Number.isInteger(lim.att) ? lim.att : null } : null;
   rec.activationLimit = norm && (norm.def != null || norm.att != null) ? norm : null;
   rec.activationCustom = !!(state.actApplied && state.actApplied.custom);
+  if (C.DRAFT_ACTIVE) rec.draft = { mode: 'custom', comps: JSON.parse(JSON.stringify(C.DRAFT_COMPS)) };   // 직접 편성 판만 (없으면 '기본')
   rec.at = new Date().toISOString();
   return rec;
 }
@@ -3039,7 +3197,8 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GAME_CONFIG, RULES, UNIT_TYPES, TERRAIN_TYPES, AI_CONFIG, SCENARIOS, loadScenario, validateScenario, listScenarios,
     createInitialState, startTurn, endTurn, getReachableTiles, getAttackableTiles, computeHitChance,
-    resolveAttack, moveUnit, finishUnit, getVisibleTiles, checkVictory, aiTakeTurn, simulateGames, createSeededRng, cloneState,
+    resolveAttack, moveUnit, finishUnit, getVisibleTiles, checkVictory, aiTakeTurn, simulateGames,
+    setDraft, restoreDraft, draftError, draftDataErrors, draftBlock, draftCost, draftCount, draftDefaultComp, draftAiComp, draftAutoPlace, draftTypeList, publicSetup, createSeededRng, cloneState,
     buildGameRecord, summarizeGameRecords, aiUpdatePlan, resolveProfile, listTacticProfiles, compareTacticProfiles,
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,
     diagnoseActivations, activationStatus, activationLimits, hasActivated, activationBlocked, scenarioNotes, sideTotalUnits,

@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const loadEngine = require('./load-engine');
 
-const { E, run, ROOT } = loadEngine({ quiet: true });
+const { E, run, ctx, ROOT } = loadEngine({ quiet: true });
 const C = () => E.GAME_CONFIG;
 const SCEN_IDS = E.SCENARIOS.map((s) => s.id);
 /** AI 가 실제로 두는 시나리오 (튜토리얼 실습판은 AI 가 움직이지 않으므로 AI 안개 시험에서 뺌. 연습 판은 포함) */
@@ -547,7 +547,7 @@ test('대칭 검사: 기본 데이터는 통과, 지형·거점·배치·증원�
   assert.ok(broke((s) => row(s, 0, 0, 'f')).some((m) => m.startsWith('terrain')), '지형 한 칸');
   assert.ok(broke((s) => { s.objectives[0].cells = [[8, 3]]; }).some((m) => m.startsWith('objective')), '거점 칸');
   assert.ok(broke((s) => { s.objectives[1].cells.pop(); }).some((m) => m.startsWith('objective')), '중앙 묶음 칸 수');
-  assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ua' && d.type === 'recon').pos = [12, 12]; }).includes('deployments'), '시작 배치 칸');
+  assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ua' && d.type === 'signal').pos = [12, 12]; }).includes('deployments'), '시작 배치 칸');
   assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ua' && d.type === 'artillery').type = 'mortar'; }).includes('deployments'), '병종');
   assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ru' && d.round === 4).round = 3; }).includes('deployments'), '증원 라운드');
   assert.ok(broke((s) => { s.deployments.find((d) => d.side === 'ua' && d.round === 4).count = 1; }).includes('deployments'), '증원 수');
@@ -853,10 +853,10 @@ test('intel: 보이면 위치 갱신, 보이는 칸이 비면 기록 삭제, 안
   const st = fresh('symmetric');
   const ru = st.units.find((u) => u.side === 'ru' && u.type === 'infantry');
   // 우크라이나군 시야 안으로 옮김 → 보임
-  ru.r = 10; ru.c = 13;
+  ru.r = 10; ru.c = 9;
   run('updateMemory')(st);
   let rec = E.intelRecords(st, 'ua', KI()).find((e) => e.id === ru.id);
-  assert.ok(rec && rec.seen && rec.r === 10 && rec.c === 13 && rec.conf === 1 && rec.radius === 0);
+  assert.ok(rec && rec.seen && rec.r === 10 && rec.c === 9 && rec.conf === 1 && rec.radius === 0);
   // 마지막으로 본 칸이 지금 시야 밖 → 마지막 위치 유지, 라운드가 지날수록 신뢰도 감소·반경 증가
   ru.r = 4; ru.c = 2;
   st.memory.ua[ru.id] = { ...st.memory.ua[ru.id], r: 5, c: 3, vacated: false };   // (5,3) 에서 본 것으로 (우크라이나군 시야 밖 칸)
@@ -875,12 +875,12 @@ test('intel: 보이면 위치 갱신, 보이는 칸이 비면 기록 삭제, 안
   // 시작 배치 기록(공개 설정): 못 본 유닛은 시작 칸으로, 그 칸이 보이면 삭제
   const s2 = fresh('symmetric');
   const setupRec = E.intelRecords(s2, 'ua', KI()).find((e) => e.id === 'R1');
-  assert.deepEqual([setupRec.r, setupRec.c], [3, 2]);
-  const scout = s2.units.find((u) => u.side === 'ua' && u.type === 'recon');
-  scout.r = 5; scout.c = 2;
+  assert.deepEqual([setupRec.r, setupRec.c], [3, 6]);
+  const scout = s2.units.find((u) => u.side === 'ua' && u.type === 'infantry');
+  scout.r = 5; scout.c = 6;
   s2.units.find((u) => u.id === 'R1').r = 0;   // 실제로는 다른 곳으로 이동
   run('updateMemory')(s2);
-  assert.ok(!E.intelRecords(s2, 'ua', KI()).some((e) => e.id === 'R1' && e.r === 3 && e.c === 2));
+  assert.ok(!E.intelRecords(s2, 'ua', KI()).some((e) => e.id === 'R1' && e.r === 3 && e.c === 6));
 });
 
 test('intel: 보이지 않는 적의 위치·체력·쿨다운·증원을 바꿔도 기억·위험 지도가 같음', () => {
@@ -1274,7 +1274,9 @@ test('메뉴: 저장소를 못 읽으면 "저장 없음, 처음 아님"으로 �
   assert.equal(broken.ok, false);
   const raw = { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', turn: 'ua', state: { units: [{ id: 'r1', r: 1, c: 1 }] }, logs: ['x'] };
   const s = E.readMenuStore(memStore({ [E.MENU_KEYS.save]: JSON.stringify(raw) })).save;
-  jsonEq(s, { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', turn: 'ua', rulesUpdated: true }, '유닛 위치·로그는 요약에 없음');
+  jsonEq(s, { scenarioId: 'symmetric', round: 4, maxRounds: 14, mode: 'hotseat', draft: 'default', turn: 'ua', rulesUpdated: true }, '유닛 위치·로그는 요약에 없음. 옛 저장은 편성 기본');
+  const dr = E.readMenuStore(memStore({ [E.MENU_KEYS.save]: JSON.stringify({ ...raw, draft: 'custom', draftComps: { ua: { armor: 6 } } }) })).save;
+  assert.equal(dr.draft, 'custom'); assert.ok(!JSON.stringify(dr).includes('armor'), '편성 내용은 메뉴 요약에 없음');
   const ai = E.readMenuStore(memStore({ [E.MENU_KEYS.save]: JSON.stringify({ ...raw, mode: 'ai' }) })).save;
   assert.equal(ai.turn, null, 'AI 대전은 차례 표시 없음');
 });
@@ -1761,7 +1763,7 @@ test('예전 저장 판 불러오기: 제압 필드가 없어도 불러오고, �
 
 test('규칙 화면: 후퇴와 제압 항목은 모든 시나리오에 있고, 포병·박격포가 없는 구성이면 안내 한 줄로 바뀜 (유닛 구성에서 읽음)', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'ui.js'), 'utf8');
-  assert.ok(/const RULE_SECS = \[[^\]]*'retreat'/.test(src), "RULE_SECS 에 'retreat'");
+  assert.ok(/const ruleSecs = \(\) => [^\n]*'retreat'/.test(src), "ruleSecs 에 'retreat'");
   assert.ok(!/GAME_CONFIG\.RETREAT\s*\?/.test(src), '시나리오 조건 분기 없음');
   assert.ok(/R\.SUPPRESS_SOURCES\.some\(scenarioHasType\)/.test(src), '제압·포병 줄은 유닛 구성(scenarioHasType)에서 읽음');
   const S = run('STRINGS');
@@ -2149,4 +2151,203 @@ test('포격 자국: 우글레다르만 켬 (art.impactMarks), 파일이 있고 
   const m = E.SCENARIOS.find((s) => s.id === 'vuhledar').art.impactMarks;
   for (const f of [...m.mortar, ...m.artillery]) assert.ok(fs.existsSync(path.join(ROOT, f)), f);
   for (const s of E.SCENARIOS) if (s.id !== 'vuhledar') assert.ok(!s.art || !s.art.impactMarks, s.id);
+});
+
+/* ---------------- 직접 편성 (draft, 대칭 전장의 시작 옵션) ---------------- */
+const DR = () => C().DRAFT;
+const loadSym = () => { E.loadScenario('symmetric'); E.setDraft(null); return C(); };
+const PRESET = (id) => ({ ...DR().presets.find((p) => p.id === id).counts });
+const symData = () => JSON.parse(JSON.stringify(E.SCENARIOS.find((s) => s.id === 'symmetric')));
+const draftErrs = (mut) => { const s = symData(); mut(s.draft); return E.draftDataErrors(s); };
+
+test('[편성] 데이터: 대칭 전장만 켜짐, 다른 시나리오에는 draft 없음', () => {
+  for (const s of E.SCENARIOS) if (s.id !== 'symmetric') { assert.equal(s.draft, undefined, s.id); E.loadScenario(s.id); assert.equal(C().DRAFT, null); }
+  loadSym();
+  assert.ok(DR() && DR().enabled);
+});
+
+test('[편성] 데이터: 모든 병종 가격, 기본 편성 비용 = 예산, presets 는 예산·상한을 지킴', () => {
+  loadSym();
+  const base = E.draftDefaultComp();
+  for (const k of Object.keys(base)) assert.ok(DR().costs[k] >= 1, `${k} 가격`);
+  assert.equal(E.draftCost(base), DR().budget, '기본 편성 비용 = 예산');
+  assert.ok(DR().presets.length >= 3);
+  for (const p of DR().presets) { assert.equal(E.draftError(p.counts), null, p.id); assert.ok(E.draftCost(p.counts) <= DR().budget, p.id); }
+  assert.equal(DR().limits.signal, 1);
+  assert.deepEqual([...E.validateScenario(E.SCENARIOS.find((s) => s.id === 'symmetric'))], []);
+});
+
+test('[편성] 데이터 검증: 일부러 어긋나게 하면 실패', () => {
+  assert.equal(draftErrs(() => {}).length, 0);
+  assert.ok(draftErrs((d) => { delete d.costs.mortar; }).length, '가격 없음');
+  assert.ok(draftErrs((d) => { d.costs.armor = 0; }).length, '가격 0');
+  assert.ok(draftErrs((d) => { d.budget = 20; }).length, '예산 < 기본 편성');
+  assert.ok(draftErrs((d) => { d.presets[1].counts.infantry = 12; }).length, 'preset 예산 초과');
+  assert.ok(draftErrs((d) => { d.presets[0].counts.signal = 2; }).length, 'preset 상한 초과');
+  assert.ok(draftErrs((d) => { d.presets = []; }).length, 'preset 없음');
+  assert.ok(draftErrs((d) => { d.minUnits = 0; }).length, 'minUnits');
+  assert.ok(draftErrs((d) => { d.limits.tank = 1; }).length, '없는 병종 상한');
+  assert.ok(draftErrs((d) => { d.deployRows.ua = [10, 15]; }).length, '배치 구역 불일치');
+  const s = symData(); s.draft.budget = 5;
+  assert.ok(E.validateScenario(s).length, 'validateScenario 가 draft 오류를 냄');
+});
+
+test('[편성] 로직: 포인트 초과 불가, 통신 상한 1, 최소 1부대, 기본 편성 채우기 = 예산', () => {
+  loadSym();
+  assert.ok(E.draftError({}), '0부대는 확정 불가');
+  assert.equal(E.draftBlock({ infantry: 20 }, 'artillery'), 'budget');
+  assert.equal(E.draftError({ infantry: 22 }).k, 'draftErr.budget');
+  assert.equal(E.draftBlock({ armor: 2 }, 'armor'), 'limit', '기갑 상한 2');
+  assert.equal(E.draftError({ armor: 3 }).k, 'draftErr.limit');
+  assert.equal(E.draftBlock({ signal: 1 }, 'signal'), 'limit');
+  assert.equal(E.draftError({ signal: 2 }).k, 'draftErr.limit');
+  assert.equal(E.draftError({ recon: 1 }), null, '최소 1부대');
+  assert.equal(E.draftBlock({}, 'artillery'), null);
+  const fill = {};
+  for (let guard = 0; guard < 100; guard++) { const k = E.draftTypeList().find((x) => !E.draftBlock(fill, x)); if (!k) break; fill[k] = (fill[k] || 0) + 1; }
+  assert.ok(E.draftCost(fill) <= DR().budget); assert.equal(E.draftError(fill), null);
+  assert.equal(E.draftCost(E.draftDefaultComp()), DR().budget);
+  assert.equal(E.draftError({ infantry: -1, recon: 1 }).k, 'draftErr.count');
+  assert.equal(E.draftError({ tank: 1 }).k, 'draftErr.type');
+  assert.throws(() => E.setDraft({ ua: { armor: 9 } }), /./);
+  assert.equal(C().DRAFT_ACTIVE, false, '실패하면 아무것도 바뀌지 않음');
+});
+
+test('[편성] 자동 배치: 모든 preset·양쪽 진영이 구역 안에서 겹치지 않고, 같은 편성이면 180도 회전 대칭', () => {
+  loadSym();
+  const comps = [...DR().presets.map((p) => p.counts), E.draftDefaultComp(), { infantry: 13 }, { recon: 13 }, { signal: 1 }];
+  for (const comp of comps) {
+    const a = E.draftAutoPlace('ua', comp), b = E.draftAutoPlace('ru', comp);
+    assert.ok(a && b, JSON.stringify(comp));
+    assert.equal(a.length, E.draftCount(comp));
+    for (const list of [a, b]) assert.equal(new Set(list.map((p) => p.r * 16 + p.c)).size, list.length, '겹침 없음');
+    const key = (list, f) => list.map((p) => `${p.type}:${f(p)}`).sort().join('|');
+    assert.equal(key(a, (p) => `${p.r},${p.c}`), key(b, (p) => `${15 - p.r},${15 - p.c}`), '양쪽 같은 규칙');
+    // 유효한 칸인지는 엔진 검사로: 편성 적용 뒤 createInitialState 의 검증이 통과
+    E.setDraft({ ua: comp, ru: comp });
+    assert.doesNotThrow(() => E.createInitialState());
+  }
+  E.setDraft(null);
+  const list = E.draftAutoPlace('ru', E.draftDefaultComp());
+  const rows = (types) => list.filter((p) => types.includes(p.type)).map((p) => p.r);
+  assert.ok(Math.min(...rows(['armor', 'infantry'])) > Math.max(...rows(['artillery', 'mortar', 'signal'])), 'ru 는 큰 행이 앞줄');
+  assert.equal(E.draftAutoPlace('ua', { infantry: 65 }), null, '칸이 모자라면 null (구역을 넓히지 않음)');
+});
+
+test('[편성] setDraft 는 증원을 건드리지 않고, null 이면 기본 배치로 정확히 되돌림', () => {
+  const base = JSON.stringify(loadSym().DEPLOYMENT), reinf = JSON.stringify(C().REINFORCEMENTS);
+  E.setDraft({ ua: PRESET('armor'), ru: PRESET('fires') });
+  assert.equal(C().DRAFT_ACTIVE, true);
+  assert.equal(JSON.stringify(C().REINFORCEMENTS), reinf);
+  assert.equal(C().DEPLOYMENT.ua.length, 8); assert.equal(C().DEPLOYMENT.ru.length, 9);
+  const st = E.createInitialState();
+  assert.equal(st.units.filter((u) => u.side === 'ua').length, 8);
+  assert.equal(st.draft.mode, 'custom');
+  assert.equal(E.sideTotalUnits('ru'), 9 + C().REINFORCEMENTS.filter((g) => g.side === 'ru').reduce((n, g) => n + g.count, 0), '손실 계산의 전체 병력 수에 증원 포함');
+  E.setDraft(null);
+  assert.equal(JSON.stringify(C().DEPLOYMENT), base); assert.equal(C().DRAFT_ACTIVE, false);
+  assert.equal(E.createInitialState().draft, undefined, '기본 편성이면 상태에 draft 키 없음');
+  E.setDraft({ ua: PRESET('armor') });
+  assert.equal(JSON.stringify(C().DEPLOYMENT.ru), JSON.stringify(C().DEPLOYMENT_BASE.ru));
+  E.setDraft(null);
+});
+
+test('[편성] 편성 기본이면 simulateGames 결과가 같음 (setDraft 를 쓴 뒤 되돌려도, 빈 draft 옵션이어도)', () => {
+  loadSym();
+  const plain = JSON.stringify(E.simulateGames(4, { seed: 777 }));
+  const withEmpty = JSON.stringify(E.simulateGames(4, { seed: 777, draft: {} }));
+  E.setDraft({ ua: PRESET('armor') }); E.setDraft(null);
+  const after = JSON.stringify(E.simulateGames(4, { seed: 777 }));
+  assert.equal(withEmpty, plain); assert.equal(after, plain);
+  for (const id of ['chuncheon', 'hostomel', 'vuhledar']) { E.loadScenario(id); assert.equal(C().DEPLOYMENT, C().DEPLOYMENT_BASE); assert.equal(C().DRAFT_ACTIVE, false); }
+});
+
+test('[편성] AI 편성: 쉬움 = balanced 만, 보통·어려움 = 시드로 무작위, 같은 시드면 같은 편성, Math.random 안 씀', () => {
+  loadSym();
+  for (let s = 1; s < 40; s++) assert.equal(JSON.stringify(E.draftAiComp('easy', s)), JSON.stringify(PRESET('balanced')));
+  const seen = new Set();
+  for (let s = 0; s < 200; s++) { const a = E.draftAiComp('normal', s * 7919); assert.equal(JSON.stringify(a), JSON.stringify(E.draftAiComp('normal', s * 7919))); assert.equal(E.draftError(a), null); seen.add(JSON.stringify(a)); }
+  assert.equal(seen.size, DR().presets.length, '모든 preset 이 나옴');
+  const orig = Math.random; let calls = 0; Math.random = () => { calls++; return 0.5; };
+  try { E.draftAiComp('hard', 5); } finally { Math.random = orig; }
+  assert.equal(calls, 0);
+});
+
+test('[편성] 직접 편성으로 simulateGames 가 끝까지 돌고 (preset 조합 전부), 같은 시드면 결과가 같음', () => {
+  loadSym();
+  const ids = DR().presets.map((p) => p.id);
+  for (const a of ids) for (const b of ids) {
+    const r = E.simulateGames(1, { seed: 4242, draft: { ua: PRESET(a), ru: PRESET(b) } });
+    assert.equal(r.errors, 0, `${a} vs ${b}`);
+    assert.equal(r.wins.ua + r.wins.ru + (r.draws || 0), 1);
+  }
+  const f = (sd) => ({ ua: E.draftAiComp('normal', sd), ru: E.draftAiComp('hard', sd + 1) });
+  const x = JSON.stringify(E.simulateGames(3, { seed: 99, draft: f })), y = JSON.stringify(E.simulateGames(3, { seed: 99, draft: f }));
+  assert.equal(x, y);
+  assert.equal(C().DRAFT_ACTIVE, false, '끝나면 기본 배치로 복귀');
+});
+
+test('[편성] 한쪽만·양쪽·서로 다른 병종 수: 승리 판정, 행동 한도, 점수 승리가 정상', () => {
+  loadSym();
+  const cases = [
+    { ua: PRESET('infantry') },
+    { ua: PRESET('fires'), ru: PRESET('armor') },
+    { ua: { recon: 1 }, ru: { infantry: 13 } },
+    { ua: { infantry: 13 }, ru: { signal: 1 } },
+  ];
+  for (const [i, comps] of cases.entries()) {
+    const r = E.simulateGames(3, { seed: 100 + i, draft: comps });
+    assert.equal(r.errors, 0, JSON.stringify(comps));
+    assert.equal(r.wins.ua + r.wins.ru + (r.draws || 0), 3);
+    assert.ok(r.avgRounds >= 1 && r.avgRounds <= C().MAX_ROUNDS);
+  }
+  E.setDraft({ ua: { infantry: 13 }, ru: { infantry: 3, recon: 1 } });
+  const st = E.createInitialState();
+  E.startTurn(st);
+  assert.equal(st.act.limit, C().ACTIVATIONS.att, 'ru 가 선공 (att)');
+  st.turn = 'ua'; E.startTurn(st);
+  assert.equal(st.act.limit, C().ACTIVATIONS.def);
+  const mine = st.units.filter((u) => u.side === 'ua');
+  ctx.__st = st; ctx.__mine = mine;
+  for (let k = 0; k < st.act.limit; k++) run(`noteActivation(__st, __mine[${k}])`);
+  assert.equal(E.activationBlocked(st, mine[st.act.limit]), true, '한도를 다 쓰면 다음 유닛은 막힘');
+  E.setDraft(null);
+});
+
+test('[편성] 안개: 직접 편성 판은 기본 배치로 상대를 추정하지 않고, 상대 편성이 달라도 내 AI 행동이 같음', () => {
+  loadSym();
+  assert.equal(E.publicSetup('ru').length, C().DEPLOYMENT.ru.length, '기본 편성에서는 공개 배치 그대로');
+  const acts = (ruComp) => {
+    E.setDraft({ ua: PRESET('balanced'), ru: ruComp });
+    assert.equal(E.publicSetup('ru').length, 0, '직접 편성 판: 공개 배치 없음');
+    const st = E.createInitialState();
+    st.turn = 'ua'; E.startTurn(st);
+    const { rng, diceRng } = seeded(31337);
+    return JSON.stringify(E.aiTakeTurn(st, 'ua', rng, 'normal', { recordSnapshots: false, diceRng }));
+  };
+  const a = acts(PRESET('armor')), b = acts(PRESET('fires')), c = acts({ infantry: 13 });
+  assert.equal(a, b); assert.equal(a, c);
+  E.setDraft(null);
+});
+
+test('[편성] 게임 기록·이어하기: 직접 편성 판만 draft 필드, 기록 없는 예전 판은 기본으로 읽힘', () => {
+  loadSym();
+  assert.equal(E.buildGameRecord(E.createInitialState(), 'normal').draft, undefined);
+  E.setDraft({ ua: PRESET('armor') });
+  const st = E.createInitialState();
+  assert.equal(E.buildGameRecord(st, 'normal').draft.mode, 'custom');
+  E.setDraft(null);
+  const saved = JSON.parse(JSON.stringify(st));
+  assert.equal(E.restoreDraft(saved), true); assert.equal(C().DEPLOYMENT.ua.length, 8);
+  const old = JSON.parse(JSON.stringify(E.upgradeSavedState(saved).state)); delete old.draft;
+  assert.equal(E.restoreDraft(old), false); assert.equal(C().DEPLOYMENT.ua.length, 7);
+  assert.equal(E.upgradeSavedState(saved).state.draft.mode, 'custom');
+});
+
+test('[편성] 문구: ko/en 모두에 있고, 엔진·시나리오 파일에 한글 리터럴 없음', () => {
+  const ko = [...run('Object.keys(STRINGS.ko)')], en = new Set([...run('Object.keys(STRINGS.en)')]);
+  const mine = ko.filter((k) => /^(draft|draftErr)\./.test(k) || ['rules.sec.draft', 'rules.draft', 'scenErr.draft'].includes(k) || k.startsWith('curtain.draft'));
+  assert.ok(mine.length >= 30);
+  for (const k of mine) assert.ok(en.has(k), k);
+  for (const f of ['js/engine.js', 'js/scenarios/symmetric.js']) assert.ok(!/[가-힣]/.test(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')), f);
 });
