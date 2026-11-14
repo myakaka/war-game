@@ -14,5 +14,11 @@
 - 규칙 `docs/rules.md` 후퇴와 제압, 수치 `RULES.RETREAT`, AI 공통 모듈 `ai-intel.js`. 이어하기 UI 는 아직 없음(`upgradeSavedState`·`rulesNoticeNeeded` 준비됨).
 - 포격 자국(보기 전용): `fx.js` `planImpactMark/markShape/addMark`, `ui.js` `recordImpactMark/marksHtml/ui.marks`(진영별, 본 낙하만), `art.impactMarks`(우글레다르만). 엔진·규칙·저장 무관.
 
-## 다음에 볼 곳
-- 없는 소리 5개·BGM, 이어하기, 게임 이름 확정. 우글레다르 균형(임시값)과 이미지 용량 최적화는 직접 플레이 뒤 판단.
+- 포탄 모양(그리기 전용, `fx.js` `drawShell`): 포병=길쭉한 포탄+연기 띠+잔상, 박격포=날개 달린 물방울 몸통(낙하 때 커짐). 직접 사격 예광탄은 그대로.
+- 그림: 우글레다르 PNG 7장 → WebP(q82) 19.3MB → 2.9MB. `check.js --only <id>` 옵션 추가(시나리오 데이터만 바꿨을 때 그 시나리오만).
+- 우글레다르는 우크라이나(방어)가 아래쪽으로 확정(지도 위아래 반전, `flipFacing` 은 쓰지 않음). 기준선은 우글레다르 7개만 갱신, 나머지 21개 그대로.
+
+## 다음에 볼 곳 (2026-11-14 기준, 푸시 완료 670f0f4)
+- 파일 필요: 없는 소리 5개(shell_whistle, score_up, objective_captured, victory, defeat), BGM.
+- 결정 필요: 이어하기(포격 자국 저장·규칙 업데이트 안내 연결 포함), 게임 이름, 우글레다르 균형(임시값, 뒤집은 뒤 방어 승리 늘어남).
+- 선택: sound 11MB 추가 축소, 우글레다르 그림 75% 해상도(1.8MB), 쓰지 않는 `assets/평행 고랑이 이어진 경작지.png` 삭제, 포격 자국 그림 3종(지금 2종).
