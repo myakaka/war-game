@@ -1,19 +1,18 @@
-# HANDOFF (2026-11-14) — 후퇴·제압을 모든 시나리오의 기본 규칙으로 (rulesVersion 12, 작업 전 태그 `stable-before-retreat-all`)
+# HANDOFF (2026-11-14) — 우글레다르 시나리오 추가 (작업 전 태그 `stable-before-vuhledar`) · 그 전: 후퇴·제압 전역화 (rulesVersion 12)
 
-## 후퇴·제압 전역화 (최근)
-- 규칙 내용은 v11 그대로(`docs/rules.md` 후퇴와 제압). 이전 규칙·옵션·시나리오 분기는 없음. 수치는 `RULES.RETREAT`(`STEPS` 1, `SUPPRESS_TURNS` 1, `SUPPRESS_SOURCES`) 한 곳. 시나리오 `retreat` 블록·검증 삭제.
-- 엔진: `resolveRetreats`/`retreatTarget`/`retreatDir`는 조건 없이 실행. 춘천은 `fires`가 없을 뿐 포병이 있어 포병 후퇴·제압도 일어남(규칙 화면의 제압·포병 줄은 `scenarioHasType` 로 유닛 구성을 보고 정함, 지금 세 시나리오 모두 표시).
-- AI 공통 모듈(`ai-intel.js`): `retreatGain`·`aiRetreatRisk`·`retreatBlockedCount`·`suppMemory`. 대칭 AI는 `V2` 값, 호스토멜·춘천 기존 AI는 `AI_CONFIG.WEIGHTS`(retreatKill 등 6개, 위험 항목은 `diff.risk` 곱함 → 난이도 차이 유지). 제압 기억은 내 사격 결과만(대칭 `aiIntel[side].supp`, 그 밖 `state.aiSupp`).
-- 저장 판: `upgradeSavedState`(원본 유지, 제압 기본값, 읽을 수 없으면 `state: null`), 메뉴 `rulesUpdated`·`rulesNoticeNeeded`, 문구 `save.rulesUpdated`. **진행 중인 판 저장·이어하기 UI는 아직 없어** 안내를 띄울 곳이 없음(저장 때 `rulesVersion`을 함께 써야 함).
-- 튜토리얼: 전역 규칙으로 정리, 2단계 문구에 직접 사격 후퇴 한 줄(`tutorialParams().steps`).
-- 검증: test 165 통과(세 시나리오 파라미터화 + 구 AI 테스트 추가), check: 대칭 7항목 SAME(턴 해시 포함), 호스토멜·춘천 14항목 DIFF(의도), 기준선 `--save`로 갱신, layout-check 32 SAME. 브라우저(PC·390x844): 두 시나리오 후퇴·포병 4칸·제압·후퇴 불가 격파·안개(DOM 단서 0건)·규칙 화면 확인.
-- 진단 파일: `tools/retreat-before-*.json`(이전 규칙, 태그 시점 복사본에서 생성), `retreat-after-*.json`, `retreat-{before,after}-sim.json`(simulateGames n=60, 난이도 3단계). 생성: `node tools/retreat-diag.js <시나리오> <난이도> 60 <out>`, `node tools/retreat-sim-snapshot.js <out> 60`.
-- 알려진 것: 춘천 새 규칙에서 `hq` 승리가 4→24판(보통, 60판)으로 늘었으나 후퇴로 본부 칸에 닿은 경우는 거의 없음(0.03/판), 원인은 행동 변화. 구 AI의 대칭 `v1:` 프로필은 새 항목을 모름(진단용). 대칭 AI의 새 위험 항은 난이도 배수를 곱하지 않음(결과 동일 유지 요구 때문).
-- 바꾼 테스트: 숨은 적 체력 안개 테스트(결과가 처음 갈리는 행동까지 판단만 비교), 메뉴 저장 요약(`rulesUpdated` 추가), 후퇴 엔진 테스트(시나리오 파라미터화로 교체).
+## 우글레다르 (최근, 새 시나리오 데이터만. 규칙·엔진·AI 로직 변경 없음)
+- `js/scenarios/vuhledar.js` + `index.html` script 한 줄. 진영 `ua`(방어, 파랑, 위쪽)·`ru`(공격, 빨강, 아래쪽), 이름은 기존 `side.ua/side.ru` 글자뿐. 16x16, 거점 = 위쪽 마을 2x2 묶음(`presence`), 10라운드, 공격 선공, 행동 한도 방어 4·공격 6, 증원 없음, `fires` 는 병종별 한 세트(러시아군은 포병 유닛이 없어 박격포만), 방어군만 배치 구역 0~6행. 승리: 공격 `holdObjectives` 1(방어 턴 끝난 뒤 확인) / 방어 `surviveRounds` 10 / 전멸. 병력·배치·한도·라운드는 임시값(사용자가 조절).
+- 그림(PC 리치, 모두 `art` 데이터로 켜짐, 다른 시나리오는 그대로): `rich-map.js` 에 `art.dryField`(평지에 노이즈로 섞는 마른 밭, 30%), `art.fields`(밀밭, 채도 55%·밝기 85%, 가장자리 흐림, 평지 칸에만), `art.decor`(`strip` 방풍림·흙길 + 그림자, `scar` 포격 자국 5개), `art.terrain.city` 교체(파괴된 마을은 이 시나리오만), 로더는 `decor` 이미지. `art.flipFacing`: 방어가 위쪽 진영이라 유닛 그림 방향을 뒤집음(`richBaseDeg`).
+- 그림 파일: `assets/` 루트의 한글 이름 8장 중 7장을 `assets/vuhledar/` 영문 이름으로 `git mv`(ruined-town, dry-field, wheat, windbreak, dirt-road, scorch-impact, crater). `평행 고랑이 이어진 경작지.png` 는 용도 없어 그대로. 포격 자국 PNG 는 2종뿐이라 5개에 돌려 씀(요청은 3종). 큰 PNG 약 25MB(로딩 무게 주의).
+- 문구: `scen.vuhledar.*`, `obj.VT`, 태그 `tag.armorArty`·`tag.diff3`. 카드 미리보기는 `art.terrain` 으로 자동. BGM `null`.
+- 검증: test 200 통과(우글레다르 데이터·검증·simulateGames 3난이도·승리 조건·그림 데이터·안개, 후퇴·구 AI 파라미터화에 포함), check: 기존 세 시나리오 21항목 SAME, 우글레다르 7항목은 기준선 없음→`--save` 로 추가, layout-check 32 SAME. 브라우저(PC 리치, 휴대폰 리치·기본): 카드·시작 시트·배치·게임 화면, 방향 옵션(방어 180도), 호스토멜 그대로 확인.
+- 진단(n=40, 난이도별 `tools/vuhledar-diag-*.json`): 생성 `node tools/retreat-diag.js vuhledar <난이도> 40 <out>`. 관찰: 러시아군 보병은 느려서 9라운드에도 10~11행(기갑이 앞서감), 러시아군 보병 손실 0, 공격군 점유는 평균 9~9.4라운드에 시작.
+- 시작 배치(보고만): 러시아군 13기 중 9기가 15행(맵 끝: 보병 4·기갑 3·박격포 1·통신 1), 위에서 맞으면 후퇴할 곳이 없어 격파. 우크라이나군은 맵 끝·이동 불가 지형 옆 0기. 증원 칸 없음.
+- 알려진 것: 방풍림 가로 줄 `(10행, 11~14열)` 은 지도상 숲이 아니라 장식만. 시나리오 `scaleMeters` 250 은 가정값. 큰 이미지 때문에 첫 로딩이 느릴 수 있음.
 
-## 소리·메뉴·효과 (그 전)
-- `js/audio.js`, `sound/` 11MB(44.1kHz 16bit), `file://` 오디오는 오디오 태그 경로로 동작. 메뉴 `js/menu.js`, 효과 `js/fx.js`.
+## 후퇴·제압 전역화 (그 전)
+- 규칙 `docs/rules.md` 후퇴와 제압, 수치 `RULES.RETREAT`, AI 공통 모듈 `ai-intel.js`. 이어하기 UI 는 아직 없음(`upgradeSavedState`·`rulesNoticeNeeded` 준비됨).
+- 포격 자국(보기 전용): `fx.js` `planImpactMark/markShape/addMark`, `ui.js` `recordImpactMark/marksHtml/ui.marks`(진영별, 본 낙하만), `art.impactMarks`(우글레다르만). 엔진·규칙·저장 무관.
 
 ## 다음에 볼 곳
-- 없는 소리 5개·BGM 파일, 이어하기(저장·불러오기 + 규칙 안내), 게임 이름 확정.
-- 균형(후퇴·제압 값 `RULES.RETREAT`, AI `WEIGHTS`)은 직접 플레이로 판단.
+- 없는 소리 5개·BGM, 이어하기, 게임 이름 확정. 우글레다르 균형(임시값)과 이미지 용량 최적화는 직접 플레이 뒤 판단.

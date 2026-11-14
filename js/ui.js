@@ -90,6 +90,7 @@
       { type: 'mortar', key: 'cooldown', min: 0, max: 2, step: 1 },
       { type: 'mortar', key: 'indirectPenalty', min: 0, max: 30, step: 5 },
     ],
+    marks: { fadeMs: 300, opacity: 0.85 },   // 포격 자국 (보기용): 나타나는 시간, 투명도. 개수·크기는 js/fx.js MARK_CFG
     impactSmall: 0.55,     // 박격포(한 칸) 탄착 연출의 고리 크기 배수
     /* 좁은 화면 조작: 턴 종료 재확인 시간, 공격 확인 시트 (명중 단계 경계는 표시용이며 규칙값이 아님) */
     endArmMs: 3000,
@@ -174,6 +175,9 @@
   /** 진영별 빈 로그 */
   const emptyLogs = () => Object.fromEntries(GAME_CONFIG.ROUND_ORDER.map((s) => [s, []]));
   ui.logs = emptyLogs();
+  /** 포격 자국 (화면 전용, 엔진 상태 아님): 진영별 목록 = 그 진영이 낙하를 실제로 본 것만. 판마다 비움 */
+  const resetMarks = () => { ui.marks = Object.fromEntries(GAME_CONFIG.ROUND_ORDER.map((s) => [s, []])); ui.markSeed = (Date.now() ^ 0x5bd1e995) >>> 0; };
+  resetMarks();
   /** 진영의 역할 ('def' 방어 / 'att' 공격). 그림·색은 역할로 고름 */
   const ROLE = (side) => roleOf(side) || 'def';
   const DEF = () => sideByRole('def'), ATT = () => attackerSide();
@@ -548,12 +552,13 @@
     rich.assets[id] = { status: 'loading', img: null };
     const files = Object.fromEntries(Object.entries(DESIGN.rich.units).map(([k, v]) => [k, v.img]));
     const list = RICH_MAP.artSources(art, files);
-    const img = { terrain: {}, unit: {}, runway: null, patch: null };
+    const img = { terrain: {}, unit: {}, runway: null, patch: null, decor: {} };
     Promise.all(list.map((it) => new Promise((res, rej) => {
       const im = new Image();
       im.onload = () => {
         if (it.kind === 'terrain') img.terrain[it.key] = im;
         else if (it.kind === 'unit') img.unit[it.key] = { src: it.src, w: im.naturalWidth, h: im.naturalHeight };
+        else if (it.kind === 'decor') img.decor[it.key] = im;
         else img[it.kind] = im;
         res();
       };
@@ -638,6 +643,11 @@
    * 리치 유닛: { body: 링 + 그림자 + 그림 (그림 층), top: 배지·체력·완료 표시 (맨 위 층) }. 한 칸 = 40 좌표, 중심 (20,20)
    * 공격 측은 그림만 180도 회전 (그림자 필터는 회전 바깥에 걸어 방향이 같음)
    */
+  /** 그림의 기본 방향 (도): 보통 방어 측은 위, 공격 측은 아래(180). art.flipFacing 인 시나리오(방어 측이 위쪽 진영)는 반대 */
+  function richBaseDeg(side) {
+    const art = scenArt();
+    return (ROLE(side) === 'att') !== !!(art && art.flipFacing) ? 180 : 0;
+  }
   function richUnitParts(side, type, opts = {}) {
     const D = DESIGN.side[ROLE(side)], RU = DESIGN.rich;
     let U = RU.units[type] || RU.units.infantry;
@@ -653,7 +663,7 @@
     const R = U.ring * CS;
     let body = `<circle cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="${RU.ringFill}" stroke="${D.line}" stroke-width="${RU.ringW}" vector-effect="non-scaling-stroke"/>`;
     if (opts.selected) body += `<circle class="pulse-sel" style="animation-duration:${DESIGN.hl.sel.pulseMs}ms" cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="0.16" stroke="${RU.selLine}" stroke-width="${RU.selW}" vector-effect="non-scaling-stroke"/>`;
-    const deg = (ROLE(side) === 'att' ? 180 : 0) + (opts.angle || 0);   // 공격 측은 180도 + 임시 회전각
+    const deg = richBaseDeg(side) + (opts.angle || 0);   // 공격 측은 180도 + 임시 회전각 (art.flipFacing 이면 방어 측)
     const rot = deg ? ` transform="rotate(${+deg.toFixed(2)} 20 20)"` : '';
     body += `<g filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})"><image href="${esc(im.src)}" x="${(20 - w / 2).toFixed(2)}" y="${(20 - h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"${rot}/></g>`;
     const B = RU.badge, txt = t('unit.' + type + '.badge');
@@ -694,7 +704,7 @@
   /** 공격자 칸 중심 → 대상 칸 중심 방향을 기본 방향(방어 측 위, 공격 측 아래) 기준 회전각으로. 보병·대전차는 ±60도 */
   function faceAngle(side, type, from, to) {
     const abs = Math.atan2(to.c - from.c, -(to.r - from.r)) * 180 / Math.PI;   // 위 = 0, 시계 방향 +
-    let a = normDeg(abs - (ROLE(side) === 'att' ? 180 : 0));
+    let a = normDeg(abs - richBaseDeg(side));
     const lim = DESIGN.rich.face.limit[type];
     if (lim != null) a = Math.max(-lim, Math.min(lim, a));
     return a;
@@ -706,7 +716,7 @@
     if (!u || !rich.on) return;
     const im = cells[idx(u.r, u.c)].dyn.querySelector('.unit image');
     if (!im) return;
-    const deg = (ROLE(u.side) === 'att' ? 180 : 0) + a;
+    const deg = richBaseDeg(u.side) + a;
     if (deg) im.setAttribute('transform', `rotate(${+deg.toFixed(2)} 20 20)`); else im.removeAttribute('transform');
   }
   /** 지금 각도에서 목표 각도로 (짧은 쪽으로) 돌림. 같은 유닛의 새 회전이 시작되면 이전 회전은 그 자리에서 멈춤 */
@@ -941,6 +951,38 @@
     return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>${coolHtml}`;
   }
 
+  /** 포격 자국: 리치 테마 + 시나리오 art.impactMarks 가 있을 때만 그림. 보는 진영이 직접 본 낙하만 (me 의 목록). 안개로 덮이면 지형처럼 가려짐 */
+  function marksHtml(me, r, c) {
+    const list = rich.on && me && me !== 'all' && ui.marks[me];
+    if (!list || !list.length) return '';
+    const now = Date.now();
+    let html = '';
+    for (const m of list) {
+      if (m.r !== r || m.c !== c || !m.file) continue;
+      const age = now - m.t0;
+      const fresh = !ui.reduceMotion && age < DESIGN.marks.fadeMs;
+      const px = m.size * 100, off = (1 - m.size) * 50;
+      html += `<div class="shell-mark${fresh ? ' fresh' : ''}" style="left:${(off + m.dx * 100).toFixed(1)}%;top:${(off + m.dy * 100).toFixed(1)}%;width:${px.toFixed(1)}%;height:${px.toFixed(1)}%;${fresh ? `animation-delay:${-age}ms;` : ''}" aria-hidden="true"><img src="${esc(m.file)}" alt="" draggable="false" style="transform:rotate(${m.rot}deg)"></div>`;
+    }
+    return html;
+  }
+  /** 이 공격의 낙하를 본 진영마다 자국을 남김 (핫시트: 두 진영 각자 시야로 판단, AI 대전: 플레이어만) */
+  function recordImpactMark(ev, pre, vis) {
+    const art = scenArt(), files = art && art.impactMarks;
+    if (!files) return;
+    const small = GAME_CONFIG.UNIT_TYPES[ev.unitType].splash === false;
+    const list = files[small ? 'mortar' : 'artillery'] || [];
+    const sides = hotseat() ? GAME_CONFIG.ROUND_ORDER : [PLAYER];
+    for (const sd of sides) {
+      const mark = planImpactMark(ev, { vis: sd === ui.viewer ? vis : getVisibleTiles(pre, sd), N, small });
+      if (!mark) continue;
+      const seq = ui.marks[sd].length ? ui.marks[sd][ui.marks[sd].length - 1].seq + 1 : 0;
+      const shape = markShape(ui.markSeed, ui.state ? ui.state.round : 0, mark, seq, list);
+      shape.t0 = Date.now();
+      ui.marks[sd] = addMark(ui.marks[sd], shape);
+    }
+  }
+
   /** 본부·거점 표식 (공개 정보) */
   function markersHtml(st, r, c) {
     let html = '';
@@ -1113,7 +1155,7 @@
       const shown = !!u && !!me && (me === 'all' || u.side === me || vis.has(i)) && !ui.anim.hideUnits.has(u.id);
       if (ui.actingId && shown && u.id === ui.actingId) cls.push('acting');
       if (playerTurn && shown && u.side === me && !u.acted) cls.push('clickable');
-      let html = markersHtml(st, r, c);
+      let html = marksHtml(me, r, c) + markersHtml(st, r, c);
       if (shown) html += unitHtml(u, !!sel && sel.id === u.id);
       cells[i].el.className = cls.join(' ');
       cells[i].dyn.innerHTML = html;
@@ -2111,6 +2153,7 @@
     // 후퇴: 출발·도착 칸이 모두 보이는 유닛만 미끄러짐을 그림 (피해 연출이 끝난 뒤). 하나라도 시야 밖이면 그림 없이 결과 상태만
     const slides = ui.reduceMotion ? [] : events.filter((e) => e.type === 'retreat' && vis.has(idx(e.from.r, e.from.c)) && vis.has(idx(e.to.r, e.to.c)));
     for (const e of slides) ui.anim.hideUnits.add(e.unitId);
+    recordImpactMark(ev, pre, vis);
     ui.view = post; render();   // 체력 숫자는 번쩍임 직후에 바뀜
     const cs0 = slides.length ? cellPx() : 0;
     const slideEls = slides.map((e) => {
@@ -2959,6 +3002,7 @@
     ui.actingId = null;
     ui.busy = false;
     ui.logs = emptyLogs();
+    resetMarks();
     ui.history = [];
     ui.turnEvents = [];
     ui.flash = new Set();
@@ -3297,6 +3341,7 @@
     PLAYER = GAME_CONFIG.PLAYER_SIDE;
     AI_SIDE = enemyOf(PLAYER);
     ui.logs = emptyLogs();
+    resetMarks();
     ui.viewer = PLAYER;
     buildBoard();
     resetZoom();
@@ -3764,6 +3809,7 @@
     ui.inspectId = null;
     ui.actingId = null;
     ui.logs = emptyLogs();
+    resetMarks();
     ui.history = [];
     ui.turnEvents = [];
     ui.flash = new Set();
@@ -3976,6 +4022,7 @@
     ui.view = ui.state;
     ui.viewer = PLAYER;
     ui.logs = emptyLogs();
+    resetMarks();
     ui.history = [];
     $('#log').innerHTML = '';
     hideOverlay();
@@ -4587,6 +4634,7 @@
   PLAYER = GAME_CONFIG.PLAYER_SIDE;
   AI_SIDE = enemyOf(PLAYER);
   ui.logs = emptyLogs();
+  resetMarks();
   ui.viewer = PLAYER;
   buildBoard();
   ui.legendTab = (() => { try { const v = localStorage.getItem(LEGEND_TAB_KEY); return ['terrain', 'units', 'marks', 'hl'].includes(v) ? v : 'terrain'; } catch (e) { return 'terrain'; } })();

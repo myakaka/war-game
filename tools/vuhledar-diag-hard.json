@@ -1,0 +1,60 @@
+{
+ "scenario": "vuhledar",
+ "level": "hard",
+ "games": 40,
+ "rulesVersion": 12,
+ "avgRounds": 9.85,
+ "defHoldShare": 0.864,
+ "capturedCenter": 1.93,
+ "capturedFlank": 0,
+ "midAttacks": 19.8,
+ "midMoves": 35.58,
+ "nearShare": 0.39,
+ "midNearShare": 0.415,
+ "retreats": 3.92,
+ "retreatKills": 0.63,
+ "suppressed": 0.97,
+ "resupKills": 0,
+ "lossesTotal": 6.38,
+ "lossesBySide": {
+  "ru(att)": {
+   "infantry": 0,
+   "armor": 1.18,
+   "antitank": 0,
+   "recon": 0.95,
+   "signal": 0,
+   "mortar": 0,
+   "artillery": 0
+  },
+  "ua(def)": {
+   "infantry": 0.97,
+   "armor": 0.35,
+   "antitank": 1.55,
+   "recon": 0,
+   "signal": 0.57,
+   "mortar": 0.15,
+   "artillery": 0.65
+  }
+ },
+ "supportLost": 0.8,
+ "supportLostByRetreatBlock": 0.156,
+ "stallShare": 0.898,
+ "maxStallAvg": 6.5,
+ "hqRetreats": 0,
+ "attHeldGames": 13,
+ "attHeldShare": 0.325,
+ "attFirstHoldRoundAvg": 9.31,
+ "indirectDamageShare": 0.12,
+ "defSupportLost": 0.8,
+ "defSupportBlockedShare": 0.156,
+ "reasons": {
+  "survived": 30,
+  "objectives": 9,
+  "annihilation": 1
+ },
+ "wins": {
+  "ru(att)": 10,
+  "ua(def)": 30
+ },
+ "draws": 0
+}

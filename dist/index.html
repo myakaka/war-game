@@ -178,6 +178,13 @@ button.active, button[aria-pressed="true"], button[aria-selected="true"], button
   content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: repeating-linear-gradient(45deg, var(--fog-line) 0 2px, transparent 2px 7px), var(--fog-base);
 }
+/* 포격 자국: 지형 위, 안개(z2 뒤쪽 ::after)·표식·유닛·선택 표시보다 아래. 투명도 85% */
+.shell-mark { position: absolute; z-index: 2; pointer-events: none; opacity: 0.85; }
+.shell-mark img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.shell-mark.fresh { animation: markIn 0.3s ease-out both; }
+.shell-mark.fresh::after { content: ""; position: absolute; inset: -25%; border-radius: 50%; background: radial-gradient(circle, rgba(70,60,50,0.55), rgba(70,60,50,0) 70%); animation: markSmoke 0.3s ease-out both; }
+@keyframes markIn { from { opacity: 0; } to { opacity: 0.85; } }
+@keyframes markSmoke { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.3); } }
 .grid-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 .mk { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
 .unit { position: absolute; inset: 0; z-index: 7; pointer-events: none; }
@@ -1257,6 +1264,11 @@ const STRINGS = {
     'scen.hostomel.sub': '공항 활주로 방어전',
     'scen.hostomel.desc': '공중 강습으로 공항을 노리는 공격군과, 증원이 올 때까지 활주로를 지키는 방어군의 36시간.',
     'scen.hostomel.zone': '공항 안 (2~13행, 2~9열)',
+    'scen.vuhledar.name': '우글레다르',
+    'scen.vuhledar.sub': '고지 위 마을 방어전',
+    'scen.vuhledar.desc': '2023년 우글레다르 방어전을 모티브로 한 전장. 고지의 마을을 지키는 소수 방어군과 개활지를 건너 기갑으로 돌파하려는 공격군.',
+    'scen.vuhledar.zone': '마을 일대 (0~6행)',
+    'obj.VT': '언덕 위 마을', 'obj.VT.short': '마을',
     'obj.RN': '활주로 북단',
     'obj.RC': '활주로 중앙',
     'obj.RS': '활주로 남단',
@@ -1272,7 +1284,7 @@ const STRINGS = {
     'lbl.music': '음악', 'lbl.sfx': '효과음', 'aria.musicVol': '음악 볼륨', 'aria.sfxVol': '효과음 볼륨', 'aria.mute': '소리 끄기', 'aria.unmute': '소리 켜기',
     'btn.toMenu': '← 메뉴', 'menu.done': '완료',
     'scen.pick': '시나리오 선택', 'btn.backShort': '‹ 뒤로', 'btn.startScen': '{name} 시작 ›', 'start.setup': '시작 설정', 'aria.closeSheet': '시작 설정 닫기',
-    'tag.asym': '비대칭', 'tag.sym': '대칭', 'tag.points': '점수제', 'tag.intro': '입문용', 'tag.fires': '간접 화력', 'tag.twoPlayer': '2인 가능',
+    'tag.armorArty': '기갑 대 포병', 'tag.diff3': '난이도 3단계', 'tag.asym': '비대칭', 'tag.sym': '대칭', 'tag.points': '점수제', 'tag.intro': '입문용', 'tag.fires': '간접 화력', 'tag.twoPlayer': '2인 가능',
     'scen.chip.player': '플레이어: {side}',
     'scen.chip.rounds': '{n}라운드',
     'scen.chip.scale': '1칸 ≈ {m}m',
@@ -1708,6 +1720,11 @@ const STRINGS = {
     'scen.hostomel.sub': 'Airfield runway defense',
     'scen.hostomel.desc': 'Thirty-six hours: attackers strike the airfield by air assault while defenders hold the runway until reinforcements arrive.',
     'scen.hostomel.zone': 'Inside the airfield (rows 2-13, cols 2-9)',
+    'scen.vuhledar.name': 'Vuhledar',
+    'scen.vuhledar.sub': 'Defense of the hilltop village',
+    'scen.vuhledar.desc': 'A battlefield inspired by the 2023 defense of Vuhledar: a small defending force holds a village on high ground against an attacker pushing across open fields with armor.',
+    'scen.vuhledar.zone': 'Around the village (rows 0-6)',
+    'obj.VT': 'Hilltop village', 'obj.VT.short': 'Village',
     'obj.RN': 'Runway North',
     'obj.RC': 'Runway Center',
     'obj.RS': 'Runway South',
@@ -1723,7 +1740,7 @@ const STRINGS = {
     'lbl.music': 'Music', 'lbl.sfx': 'Sound effects', 'aria.musicVol': 'Music volume', 'aria.sfxVol': 'Sound effects volume', 'aria.mute': 'Mute sound', 'aria.unmute': 'Unmute sound',
     'btn.toMenu': '← Menu', 'menu.done': 'Done',
     'scen.pick': 'Choose a scenario', 'btn.backShort': '‹ Back', 'btn.startScen': 'Start {name} ›', 'start.setup': 'Game setup', 'aria.closeSheet': 'Close game setup',
-    'tag.asym': 'Asymmetric', 'tag.sym': 'Symmetric', 'tag.points': 'Points', 'tag.intro': 'Good first game', 'tag.fires': 'Indirect fire', 'tag.twoPlayer': '2 players',
+    'tag.armorArty': 'Armor vs artillery', 'tag.diff3': '3 difficulty levels', 'tag.asym': 'Asymmetric', 'tag.sym': 'Symmetric', 'tag.points': 'Points', 'tag.intro': 'Good first game', 'tag.fires': 'Indirect fire', 'tag.twoPlayer': '2 players',
     'scen.chip.player': 'Player: {side}',
     'scen.chip.rounds': '{n} rounds',
     'scen.chip.scale': '1 tile ≈ {m} m',
@@ -2518,6 +2535,123 @@ SCENARIOS.push({
     },
     terrainOffset: { city: [4.8, 4.8] },     // 도심 그림 시작 위치 (칸): 중앙 마을에서 거울 대칭축이 칸 중앙에 오지 않게 (호스토멜과 다른 값)
     unitSet: 'hostomel',
+    overlays: [],
+  },
+  arrivalRadius: 3,
+});
+</script>
+<script data-src="js/scenarios/vuhledar.js">
+'use strict';
+/* =====================================================================
+   시나리오: 우글레다르 (2023년 우글레다르 방어전 모티브)
+   실제 전투에서 구도만 가져온 추상화 시나리오: 고지 위 마을을 지키는 소수의 방어군과 개활지를 건너 들어오는 기갑 중심의 공격군.
+   국가 이름은 글자로만 쓰고(side.ua / side.ru), 국기·휘장·실제 부대 이름·실제 병력과 손실 숫자는 없다.
+   병력 수·배치·행동 제한·라운드 수는 균형을 위한 임시값 (사용자가 플레이하며 조절). 규칙·병종 수치는 공통 값 그대로.
+   ===================================================================== */
+SCENARIOS.push({
+  id: 'vuhledar',
+  nameKey: 'scen.vuhledar.name', descKey: 'scen.vuhledar.desc', subKey: 'scen.vuhledar.sub',
+  tags: ['asym', 'armorArty', 'diff3'],
+  bgm: null,                 // 이 시나리오의 음악 (화면 전용). 파일이 아직 없음
+  bgmLoopTrim: [0, 0],
+  scaleMeters: 250,
+  // 위쪽 큰 마을(1~4행)이 지킬 마을(거점). 아래쪽 작은 마을(11~13행)은 엄폐물일 뿐 거점 아님.
+  // 4열 5~9행 숲 한 줄 = 방풍림(규칙상 그냥 숲 f), 11~13열 5~8행 w = 습지(게임용 추가 지형)
+  map: [
+    '................',
+    '......###.......',
+    '.....#####....f.',
+    '.....#####....f.',
+    '......###.......',
+    '....f......ww...',
+    '....f..ff..www..',
+    '....f..ff..www.f',
+    '....f......ww..f',
+    '..f.f..f.f.....f',
+    '..f.....f.f.....',
+    '......##.f......',
+    '.....###.f......',
+    '......##........',
+    '................',
+    '................',
+  ],
+  // 진영 이름은 글자 표시뿐 (국기·휘장 그림 없음). 색과 모양은 역할(def = 파랑 사각, att = 빨강 마름모)
+  sides: {
+    ua: { role: 'def', nameKey: 'side.ua', color: '#1e88e5' },   // 위쪽 (아래를 봄)
+    ru: { role: 'att', nameKey: 'side.ru', color: '#e53935' },   // 아래쪽 (위를 봄)
+  },
+  playerSide: 'ua',
+  firstMover: 'ru',                      // 선공: 공격군 (라운드 순서 = [선공, 후공])
+  rounds: 10,                            // 임시값
+  hq: { ua: null, ru: null },
+  objectiveControl: 'presence',          // 묶음 안에 한 칸이라도 있고 상대가 묶음 안에 없으면 점유, 양쪽이 있으면 아무도 점유 못 함
+  objectives: [
+    { id: 'VT', nameKey: 'obj.VT', shortNameKey: 'obj.VT.short', cells: [[2, 6], [2, 7], [3, 6], [3, 7]], startOwner: null },
+  ],
+  deployments: [
+    // 우크라이나군 (방어, 위쪽): 기본 배치 (직접 배치를 안 하면 이 값, 공격 AI 의 추정 위치 겸용)
+    { round: 0, side: 'ua', type: 'infantry', pos: [2, 5] }, { round: 0, side: 'ua', type: 'infantry', pos: [3, 8] }, { round: 0, side: 'ua', type: 'infantry', pos: [2, 9] },
+    { round: 0, side: 'ua', type: 'armor', pos: [5, 7] },
+    { round: 0, side: 'ua', type: 'antitank', pos: [4, 6] }, { round: 0, side: 'ua', type: 'antitank', pos: [4, 8] },
+    { round: 0, side: 'ua', type: 'artillery', pos: [1, 7] },
+    { round: 0, side: 'ua', type: 'mortar', pos: [1, 5] },
+    { round: 0, side: 'ua', type: 'signal', pos: [1, 10] },
+    // 러시아군 (공격, 아래쪽): 고정 배치. 포병 없음 (간접 화력은 박격포 1기뿐)
+    { round: 0, side: 'ru', type: 'infantry', pos: [15, 4] }, { round: 0, side: 'ru', type: 'infantry', pos: [15, 8] },
+    { round: 0, side: 'ru', type: 'infantry', pos: [15, 10] }, { round: 0, side: 'ru', type: 'infantry', pos: [15, 13] },
+    { round: 0, side: 'ru', type: 'armor', pos: [14, 5] }, { round: 0, side: 'ru', type: 'armor', pos: [15, 6] },
+    { round: 0, side: 'ru', type: 'armor', pos: [14, 9] }, { round: 0, side: 'ru', type: 'armor', pos: [15, 9] },
+    { round: 0, side: 'ru', type: 'armor', pos: [14, 12] }, { round: 0, side: 'ru', type: 'armor', pos: [15, 12] },
+    { round: 0, side: 'ru', type: 'mortar', pos: [15, 7] },
+    { round: 0, side: 'ru', type: 'recon', pos: [14, 3] },
+    { round: 0, side: 'ru', type: 'signal', pos: [15, 11] },
+    // 증원 없음
+  ],
+  placementZones: { ua: { rows: [0, 6] }, ru: null },   // 방어군만 직접 배치 가능 (공격군은 고정)
+  zoneLabelKey: 'scen.vuhledar.zone',
+  river: null,
+  aiConstants: {},
+  aiProfiles: ['easy', 'normal', 'hard'],   // 시작 화면 난이도 목록 (강이 없어 산개전술은 어려움과 같음)
+  objectiveCheckAfter: null,                // 거점 확인: 그 라운드 마지막 진영의 턴이 끝난 뒤 (호스토멜과 같은 방식)
+  activations: { def: 4, att: 6 },          // 역할별 한 턴 행동 한도 (임시값: 사용자가 조절)
+  // 간접 화력은 병종별 한 세트 (진영별 값은 없음). 어느 진영이 무엇을 쓰는지는 위 배치가 정함: 방어 포병 1·박격포 1, 공격 박격포 1
+  fires: {
+    blindFire: true,
+    mortar: { range: 4, cooldown: 0, indirectPenalty: 0 },
+    artillery: { range: 5, cooldown: 1 },
+  },
+  victory: {
+    ru: [{ type: 'holdObjectives', count: 1 }, { type: 'annihilation' }],
+    ua: [{ type: 'surviveRounds', rounds: 10 }, { type: 'annihilation' }],
+  },
+  terrainNames: { paddy: 'terrain.marsh' },
+  overlays: [],
+  // 그림 세트 (PC 리치 테마 전용 장식: 규칙 로직은 읽지 않음). 칸의 지형 종류는 위 지도 그대로
+  art: {
+    terrain: {
+      plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
+      paddy: 'assets/terrain/wetland.jpg',
+      city: 'assets/vuhledar/ruined-town.png',            // 파괴된 마을: 이 시나리오의 마을 칸 바닥에만 (호스토멜·춘천은 기존 질감)
+    },
+    unitSet: 'hostomel',                                  // 박격포 그림(assets/units/hostomel/mortar.png)이 있으면 그것, 없으면 포병 그림 70%
+    flipFacing: true,                                     // 위쪽(방어) 진영이 아래를 보고 아래쪽(공격) 진영이 위를 봄
+    impactMarks: { mortar: ['assets/vuhledar/scorch-impact.png'], artillery: ['assets/vuhledar/crater.png', 'assets/vuhledar/scorch-impact.png'] },   // 포격 자국(보기용): 박격포=작게, 포병=크게. 없으면 기능 꺼짐
+    dryField: { src: 'assets/vuhledar/dry-field.png', share: 0.3 },   // 평지 칸 바닥에 노이즈 마스크로 섞는 마른 밭 (평지의 30% 안팎)
+    fields: [                                             // 밀밭: 평지 칸 두 구역 (가장자리는 흐리고 불규칙). 칸은 계속 평지
+      { src: 'assets/vuhledar/wheat.png', rows: [1, 3], cols: [0, 2], saturation: 0.55, brightness: 0.85 },
+      { src: 'assets/vuhledar/wheat.png', rows: [11, 13], cols: [10, 14], saturation: 0.55, brightness: 0.85 },
+    ],
+    decor: [                                              // 장식 (유닛·선택·거점 표시보다 아래층). from/to = 줄의 첫·끝 칸 (행, 열)
+      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [5, 4], to: [9, 4], shadow: true },      // 방풍림 (세로, 4열 5~9행)
+      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [10, 11], to: [10, 14], shadow: true },  // 방풍림 (가로, 10행 11~14열: 이 칸들은 숲이 아니라 장식만)
+      { type: 'strip', src: 'assets/vuhledar/dirt-road.png', from: [4, 9], to: [4, 15] },                    // 흙길 (위쪽 마을 동쪽 → 지도 오른쪽 끝)
+      // 포격 자국 (고정 장식 5개). size = 보이는 지름(칸), fill = 그림 폭 중 보이는 비율
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [6, 8], size: 0.85, fill: 0.8, rot: 20 },
+      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [7, 6], size: 0.78, fill: 0.95, rot: 140 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [9, 11], size: 0.7, fill: 0.8, rot: 250 },
+      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [5, 3], size: 0.62, fill: 0.95, rot: 60 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [11, 6], size: 0.8, fill: 0.8, rot: 330 },
+    ],
     overlays: [],
   },
   arrivalRadius: 3,
@@ -7179,7 +7313,41 @@ function createFxCanvas(host, env) {
   return { play, clear, fit, canvas: cv, stats: () => ({ live: live.length, budget }) };
 }
 
-if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { FX, fxRng, planAttackFx });
+/* ---------- 포격 자국 (보기용. 엔진 상태·게임 난수와 무관, 화면 쪽 목록으로만 관리) ---------- */
+const MARK_CFG = { perCell: 2, total: 40, jitter: 0.1, small: [0.55, 0.65], large: [0.8, 0.95] };
+
+/**
+ * 이 공격이 자국을 남기는가. 간접 화력이 명중했고 중심 칸이 보는 쪽 시야 안일 때만 {r,c,kind:'small'|'large'}, 아니면 null.
+ * o = { vis: 시야 칸 집합(연출과 같은 것), N: 지도 한 변, small: 박격포(한 칸) 여부 }. 직접 사격·빗나감·안 보이는 칸은 남기지 않음
+ */
+function planImpactMark(ev, o) {
+  if (!ev || !ev.indirect || !ev.hit || !o.vis.has(ev.target.r * o.N + ev.target.c)) return null;
+  return { r: ev.target.r, c: ev.target.c, kind: o.small ? 'small' : 'large' };
+}
+
+/** 자국 하나의 모양: 판 연출 시드·라운드·칸·순번으로 정함 (효과 전용 난수. 같은 입력이면 같은 모양) */
+function markShape(seed, round, mark, seq, files, cfg = MARK_CFG) {
+  const rng = fxRng(((seed >>> 0) ^ Math.imul(round + 1, 0x9e3779b1) ^ Math.imul(mark.r * 64 + mark.c + 1, 0x85ebca6b) ^ Math.imul(seq + 1, 0xc2b2ae35)) >>> 0);
+  const sz = cfg[mark.kind];
+  return {
+    r: mark.r, c: mark.c, kind: mark.kind, seq,
+    file: files.length ? files[Math.floor(rng() * files.length) % files.length] : null,
+    rot: Math.round(rng() * 360),
+    dx: +((rng() * 2 - 1) * cfg.jitter).toFixed(3), dy: +((rng() * 2 - 1) * cfg.jitter).toFixed(3),
+    size: +(sz[0] + rng() * (sz[1] - sz[0])).toFixed(3),
+  };
+}
+
+/** 목록에 추가: 칸마다 최대 perCell 개(넘으면 그 칸의 가장 오래된 것), 판 전체 최대 total 개(넘으면 가장 오래된 것). 새 목록을 돌려줌 */
+function addMark(list, shape, cfg = MARK_CFG) {
+  let out = [...list, shape];
+  const same = out.filter((m) => m.r === shape.r && m.c === shape.c);
+  if (same.length > cfg.perCell) { const drop = new Set(same.slice(0, same.length - cfg.perCell)); out = out.filter((m) => !drop.has(m)); }
+  if (out.length > cfg.total) out = out.slice(out.length - cfg.total);
+  return out;
+}
+
+if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { FX, fxRng, planAttackFx, MARK_CFG, planImpactMark, markShape, addMark });
 </script>
 <script data-src="js/menu.js">
 /**
@@ -7552,6 +7720,11 @@ const RICH_MAP = (() => {
       breakPeriod: 0.7,                                          // 띠가 끊기는 간격
       bushes: { perCell: 0.35, minD: 0.1, maxD: 0.5, rMin: 0.08, rMax: 0.13, shadow: 0.16 },
     },
+    // 시나리오 art 가 켜는 장식 (art.dryField / art.fields / art.decor). 없는 시나리오는 아무것도 그리지 않음
+    dry: { period: 1.9, edge: 0.07 },                         // 마른 밭: 노이즈 한 격자(칸), 경계 부드러움
+    field: { blur: 0.28, noisePeriod: 0.75, amp: 0.55, edge: 0.18, tile: 6.2 },   // 밀밭: 경계를 흐리고 불규칙하게
+    strip: { shadow: { dx: 0.05, dy: 0.06, blur: 0.05, alpha: 0.26 } },          // 방풍림 등 줄 장식의 옅은 그림자
+    scar: { alpha: 0.92 },
     runway: { inset: 0.11, edge: 'rgba(225,225,220,0.85)', bars: 4, barLen: 0.22, barGap: 0.06 },
     vignette: 0.28,
     grain: 5,
@@ -7645,6 +7818,33 @@ const RICH_MAP = (() => {
       d[k + 3] = Math.round(255 * Math.min(1, Math.max(0, arr[i] * mul)));
     }
     cx.putImageData(im, 0, 0);
+    return cv;
+  }
+  /** 마스크 값(0~1 배열 arr) 중 mask 안의 픽셀에서 위에서부터 share 비율이 되는 문턱값 (표본 추출) */
+  function quantileIn(arr, mask, share) {
+    const v = [];
+    for (let i = 0; i < arr.length; i += 5) if (mask[i] > 0.5) v.push(arr[i]);
+    if (!v.length) return 2;
+    v.sort((a, b) => a - b);
+    return v[Math.min(v.length - 1, Math.max(0, Math.floor(v.length * (1 - share))))];
+  }
+  /** 채도·밝기를 줄인 복사본 (canvas 필터가 있으면 필터, 없으면 합성 모드로 근사. 이미지 픽셀을 읽지 않음) */
+  function tinted(src, sat, bright) {
+    const cv = newCanvas(src.width, src.height), cx = cv.getContext('2d');
+    if ('filter' in cx) {
+      cx.filter = `saturate(${Math.round(sat * 100)}%) brightness(${Math.round(bright * 100)}%)`;
+      cx.drawImage(src, 0, 0);
+      cx.filter = 'none';
+    } else {
+      cx.drawImage(src, 0, 0);
+      cx.globalCompositeOperation = 'saturation';
+      cx.fillStyle = `rgba(128,128,128,${1 - sat})`;
+      cx.fillRect(0, 0, cv.width, cv.height);
+      cx.globalCompositeOperation = 'multiply';
+      const g = Math.round(255 * bright);
+      cx.fillStyle = `rgb(${g},${g},${g})`;
+      cx.fillRect(0, 0, cv.width, cv.height);
+    }
     return cv;
   }
   /** 거울 반복으로 그림을 깐 전체 크기 캔버스. offPx: 시작 오프셋 [x, y] (px, 거울 대칭축을 옮길 때) */
@@ -7760,6 +7960,31 @@ const RICH_MAP = (() => {
     // 1. 평지 바탕 (전체)
     ctx.drawImage(mirrored(tex('plain'), S, tileOf('plain'), offOf('plain')), 0, 0);
 
+    // 1b. 마른 밭 · 밀밭 (art 가 켠 시나리오만): 평지 칸 위에만, 습지·숲·강·마을은 아래에서 다시 덮음
+    const decorImg = o.img.decor || {};
+    const plainMask = cellMask(n, R, (r, c) => key(r, c) === 'plain');
+    const plainSoft = blur(plainMask, W, W, 0.06 * R);
+    if (o.art.dryField && decorImg[o.art.dryField.src]) {
+      const nz = noise2(W, W, K.dry.period * R, rnd);
+      const t = quantileIn(nz, plainMask, o.art.dryField.share == null ? 0.3 : o.art.dryField.share);
+      const al = new Float32Array(W * W);
+      for (let i = 0; i < al.length; i++) al[i] = smooth(t - K.dry.edge, t + K.dry.edge, nz[i]) * plainSoft[i];
+      drawMasked(ctx, mirrored(decorImg[o.art.dryField.src], S, tileOf('plain'), offOf('plain')), alphaCanvas(al, W, W, [0, 0, 0]), S);
+    }
+    for (const f of o.art.fields || []) {
+      const im = decorImg[f.src];
+      if (!im) continue;
+      const FD = K.field;
+      const base = cellMask(n, R, (r, c) => r >= f.rows[0] && r <= f.rows[1] && c >= f.cols[0] && c <= f.cols[1] && key(r, c) === 'plain');
+      const b = blur(base, W, W, FD.blur * R), nz = noise2(W, W, FD.noisePeriod * R, rnd), al = new Float32Array(W * W);
+      for (let i = 0; i < al.length; i++) {
+        const v = b[i] + (nz[i] - 0.5) * FD.amp * Math.min(1, b[i] * 3) * Math.min(1, (1 - b[i]) * 3 + 0.1);
+        al[i] = smooth(0.5 - FD.edge, 0.5 + FD.edge, v) * plainSoft[i];   // 평지 밖으로는 번지지 않음
+      }
+      const layer = tinted(mirrored(im, S, FD.tile * cellPx, offOf('plain')), f.saturation == null ? 0.55 : f.saturation, f.brightness == null ? 0.85 : f.brightness);
+      drawMasked(ctx, layer, alphaCanvas(al, W, W, [0, 0, 0]), S);
+    }
+
     // 2. 습지
     const paddy = cellMask(n, R, (r, c) => key(r, c) === 'paddy');
     if (paddy.some((v) => v)) drawMasked(ctx, mirrored(tex('paddy'), S, tileOf('paddy'), offOf('paddy')), alphaCanvas(blur(paddy, W, W, K.blur.paddy * R), W, W, [0, 0, 0]), S);
@@ -7821,6 +8046,39 @@ const RICH_MAP = (() => {
       drawVillage(base, lay, Math.round((p.rows[1] - p.rows[0] + 1) * (p.cols[1] - p.cols[0] + 1) * V.bushes.perCell * 0.5));
     }
 
+    // 6b. 줄·자국 장식 (art.decor: 방풍림·흙길·포격 자국. 규칙과 무관한 바탕 그림이라 유닛·선택·거점 표시보다 아래층)
+    for (const d of o.art.decor || []) {
+      const im = decorImg[d.src];
+      if (!im) continue;
+      if (d.type === 'strip') {
+        const a = { x: (d.from[1] + 0.5) * cellPx, y: (d.from[0] + 0.5) * cellPx }, e = { x: (d.to[1] + 0.5) * cellPx, y: (d.to[0] + 0.5) * cellPx };
+        const len = Math.hypot(e.x - a.x, e.y - a.y) + cellPx, ang = Math.atan2(e.y - a.y, e.x - a.x);   // 첫·끝 칸을 모두 덮는 길이
+        const mx = (a.x + e.x) / 2, my = (a.y + e.y) / 2, w = len, h = len * im.height / im.width;
+        const put = (c2, ox, oy) => { c2.save(); c2.translate(mx + ox, my + oy); c2.rotate(ang); c2.drawImage(im, -w / 2, -h / 2, w, h); c2.restore(); };
+        if (d.shadow) {
+          const SH = K.strip.shadow, lay = newCanvas(S, S), lx = lay.getContext('2d');
+          put(lx, 0, 0);
+          lx.globalCompositeOperation = 'source-in';
+          lx.fillStyle = '#000';
+          lx.fillRect(0, 0, S, S);
+          ctx.save();
+          ctx.globalAlpha = SH.alpha;
+          if ('filter' in ctx) ctx.filter = `blur(${SH.blur * cellPx}px)`;
+          ctx.drawImage(lay, SH.dx * cellPx, SH.dy * cellPx);
+          ctx.restore();
+        }
+        put(ctx, 0, 0);
+      } else if (d.type === 'scar') {
+        const w = d.size * cellPx / (d.fill || 1), h = w * im.height / im.width;
+        ctx.save();
+        ctx.globalAlpha = K.scar.alpha;
+        ctx.translate((d.at[1] + 0.5) * cellPx, (d.at[0] + 0.5) * cellPx);
+        ctx.rotate((d.rot || 0) * Math.PI / 180);
+        ctx.drawImage(im, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
+    }
+
     // 7. 활주로 (규칙상 표식일 뿐: 이동·지형·시야와 무관)
     if (o.img.runway) {
       const im = o.img.runway, RW = K.runway;
@@ -7864,6 +8122,10 @@ const RICH_MAP = (() => {
     const out = [];
     for (const [k, src] of Object.entries(art.terrain || {})) out.push({ kind: 'terrain', key: k, src });
     for (const ov of art.overlays || []) if (ov.src) out.push({ kind: ov.type, key: ov.type, src: ov.src });
+    const seen = new Set();   // 장식 그림 (마른 밭·밀밭·줄·자국): 같은 파일은 한 번만 불러옴
+    for (const v of [art.dryField, ...(art.fields || []), ...(art.decor || [])]) {
+      if (v && v.src && !seen.has(v.src)) { seen.add(v.src); out.push({ kind: 'decor', key: v.src, src: v.src }); }
+    }
     for (const [type, file] of Object.entries(unitFiles)) out.push({ kind: 'unit', key: type, src: `assets/units/${art.unitSet}/${file}.png` });
     return out;
   }
@@ -7964,6 +8226,7 @@ const RICH_MAP = (() => {
       { type: 'mortar', key: 'cooldown', min: 0, max: 2, step: 1 },
       { type: 'mortar', key: 'indirectPenalty', min: 0, max: 30, step: 5 },
     ],
+    marks: { fadeMs: 300, opacity: 0.85 },   // 포격 자국 (보기용): 나타나는 시간, 투명도. 개수·크기는 js/fx.js MARK_CFG
     impactSmall: 0.55,     // 박격포(한 칸) 탄착 연출의 고리 크기 배수
     /* 좁은 화면 조작: 턴 종료 재확인 시간, 공격 확인 시트 (명중 단계 경계는 표시용이며 규칙값이 아님) */
     endArmMs: 3000,
@@ -8048,6 +8311,9 @@ const RICH_MAP = (() => {
   /** 진영별 빈 로그 */
   const emptyLogs = () => Object.fromEntries(GAME_CONFIG.ROUND_ORDER.map((s) => [s, []]));
   ui.logs = emptyLogs();
+  /** 포격 자국 (화면 전용, 엔진 상태 아님): 진영별 목록 = 그 진영이 낙하를 실제로 본 것만. 판마다 비움 */
+  const resetMarks = () => { ui.marks = Object.fromEntries(GAME_CONFIG.ROUND_ORDER.map((s) => [s, []])); ui.markSeed = (Date.now() ^ 0x5bd1e995) >>> 0; };
+  resetMarks();
   /** 진영의 역할 ('def' 방어 / 'att' 공격). 그림·색은 역할로 고름 */
   const ROLE = (side) => roleOf(side) || 'def';
   const DEF = () => sideByRole('def'), ATT = () => attackerSide();
@@ -8422,12 +8688,13 @@ const RICH_MAP = (() => {
     rich.assets[id] = { status: 'loading', img: null };
     const files = Object.fromEntries(Object.entries(DESIGN.rich.units).map(([k, v]) => [k, v.img]));
     const list = RICH_MAP.artSources(art, files);
-    const img = { terrain: {}, unit: {}, runway: null, patch: null };
+    const img = { terrain: {}, unit: {}, runway: null, patch: null, decor: {} };
     Promise.all(list.map((it) => new Promise((res, rej) => {
       const im = new Image();
       im.onload = () => {
         if (it.kind === 'terrain') img.terrain[it.key] = im;
         else if (it.kind === 'unit') img.unit[it.key] = { src: it.src, w: im.naturalWidth, h: im.naturalHeight };
+        else if (it.kind === 'decor') img.decor[it.key] = im;
         else img[it.kind] = im;
         res();
       };
@@ -8512,6 +8779,11 @@ const RICH_MAP = (() => {
    * 리치 유닛: { body: 링 + 그림자 + 그림 (그림 층), top: 배지·체력·완료 표시 (맨 위 층) }. 한 칸 = 40 좌표, 중심 (20,20)
    * 공격 측은 그림만 180도 회전 (그림자 필터는 회전 바깥에 걸어 방향이 같음)
    */
+  /** 그림의 기본 방향 (도): 보통 방어 측은 위, 공격 측은 아래(180). art.flipFacing 인 시나리오(방어 측이 위쪽 진영)는 반대 */
+  function richBaseDeg(side) {
+    const art = scenArt();
+    return (ROLE(side) === 'att') !== !!(art && art.flipFacing) ? 180 : 0;
+  }
   function richUnitParts(side, type, opts = {}) {
     const D = DESIGN.side[ROLE(side)], RU = DESIGN.rich;
     let U = RU.units[type] || RU.units.infantry;
@@ -8527,7 +8799,7 @@ const RICH_MAP = (() => {
     const R = U.ring * CS;
     let body = `<circle cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="${RU.ringFill}" stroke="${D.line}" stroke-width="${RU.ringW}" vector-effect="non-scaling-stroke"/>`;
     if (opts.selected) body += `<circle class="pulse-sel" style="animation-duration:${DESIGN.hl.sel.pulseMs}ms" cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="0.16" stroke="${RU.selLine}" stroke-width="${RU.selW}" vector-effect="non-scaling-stroke"/>`;
-    const deg = (ROLE(side) === 'att' ? 180 : 0) + (opts.angle || 0);   // 공격 측은 180도 + 임시 회전각
+    const deg = richBaseDeg(side) + (opts.angle || 0);   // 공격 측은 180도 + 임시 회전각 (art.flipFacing 이면 방어 측)
     const rot = deg ? ` transform="rotate(${+deg.toFixed(2)} 20 20)"` : '';
     body += `<g filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})"><image href="${esc(im.src)}" x="${(20 - w / 2).toFixed(2)}" y="${(20 - h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"${rot}/></g>`;
     const B = RU.badge, txt = t('unit.' + type + '.badge');
@@ -8568,7 +8840,7 @@ const RICH_MAP = (() => {
   /** 공격자 칸 중심 → 대상 칸 중심 방향을 기본 방향(방어 측 위, 공격 측 아래) 기준 회전각으로. 보병·대전차는 ±60도 */
   function faceAngle(side, type, from, to) {
     const abs = Math.atan2(to.c - from.c, -(to.r - from.r)) * 180 / Math.PI;   // 위 = 0, 시계 방향 +
-    let a = normDeg(abs - (ROLE(side) === 'att' ? 180 : 0));
+    let a = normDeg(abs - richBaseDeg(side));
     const lim = DESIGN.rich.face.limit[type];
     if (lim != null) a = Math.max(-lim, Math.min(lim, a));
     return a;
@@ -8580,7 +8852,7 @@ const RICH_MAP = (() => {
     if (!u || !rich.on) return;
     const im = cells[idx(u.r, u.c)].dyn.querySelector('.unit image');
     if (!im) return;
-    const deg = (ROLE(u.side) === 'att' ? 180 : 0) + a;
+    const deg = richBaseDeg(u.side) + a;
     if (deg) im.setAttribute('transform', `rotate(${+deg.toFixed(2)} 20 20)`); else im.removeAttribute('transform');
   }
   /** 지금 각도에서 목표 각도로 (짧은 쪽으로) 돌림. 같은 유닛의 새 회전이 시작되면 이전 회전은 그 자리에서 멈춤 */
@@ -8815,6 +9087,38 @@ const RICH_MAP = (() => {
     return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>${coolHtml}`;
   }
 
+  /** 포격 자국: 리치 테마 + 시나리오 art.impactMarks 가 있을 때만 그림. 보는 진영이 직접 본 낙하만 (me 의 목록). 안개로 덮이면 지형처럼 가려짐 */
+  function marksHtml(me, r, c) {
+    const list = rich.on && me && me !== 'all' && ui.marks[me];
+    if (!list || !list.length) return '';
+    const now = Date.now();
+    let html = '';
+    for (const m of list) {
+      if (m.r !== r || m.c !== c || !m.file) continue;
+      const age = now - m.t0;
+      const fresh = !ui.reduceMotion && age < DESIGN.marks.fadeMs;
+      const px = m.size * 100, off = (1 - m.size) * 50;
+      html += `<div class="shell-mark${fresh ? ' fresh' : ''}" style="left:${(off + m.dx * 100).toFixed(1)}%;top:${(off + m.dy * 100).toFixed(1)}%;width:${px.toFixed(1)}%;height:${px.toFixed(1)}%;${fresh ? `animation-delay:${-age}ms;` : ''}" aria-hidden="true"><img src="${esc(m.file)}" alt="" draggable="false" style="transform:rotate(${m.rot}deg)"></div>`;
+    }
+    return html;
+  }
+  /** 이 공격의 낙하를 본 진영마다 자국을 남김 (핫시트: 두 진영 각자 시야로 판단, AI 대전: 플레이어만) */
+  function recordImpactMark(ev, pre, vis) {
+    const art = scenArt(), files = art && art.impactMarks;
+    if (!files) return;
+    const small = GAME_CONFIG.UNIT_TYPES[ev.unitType].splash === false;
+    const list = files[small ? 'mortar' : 'artillery'] || [];
+    const sides = hotseat() ? GAME_CONFIG.ROUND_ORDER : [PLAYER];
+    for (const sd of sides) {
+      const mark = planImpactMark(ev, { vis: sd === ui.viewer ? vis : getVisibleTiles(pre, sd), N, small });
+      if (!mark) continue;
+      const seq = ui.marks[sd].length ? ui.marks[sd][ui.marks[sd].length - 1].seq + 1 : 0;
+      const shape = markShape(ui.markSeed, ui.state ? ui.state.round : 0, mark, seq, list);
+      shape.t0 = Date.now();
+      ui.marks[sd] = addMark(ui.marks[sd], shape);
+    }
+  }
+
   /** 본부·거점 표식 (공개 정보) */
   function markersHtml(st, r, c) {
     let html = '';
@@ -8987,7 +9291,7 @@ const RICH_MAP = (() => {
       const shown = !!u && !!me && (me === 'all' || u.side === me || vis.has(i)) && !ui.anim.hideUnits.has(u.id);
       if (ui.actingId && shown && u.id === ui.actingId) cls.push('acting');
       if (playerTurn && shown && u.side === me && !u.acted) cls.push('clickable');
-      let html = markersHtml(st, r, c);
+      let html = marksHtml(me, r, c) + markersHtml(st, r, c);
       if (shown) html += unitHtml(u, !!sel && sel.id === u.id);
       cells[i].el.className = cls.join(' ');
       cells[i].dyn.innerHTML = html;
@@ -9985,6 +10289,7 @@ const RICH_MAP = (() => {
     // 후퇴: 출발·도착 칸이 모두 보이는 유닛만 미끄러짐을 그림 (피해 연출이 끝난 뒤). 하나라도 시야 밖이면 그림 없이 결과 상태만
     const slides = ui.reduceMotion ? [] : events.filter((e) => e.type === 'retreat' && vis.has(idx(e.from.r, e.from.c)) && vis.has(idx(e.to.r, e.to.c)));
     for (const e of slides) ui.anim.hideUnits.add(e.unitId);
+    recordImpactMark(ev, pre, vis);
     ui.view = post; render();   // 체력 숫자는 번쩍임 직후에 바뀜
     const cs0 = slides.length ? cellPx() : 0;
     const slideEls = slides.map((e) => {
@@ -10833,6 +11138,7 @@ const RICH_MAP = (() => {
     ui.actingId = null;
     ui.busy = false;
     ui.logs = emptyLogs();
+    resetMarks();
     ui.history = [];
     ui.turnEvents = [];
     ui.flash = new Set();
@@ -11171,6 +11477,7 @@ const RICH_MAP = (() => {
     PLAYER = GAME_CONFIG.PLAYER_SIDE;
     AI_SIDE = enemyOf(PLAYER);
     ui.logs = emptyLogs();
+    resetMarks();
     ui.viewer = PLAYER;
     buildBoard();
     resetZoom();
@@ -11638,6 +11945,7 @@ const RICH_MAP = (() => {
     ui.inspectId = null;
     ui.actingId = null;
     ui.logs = emptyLogs();
+    resetMarks();
     ui.history = [];
     ui.turnEvents = [];
     ui.flash = new Set();
@@ -11850,6 +12158,7 @@ const RICH_MAP = (() => {
     ui.view = ui.state;
     ui.viewer = PLAYER;
     ui.logs = emptyLogs();
+    resetMarks();
     ui.history = [];
     $('#log').innerHTML = '';
     hideOverlay();
@@ -12461,6 +12770,7 @@ const RICH_MAP = (() => {
   PLAYER = GAME_CONFIG.PLAYER_SIDE;
   AI_SIDE = enemyOf(PLAYER);
   ui.logs = emptyLogs();
+  resetMarks();
   ui.viewer = PLAYER;
   buildBoard();
   ui.legendTab = (() => { try { const v = localStorage.getItem(LEGEND_TAB_KEY); return ['terrain', 'units', 'marks', 'hl'].includes(v) ? v : 'terrain'; } catch (e) { return 'terrain'; } })();

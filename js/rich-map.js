@@ -23,6 +23,11 @@ const RICH_MAP = (() => {
       breakPeriod: 0.7,                                          // 띠가 끊기는 간격
       bushes: { perCell: 0.35, minD: 0.1, maxD: 0.5, rMin: 0.08, rMax: 0.13, shadow: 0.16 },
     },
+    // 시나리오 art 가 켜는 장식 (art.dryField / art.fields / art.decor). 없는 시나리오는 아무것도 그리지 않음
+    dry: { period: 1.9, edge: 0.07 },                         // 마른 밭: 노이즈 한 격자(칸), 경계 부드러움
+    field: { blur: 0.28, noisePeriod: 0.75, amp: 0.55, edge: 0.18, tile: 6.2 },   // 밀밭: 경계를 흐리고 불규칙하게
+    strip: { shadow: { dx: 0.05, dy: 0.06, blur: 0.05, alpha: 0.26 } },          // 방풍림 등 줄 장식의 옅은 그림자
+    scar: { alpha: 0.92 },
     runway: { inset: 0.11, edge: 'rgba(225,225,220,0.85)', bars: 4, barLen: 0.22, barGap: 0.06 },
     vignette: 0.28,
     grain: 5,
@@ -116,6 +121,33 @@ const RICH_MAP = (() => {
       d[k + 3] = Math.round(255 * Math.min(1, Math.max(0, arr[i] * mul)));
     }
     cx.putImageData(im, 0, 0);
+    return cv;
+  }
+  /** 마스크 값(0~1 배열 arr) 중 mask 안의 픽셀에서 위에서부터 share 비율이 되는 문턱값 (표본 추출) */
+  function quantileIn(arr, mask, share) {
+    const v = [];
+    for (let i = 0; i < arr.length; i += 5) if (mask[i] > 0.5) v.push(arr[i]);
+    if (!v.length) return 2;
+    v.sort((a, b) => a - b);
+    return v[Math.min(v.length - 1, Math.max(0, Math.floor(v.length * (1 - share))))];
+  }
+  /** 채도·밝기를 줄인 복사본 (canvas 필터가 있으면 필터, 없으면 합성 모드로 근사. 이미지 픽셀을 읽지 않음) */
+  function tinted(src, sat, bright) {
+    const cv = newCanvas(src.width, src.height), cx = cv.getContext('2d');
+    if ('filter' in cx) {
+      cx.filter = `saturate(${Math.round(sat * 100)}%) brightness(${Math.round(bright * 100)}%)`;
+      cx.drawImage(src, 0, 0);
+      cx.filter = 'none';
+    } else {
+      cx.drawImage(src, 0, 0);
+      cx.globalCompositeOperation = 'saturation';
+      cx.fillStyle = `rgba(128,128,128,${1 - sat})`;
+      cx.fillRect(0, 0, cv.width, cv.height);
+      cx.globalCompositeOperation = 'multiply';
+      const g = Math.round(255 * bright);
+      cx.fillStyle = `rgb(${g},${g},${g})`;
+      cx.fillRect(0, 0, cv.width, cv.height);
+    }
     return cv;
   }
   /** 거울 반복으로 그림을 깐 전체 크기 캔버스. offPx: 시작 오프셋 [x, y] (px, 거울 대칭축을 옮길 때) */
@@ -231,6 +263,31 @@ const RICH_MAP = (() => {
     // 1. 평지 바탕 (전체)
     ctx.drawImage(mirrored(tex('plain'), S, tileOf('plain'), offOf('plain')), 0, 0);
 
+    // 1b. 마른 밭 · 밀밭 (art 가 켠 시나리오만): 평지 칸 위에만, 습지·숲·강·마을은 아래에서 다시 덮음
+    const decorImg = o.img.decor || {};
+    const plainMask = cellMask(n, R, (r, c) => key(r, c) === 'plain');
+    const plainSoft = blur(plainMask, W, W, 0.06 * R);
+    if (o.art.dryField && decorImg[o.art.dryField.src]) {
+      const nz = noise2(W, W, K.dry.period * R, rnd);
+      const t = quantileIn(nz, plainMask, o.art.dryField.share == null ? 0.3 : o.art.dryField.share);
+      const al = new Float32Array(W * W);
+      for (let i = 0; i < al.length; i++) al[i] = smooth(t - K.dry.edge, t + K.dry.edge, nz[i]) * plainSoft[i];
+      drawMasked(ctx, mirrored(decorImg[o.art.dryField.src], S, tileOf('plain'), offOf('plain')), alphaCanvas(al, W, W, [0, 0, 0]), S);
+    }
+    for (const f of o.art.fields || []) {
+      const im = decorImg[f.src];
+      if (!im) continue;
+      const FD = K.field;
+      const base = cellMask(n, R, (r, c) => r >= f.rows[0] && r <= f.rows[1] && c >= f.cols[0] && c <= f.cols[1] && key(r, c) === 'plain');
+      const b = blur(base, W, W, FD.blur * R), nz = noise2(W, W, FD.noisePeriod * R, rnd), al = new Float32Array(W * W);
+      for (let i = 0; i < al.length; i++) {
+        const v = b[i] + (nz[i] - 0.5) * FD.amp * Math.min(1, b[i] * 3) * Math.min(1, (1 - b[i]) * 3 + 0.1);
+        al[i] = smooth(0.5 - FD.edge, 0.5 + FD.edge, v) * plainSoft[i];   // 평지 밖으로는 번지지 않음
+      }
+      const layer = tinted(mirrored(im, S, FD.tile * cellPx, offOf('plain')), f.saturation == null ? 0.55 : f.saturation, f.brightness == null ? 0.85 : f.brightness);
+      drawMasked(ctx, layer, alphaCanvas(al, W, W, [0, 0, 0]), S);
+    }
+
     // 2. 습지
     const paddy = cellMask(n, R, (r, c) => key(r, c) === 'paddy');
     if (paddy.some((v) => v)) drawMasked(ctx, mirrored(tex('paddy'), S, tileOf('paddy'), offOf('paddy')), alphaCanvas(blur(paddy, W, W, K.blur.paddy * R), W, W, [0, 0, 0]), S);
@@ -292,6 +349,39 @@ const RICH_MAP = (() => {
       drawVillage(base, lay, Math.round((p.rows[1] - p.rows[0] + 1) * (p.cols[1] - p.cols[0] + 1) * V.bushes.perCell * 0.5));
     }
 
+    // 6b. 줄·자국 장식 (art.decor: 방풍림·흙길·포격 자국. 규칙과 무관한 바탕 그림이라 유닛·선택·거점 표시보다 아래층)
+    for (const d of o.art.decor || []) {
+      const im = decorImg[d.src];
+      if (!im) continue;
+      if (d.type === 'strip') {
+        const a = { x: (d.from[1] + 0.5) * cellPx, y: (d.from[0] + 0.5) * cellPx }, e = { x: (d.to[1] + 0.5) * cellPx, y: (d.to[0] + 0.5) * cellPx };
+        const len = Math.hypot(e.x - a.x, e.y - a.y) + cellPx, ang = Math.atan2(e.y - a.y, e.x - a.x);   // 첫·끝 칸을 모두 덮는 길이
+        const mx = (a.x + e.x) / 2, my = (a.y + e.y) / 2, w = len, h = len * im.height / im.width;
+        const put = (c2, ox, oy) => { c2.save(); c2.translate(mx + ox, my + oy); c2.rotate(ang); c2.drawImage(im, -w / 2, -h / 2, w, h); c2.restore(); };
+        if (d.shadow) {
+          const SH = K.strip.shadow, lay = newCanvas(S, S), lx = lay.getContext('2d');
+          put(lx, 0, 0);
+          lx.globalCompositeOperation = 'source-in';
+          lx.fillStyle = '#000';
+          lx.fillRect(0, 0, S, S);
+          ctx.save();
+          ctx.globalAlpha = SH.alpha;
+          if ('filter' in ctx) ctx.filter = `blur(${SH.blur * cellPx}px)`;
+          ctx.drawImage(lay, SH.dx * cellPx, SH.dy * cellPx);
+          ctx.restore();
+        }
+        put(ctx, 0, 0);
+      } else if (d.type === 'scar') {
+        const w = d.size * cellPx / (d.fill || 1), h = w * im.height / im.width;
+        ctx.save();
+        ctx.globalAlpha = K.scar.alpha;
+        ctx.translate((d.at[1] + 0.5) * cellPx, (d.at[0] + 0.5) * cellPx);
+        ctx.rotate((d.rot || 0) * Math.PI / 180);
+        ctx.drawImage(im, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      }
+    }
+
     // 7. 활주로 (규칙상 표식일 뿐: 이동·지형·시야와 무관)
     if (o.img.runway) {
       const im = o.img.runway, RW = K.runway;
@@ -335,6 +425,10 @@ const RICH_MAP = (() => {
     const out = [];
     for (const [k, src] of Object.entries(art.terrain || {})) out.push({ kind: 'terrain', key: k, src });
     for (const ov of art.overlays || []) if (ov.src) out.push({ kind: ov.type, key: ov.type, src: ov.src });
+    const seen = new Set();   // 장식 그림 (마른 밭·밀밭·줄·자국): 같은 파일은 한 번만 불러옴
+    for (const v of [art.dryField, ...(art.fields || []), ...(art.decor || [])]) {
+      if (v && v.src && !seen.has(v.src)) { seen.add(v.src); out.push({ kind: 'decor', key: v.src, src: v.src }); }
+    }
     for (const [type, file] of Object.entries(unitFiles)) out.push({ kind: 'unit', key: type, src: `assets/units/${art.unitSet}/${file}.png` });
     return out;
   }

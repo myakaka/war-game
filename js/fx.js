@@ -371,4 +371,38 @@ function createFxCanvas(host, env) {
   return { play, clear, fit, canvas: cv, stats: () => ({ live: live.length, budget }) };
 }
 
-if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { FX, fxRng, planAttackFx });
+/* ---------- 포격 자국 (보기용. 엔진 상태·게임 난수와 무관, 화면 쪽 목록으로만 관리) ---------- */
+const MARK_CFG = { perCell: 2, total: 40, jitter: 0.1, small: [0.55, 0.65], large: [0.8, 0.95] };
+
+/**
+ * 이 공격이 자국을 남기는가. 간접 화력이 명중했고 중심 칸이 보는 쪽 시야 안일 때만 {r,c,kind:'small'|'large'}, 아니면 null.
+ * o = { vis: 시야 칸 집합(연출과 같은 것), N: 지도 한 변, small: 박격포(한 칸) 여부 }. 직접 사격·빗나감·안 보이는 칸은 남기지 않음
+ */
+function planImpactMark(ev, o) {
+  if (!ev || !ev.indirect || !ev.hit || !o.vis.has(ev.target.r * o.N + ev.target.c)) return null;
+  return { r: ev.target.r, c: ev.target.c, kind: o.small ? 'small' : 'large' };
+}
+
+/** 자국 하나의 모양: 판 연출 시드·라운드·칸·순번으로 정함 (효과 전용 난수. 같은 입력이면 같은 모양) */
+function markShape(seed, round, mark, seq, files, cfg = MARK_CFG) {
+  const rng = fxRng(((seed >>> 0) ^ Math.imul(round + 1, 0x9e3779b1) ^ Math.imul(mark.r * 64 + mark.c + 1, 0x85ebca6b) ^ Math.imul(seq + 1, 0xc2b2ae35)) >>> 0);
+  const sz = cfg[mark.kind];
+  return {
+    r: mark.r, c: mark.c, kind: mark.kind, seq,
+    file: files.length ? files[Math.floor(rng() * files.length) % files.length] : null,
+    rot: Math.round(rng() * 360),
+    dx: +((rng() * 2 - 1) * cfg.jitter).toFixed(3), dy: +((rng() * 2 - 1) * cfg.jitter).toFixed(3),
+    size: +(sz[0] + rng() * (sz[1] - sz[0])).toFixed(3),
+  };
+}
+
+/** 목록에 추가: 칸마다 최대 perCell 개(넘으면 그 칸의 가장 오래된 것), 판 전체 최대 total 개(넘으면 가장 오래된 것). 새 목록을 돌려줌 */
+function addMark(list, shape, cfg = MARK_CFG) {
+  let out = [...list, shape];
+  const same = out.filter((m) => m.r === shape.r && m.c === shape.c);
+  if (same.length > cfg.perCell) { const drop = new Set(same.slice(0, same.length - cfg.perCell)); out = out.filter((m) => !drop.has(m)); }
+  if (out.length > cfg.total) out = out.slice(out.length - cfg.total);
+  return out;
+}
+
+if (typeof module !== 'undefined' && module.exports) Object.assign(module.exports, { FX, fxRng, planAttackFx, MARK_CFG, planImpactMark, markShape, addMark });

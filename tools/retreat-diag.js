@@ -25,7 +25,9 @@ function playOne(opts, seed) {
     rounds: 0, captured: { center: 0, flank: 0 }, midAttacks: 0, midMoves: 0, retreats: 0, retreatKills: 0, suppressed: 0, resupKills: 0,
     losses: {}, arty: 0, artyBlocked: 0, nearSum: 0, nearN: 0, midNearSum: 0, midNearN: 0, stallRounds: 0, stallN: 0, maxStall: 0,
     holdSum: 0, holdN: 0, hqRetreats: 0, winner: null, reason: null, def: sideDef,
+    dmgTotal: 0, dmgIndirect: 0, firstAttHold: null, defSupportLost: 0, defSupportBlocked: 0,
   };
+  const sideAtt = C.ROUND_ORDER.find((x) => C.SIDES[x].role === 'att');
   const objCells = () => st.objectives.flatMap((o) => E.objectiveCells(o));
   const near = () => {
     const cells = objCells();
@@ -34,8 +36,14 @@ function playOne(opts, seed) {
   };
   const center = (id) => (E.GAME_CONFIG.OBJECTIVES.length ? id === E.GAME_CONFIG.OBJECTIVES.map((o) => o.id).sort((a, b) => objSize(b) - objSize(a))[0] : false);
   const objSize = (id) => E.objectiveCells(E.GAME_CONFIG.OBJECTIVES.find((o) => o.id === id)).length;
-  const eat = (events) => {
+  const eat = (events, byType = null, bySide = null) => {
     for (const e of events) {
+      if ((e.type === 'damage' || e.type === 'splashDamage') && byType && e.side !== bySide) {   // 적에게 입힌 피해 (오사 제외): 간접 화력 몫
+        m.dmgTotal += e.amount;
+        if (C.UNIT_TYPES[byType].indirect) m.dmgIndirect += e.amount;
+      }
+      if (e.type === 'captured' && e.side === sideAtt && m.firstAttHold == null) m.firstAttHold = st.round;   // 공격 측이 처음 거점을 점유한 라운드
+      if (e.type === 'destroyed' && e.side === sideDef && (e.unitType === 'artillery' || e.unitType === 'mortar')) { m.defSupportLost++; if (e.cause === 'retreatBlocked') m.defSupportBlocked++; }
       if (e.type === 'captured') (center(e.objectiveId) ? m.captured.center++ : m.captured.flank++);
       if (e.type === 'diceRoll' && st.round >= MID[0] && st.round <= MID[1]) m.midAttacks++;
       if (e.type === 'move' && st.round >= MID[0] && st.round <= MID[1]) m.midMoves++;
@@ -68,7 +76,7 @@ function playOne(opts, seed) {
   while (!st.winner && guard++ < 300) {
     const side = st.turn;
     const acts = E.aiTakeTurn(st, side, rng, LEVEL, { diceRng: dice, recordSnapshots: false });
-    for (const a of acts) eat(a.events);
+    for (const a of acts) eat(a.events, a.unitType, a.side);
     if (st.winner) break;
     const endEv = E.endTurn(st);
     eat(endEv);
@@ -116,7 +124,12 @@ const out = {
   lossesTotal: fx(avg((r) => Object.values(r.losses).reduce((a, b) => a + b, 0))), lossesBySide: lossByRole,
   supportLost: fx(arty / rows.length), supportLostByRetreatBlock: fx(arty ? artyB / arty : 0, 3),
   stallShare: fx(sum((r) => r.stallRounds) / Math.max(1, sum((r) => r.stallN)), 3), maxStallAvg: fx(avg((r) => r.maxStall)),
-  hqRetreats: fx(avg((r) => r.hqRetreats), 3), reasons, wins, draws: rows.filter((r) => !r.winner || r.winner === 'draw').length,
+  hqRetreats: fx(avg((r) => r.hqRetreats), 3),
+  attHeldGames: rows.filter((r) => r.firstAttHold != null).length, attHeldShare: fx(rows.filter((r) => r.firstAttHold != null).length / rows.length, 3),
+  attFirstHoldRoundAvg: fx(rows.filter((r) => r.firstAttHold != null).reduce((a, r) => a + r.firstAttHold, 0) / Math.max(1, rows.filter((r) => r.firstAttHold != null).length)),
+  indirectDamageShare: fx(sum((r) => r.dmgIndirect) / Math.max(1, sum((r) => r.dmgTotal)), 3),
+  defSupportLost: fx(avg((r) => r.defSupportLost)), defSupportBlockedShare: fx(sum((r) => r.defSupportBlocked) / Math.max(1, sum((r) => r.defSupportLost)), 3),
+  reasons, wins, draws: rows.filter((r) => !r.winner || r.winner === 'draw').length,
 };
 if (process.argv[5]) fs.writeFileSync(process.argv[5], JSON.stringify(out, null, 1));
 console.log(JSON.stringify(out, null, 1));

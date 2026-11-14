@@ -170,6 +170,13 @@ button.active, button[aria-pressed="true"], button[aria-selected="true"], button
   content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: repeating-linear-gradient(45deg, var(--fog-line) 0 2px, transparent 2px 7px), var(--fog-base);
 }
+/* 포격 자국: 지형 위, 안개(z2 뒤쪽 ::after)·표식·유닛·선택 표시보다 아래. 투명도 85% */
+.shell-mark { position: absolute; z-index: 2; pointer-events: none; opacity: 0.85; }
+.shell-mark img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.shell-mark.fresh { animation: markIn 0.3s ease-out both; }
+.shell-mark.fresh::after { content: ""; position: absolute; inset: -25%; border-radius: 50%; background: radial-gradient(circle, rgba(70,60,50,0.55), rgba(70,60,50,0) 70%); animation: markSmoke 0.3s ease-out both; }
+@keyframes markIn { from { opacity: 0; } to { opacity: 0.85; } }
+@keyframes markSmoke { from { opacity: 1; transform: scale(0.6); } to { opacity: 0; transform: scale(1.3); } }
 .grid-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 .mk { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
 .unit { position: absolute; inset: 0; z-index: 7; pointer-events: none; }

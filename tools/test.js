@@ -1478,7 +1478,7 @@ test('소리 난수·데이터: Math.random 을 쓰지 않고 시드 결과가 �
 const HIT = () => 0, MISS = () => 0.999;
 const evOf = (ev, type) => [...ev].filter((e) => e.type === type);   // vm 안 배열 → 일반 배열
 const pos = (u) => `${u.r},${u.c}`;
-const RT_SCENS = ['symmetric', 'hostomel', 'chuncheon'];
+const RT_SCENS = ['symmetric', 'hostomel', 'chuncheon', 'vuhledar'];
 
 /** 대칭 전장 시험 상태 (AI 시험이 씀): 어느 쪽도 전멸하지 않도록 구석에 보병 한 명씩 */
 function rtState(turn = 'ru') {
@@ -1911,7 +1911,7 @@ const oldCtx = (st, side, level = 'normal') => {
 };
 const oldGain = (G, ctx, a, t, p = 1) => { G.ctx = ctx; G.a = a; G.t = t; G.p = p; return run('retreatGain(__g.st, __g.ctx, GAME_CONFIG.AI.WEIGHTS, __g.a, __g.a, __g.t, __g.p)'); };
 
-for (const sid of ['hostomel', 'chuncheon']) {
+for (const sid of ['hostomel', 'chuncheon', 'vuhledar']) {
   test(`[${sid}] AI 후퇴: 물러날 곳이 없는 적을 칠 때 점수가 높고, 기존 사격 점수에 공통 모듈이 더해짐`, () => {
     const g = gState(sid), { st, loc, A, B } = g;
     const a1 = put(st, { id: g.id(A, 1), side: A, type: 'infantry', r: loc.n - 2, c: loc.edge.c });
@@ -1985,3 +1985,168 @@ for (const sid of ['hostomel', 'chuncheon']) {
     assert.ok(retreats > 0, `후퇴 ${retreats}`);
   });
 }
+
+/* ---------------- 우글레다르 시나리오 (새 시나리오 데이터만, 규칙·엔진·AI 변경 없음) ---------------- */
+const VUH = () => E.SCENARIOS.find((s) => s.id === 'vuhledar');
+const countBy = (s, side) => {
+  const o = {};
+  for (const d of s.deployments.filter((x) => x.side === side && !x.round)) o[d.type] = (o[d.type] || 0) + 1;
+  return o;
+};
+
+test('우글레다르: 데이터가 요청한 표와 같음 (지도, 거점 묶음, 병력과 위치, 행동 제한, 선공, 라운드, 증원 없음)', () => {
+  const s = VUH();
+  assert.equal(s.map.length, 16); assert.ok(s.map.every((r) => r.length === 16));
+  assert.equal(s.map[1], '......###.......'); assert.equal(s.map[11], '......##.f......');
+  assert.ok(!s.symmetric, '대칭 시나리오가 아님');
+  assert.deepEqual([...s.objectives.map((o) => [...o.cells].map((p) => [...p].join(',')).join(' '))], ['2,6 2,7 3,6 3,7']);
+  for (const [r, c] of s.objectives[0].cells) assert.equal(s.map[r][c], '#', '거점 칸은 마을');
+  assert.deepEqual(countBy(s, 'ua'), { infantry: 3, armor: 1, antitank: 2, artillery: 1, mortar: 1, signal: 1 });
+  assert.deepEqual(countBy(s, 'ru'), { infantry: 4, armor: 6, mortar: 1, recon: 1, signal: 1 });
+  assert.equal(s.deployments.filter((d) => d.side === 'ua' && !d.round).length, 9);
+  assert.equal(s.deployments.filter((d) => d.side === 'ru' && !d.round).length, 13);
+  assert.ok(!s.deployments.some((d) => d.round > 0), '증원 없음');
+  assert.ok(!s.deployments.some((d) => d.side === 'ru' && d.type === 'artillery'), '러시아군은 포병 없음');
+  const at = (side, type) => [...s.deployments.filter((d) => d.side === side && d.type === type).map((d) => [...d.pos].join(','))];
+  assert.deepEqual(at('ua', 'infantry'), ['2,5', '3,8', '2,9']); assert.deepEqual(at('ua', 'antitank'), ['4,6', '4,8']);
+  assert.deepEqual(at('ua', 'artillery'), ['1,7']); assert.deepEqual(at('ua', 'mortar'), ['1,5']); assert.deepEqual(at('ru', 'mortar'), ['15,7']);
+  assert.deepEqual(at('ru', 'armor'), ['14,5', '15,6', '14,9', '15,9', '14,12', '15,12']);
+  assert.deepEqual({ ...s.activations }, { def: 4, att: 6 });
+  assert.equal(s.firstMover, 'ru'); assert.equal(s.rounds, 10); assert.equal(s.playerSide, 'ua');
+  assert.equal(JSON.stringify(s.placementZones.ua), '{"rows":[0,6]}'); assert.equal(s.placementZones.ru, null);
+  assert.equal(s.bgm, null);
+  assert.ok(s.tags.length <= 3 && s.aiProfiles.join() === 'easy,normal,hard');
+  for (const d of s.deployments.filter((x) => x.side === 'ua')) assert.ok(d.pos[0] >= 0 && d.pos[0] <= 6, `ua ${d.type} ${d.pos}`);   // 기본 배치(방어)는 배치 구역 안
+});
+
+test('우글레다르: validateScenario 통과, 일부러 어긋나게 하면 실패 (맵 밖 유닛·잘못된 지형·겹침·맵 밖 거점·모르는 진영)', () => {
+  assert.deepEqual([...E.validateScenario(VUH())], []);
+  const bad = (f) => { const s = JSON.parse(JSON.stringify(VUH())); f(s); return E.validateScenario(s).length; };
+  assert.ok(bad((s) => { s.deployments[0].pos = [16, 3]; }) > 0, '맵 밖 유닛');
+  assert.ok(bad((s) => { s.map[0] = 'X' + s.map[0].slice(1); }) > 0, '잘못된 지형 코드');
+  assert.ok(bad((s) => { s.deployments[1].pos = s.deployments[0].pos.slice(); }) > 0, '배치 겹침');
+  assert.ok(bad((s) => { s.objectives[0].cells = [[2, 6], [2, 7], [3, 6], [3, 16]]; }) > 0, '맵 밖 거점 칸');
+  assert.ok(bad((s) => { s.deployments.push({ round: 0, side: 'zz', type: 'infantry', pos: [8, 8] }); }) > 0, '모르는 진영');
+});
+
+for (const level of ['easy', 'normal', 'hard']) {
+  test(`우글레다르: simulateGames 가 ${level} 난이도에서 양쪽 진영으로 끝까지 돌고 같은 시드면 결과가 같음`, () => {
+    E.loadScenario('vuhledar');
+    const asAtt = E.simulateGames(3, { att: level, def: 'normal' }), asDef = E.simulateGames(3, { att: 'normal', def: level });
+    assert.equal(asAtt.errors, 0); assert.equal(asDef.errors, 0);
+    assert.equal(asAtt.games, 3);
+    assert.equal(JSON.stringify(E.simulateGames(3, { att: level, def: 'normal' })), JSON.stringify(asAtt));
+    assert.equal(JSON.stringify(E.simulateGames(3, { att: 'normal', def: level })), JSON.stringify(asDef));
+  });
+}
+
+test('우글레다르: 간접 화력은 병종별 한 세트이고 러시아군은 포병을 쓸 수 없음 (박격포만), 우크라이나군은 포병과 박격포', () => {
+  const st = fresh('vuhledar'); E.startTurn(st);
+  assert.deepEqual({ ...C().FIRES.mortar }, { range: 4, cooldown: 0, indirectPenalty: 0 });
+  assert.deepEqual({ ...C().FIRES.artillery }, { range: 5, cooldown: 1 });
+  assert.equal(C().FIRES.blindFire, true);
+  const types = (side) => new Set(st.units.filter((u) => u.side === side).map((u) => u.type));
+  assert.ok(types('ua').has('artillery') && types('ua').has('mortar'));
+  assert.ok(types('ru').has('mortar') && !types('ru').has('artillery'));
+  assert.equal(C().ACTIVATIONS.def, 4); assert.equal(C().ACTIVATIONS.att, 6);
+  assert.equal(st.turn, 'ru', '선공은 러시아군'); assert.equal(st.act.limit, 6);
+});
+
+test('우글레다르: 승리 조건 — 공격 점유 승리(라운드 끝 확인), 방어 라운드 제한 승리, 묶음 점유 판정, 전멸', () => {
+  const mk = () => { const st = fresh('vuhledar'); st.units = []; st.turn = 'ru'; st.round = 3; E.startTurn(st); return st; };
+  const cell = [2, 6], other = [3, 7];
+  let st = mk();   // 공격군이 묶음 안, 방어군은 묶음 밖: 선공 턴이 끝난 뒤에는 확인하지 않고 후공(방어) 턴이 끝난 뒤 확인
+  put(st, { id: 'R1', side: 'ru', type: 'infantry', r: cell[0], c: cell[1] }); put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 8, c: 8 });
+  E.updateObjectiveControl(st);
+  assert.equal(st.objectives[0].owner, 'ru');
+  E.endTurn(st); assert.ok(!st.winner, '선공 턴이 끝난 뒤에는 확인하지 않음'); assert.equal(st.turn, 'ua');
+  E.endTurn(st); assert.equal(st.winner, 'ru'); assert.equal(st.winReason, 'objectives');
+  st = mk();   // 양쪽이 묶음 안에 있으면 아무도 점유하지 못함
+  put(st, { id: 'R1', side: 'ru', type: 'infantry', r: cell[0], c: cell[1] }); put(st, { id: 'U1', side: 'ua', type: 'infantry', r: other[0], c: other[1] });
+  E.updateObjectiveControl(st);
+  assert.equal(st.objectives[0].owner, null);
+  E.endTurn(st); E.endTurn(st); assert.ok(!st.winner);
+  st = mk(); st.round = C().MAX_ROUNDS;   // 방어군이 마지막 라운드를 버팀
+  put(st, { id: 'R1', side: 'ru', type: 'infantry', r: 14, c: 5 }); put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 8, c: 8 }); put(st, { id: 'U2', side: 'ua', type: 'infantry', r: cell[0], c: cell[1] });
+  E.updateObjectiveControl(st);
+  E.endTurn(st); E.endTurn(st);
+  assert.equal(st.winner, 'ua'); assert.equal(st.winReason, 'survived');
+  assert.equal(C().MAX_ROUNDS, 10);
+  st = mk(); put(st, { id: 'R1', side: 'ru', type: 'infantry', r: 14, c: 5 });   // 방어군 전멸
+  E.endTurn(st);
+  assert.equal(st.winner, 'ru'); assert.equal(st.winReason, 'annihilation');
+  st = mk(); put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 8, c: 8 });   // 공격군 전멸
+  E.endTurn(st);
+  assert.equal(st.winner, 'ua'); assert.equal(st.winReason, 'annihilation');
+});
+
+test('우글레다르: 그림 데이터는 이 시나리오에만 (다른 시나리오의 art 는 그대로), 그림 파일이 모두 있음', () => {
+  const art = VUH().art;
+  assert.equal(art.terrain.city, 'assets/vuhledar/ruined-town.png');
+  for (const id of ['chuncheon', 'hostomel', 'symmetric']) {
+    const a = E.SCENARIOS.find((s) => s.id === id).art;
+    if (!a) continue;
+    assert.ok(!a.dryField && !a.fields && !a.decor && !a.flipFacing, `${id} 에 새 장식 필드가 없음`);
+    assert.ok(!/vuhledar/.test(JSON.stringify(a)), `${id} 가 새 그림을 쓰지 않음`);
+  }
+  assert.equal(E.SCENARIOS.find((s) => s.id === 'hostomel').art.terrain.city, 'assets/terrain/urban.jpg', '호스토멜 마을 질감 그대로');
+  const decorSrcs = [art.dryField.src, ...art.fields.map((f) => f.src), ...art.decor.map((d) => d.src)];
+  for (const src of [...Object.values(art.terrain), ...decorSrcs]) assert.ok(fs.existsSync(path.join(ROOT, src)), `${src} 없음`);
+  const list = run('RICH_MAP').artSources(art, {});
+  assert.equal(list.filter((x) => x.kind === 'decor').length, new Set(decorSrcs).size, '장식 그림은 파일마다 한 번만 불러옴');
+  const scars = art.decor.filter((d) => d.type === 'scar');
+  assert.equal(scars.length, 5, '포격 자국 고정 장식 5개');
+  for (const d of scars) assert.ok(d.size <= 0.9, '자국은 한 칸의 90% 이하');
+  assert.equal(art.fields.length, 2);
+  for (const f of art.fields) for (let r = f.rows[0]; r <= f.rows[1]; r++) for (let c = f.cols[0]; c <= f.cols[1]; c++) assert.equal(VUH().map[r][c], '.', `밀밭 칸 (${r},${c}) 은 평지`);
+});
+
+test('우글레다르: 안개 — 시작 때 양쪽 모두 상대 유닛이 보이지 않고, 후퇴·제압·간접 화력은 RT_SCENS 파라미터화 시험에 포함', () => {
+  assert.ok(RT_SCENS.includes('vuhledar'));
+  const st = fresh('vuhledar');
+  for (const side of ['ua', 'ru']) {
+    const vis = E.getVisibleTiles(st, side);
+    for (const u of st.units.filter((x) => x.side !== side)) assert.ok(!vis.has(u.r * C().MAP.length + u.c), `${side} 가 ${u.id} 를 시작부터 봄`);
+  }
+});
+
+/* ---------------- 포격 자국 (화면 전용 보기 효과: js/fx.js 의 순수 함수. 엔진 상태·난수·규칙과 무관) ---------------- */
+test('포격 자국: 보이는 간접 화력 명중만 남기고, 직접 사격·빗나감·안개 속 낙하는 남기지 않음', () => {
+  const N = 16, vis = new Set([5 * N + 5]);
+  const ev = (o) => ({ indirect: true, hit: true, target: { r: 5, c: 5 }, ...o });
+  assert.deepEqual({ ...E.planImpactMark(ev({}), { vis, N, small: false }) }, { r: 5, c: 5, kind: 'large' });
+  assert.equal(E.planImpactMark(ev({}), { vis, N, small: true }).kind, 'small');
+  assert.equal(E.planImpactMark(ev({ indirect: false }), { vis, N, small: false }), null, '직접 사격');
+  assert.equal(E.planImpactMark(ev({ hit: false }), { vis, N, small: false }), null, '빗나감');
+  assert.equal(E.planImpactMark(ev({ target: { r: 6, c: 5 } }), { vis, N, small: false }), null, '안개 속 낙하');
+  assert.equal(E.planImpactMark(null, { vis, N }), null);
+});
+
+test('포격 자국: 칸당 2개, 판당 40개 상한 (넘으면 가장 오래된 것부터 지움)', () => {
+  const sh = (r, c, seq) => E.markShape(1, 1, { r, c, kind: 'large' }, seq, ['a']);
+  let l = [];
+  for (let i = 0; i < 5; i++) l = E.addMark(l, sh(3, 3, i));
+  assert.equal(l.length, 2); assert.equal(l.map((m) => m.seq).join(), '3,4');
+  l = [];
+  for (let i = 0; i < 60; i++) l = E.addMark(l, sh(i % 16, Math.floor(i / 16), i));
+  assert.equal(l.length, 40); assert.equal(l[0].seq, 20); assert.equal(l[39].seq, 59);
+});
+
+test('포격 자국: 모양은 시드·라운드·칸·순번으로만 정해져 같으면 같고, 게임 난수·엔진 상태를 쓰지 않음', () => {
+  const a = E.markShape(77, 4, { r: 2, c: 9, kind: 'large' }, 3, ['x', 'y', 'z']);
+  assert.deepEqual({ ...a }, { ...E.markShape(77, 4, { r: 2, c: 9, kind: 'large' }, 3, ['x', 'y', 'z']) });
+  assert.notDeepEqual({ ...a }, { ...E.markShape(77, 5, { r: 2, c: 9, kind: 'large' }, 3, ['x', 'y', 'z']) });
+  assert.ok(Math.abs(a.dx) <= 0.1 && Math.abs(a.dy) <= 0.1 && a.rot >= 0 && a.rot <= 360);
+  assert.ok(a.size >= 0.8 && a.size <= 0.95);
+  const s = E.markShape(1, 1, { r: 0, c: 0, kind: 'small' }, 0, ['x']);
+  assert.ok(s.size >= 0.55 && s.size <= 0.65);
+  const orig = Math.random; let calls = 0; Math.random = () => { calls++; return 0.5; };
+  try { E.markShape(1, 2, { r: 1, c: 1, kind: 'large' }, 1, ['x']); E.planImpactMark({ indirect: true, hit: true, target: { r: 0, c: 0 } }, { vis: new Set([0]), N: 4 }); } finally { Math.random = orig; }
+  assert.equal(calls, 0, 'Math.random 호출 없음');
+});
+
+test('포격 자국: 우글레다르만 켬 (art.impactMarks), 파일이 있고 다른 시나리오는 꺼짐', () => {
+  const m = E.SCENARIOS.find((s) => s.id === 'vuhledar').art.impactMarks;
+  for (const f of [...m.mortar, ...m.artillery]) assert.ok(fs.existsSync(path.join(ROOT, f)), f);
+  for (const s of E.SCENARIOS) if (s.id !== 'vuhledar') assert.ok(!s.art || !s.art.impactMarks, s.id);
+});
