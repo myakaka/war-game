@@ -23,7 +23,7 @@ const FX = {
     flash: '#ffd76a', flashEdge: '#ff8a1f', flashCore: '#ffffff', tracer: '#fff1a8', tracerHeavy: '#ffb02e', tracerEdge: '#7a4a00',
     smoke: '#8f8a80', smokeDark: '#5f5b55', dust: '#a08560', dirt: '#6f5a3e',
     spark: '#ffcf4d', sparkHot: '#fff2b0', blast: '#ff8a2a', blastCore: '#ffe27a', debris: '#4a3b2a',
-    ring: '#f5e6c0', shell: '#2b2b2b', shadow: 'rgba(0,0,0,0.35)', hitWhite: '#ffffff', hitRed: '#ff3b30',
+    ring: '#f5e6c0', shell: '#2b2b2b', shellBody: '#4b5230', shellEdge: '#262b17', shellHi: '#cfd6a4', shellTail: '143,138,128', shellHalo: '#f2edd0', shadow: 'rgba(0,0,0,0.35)', hitWhite: '#ffffff', hitRed: '#ff3b30',
   },
   // 직접 사격 (병종별). shots: 연발 수, gap: 연발 간격, tracer: 탄도 굵기·비행 시간
   direct: {
@@ -33,6 +33,8 @@ const FX = {
     light: { shots: 1, gap: 0, flash: 0.16, smoke: 0.08, tracer: { w: 0.035, ms: 140, heavy: false }, hit: 'sparksSmall', miss: 'dust', ms: 450, sfx: 'fire_rifle', hitSfx: 'hit_small' },
   },
   // 간접 사격. flight: [최소, 최대] 비행 시간, perCell: 거리 1칸당, apex: 포물선 높이(칸), fogLand: 시야 밖 발사일 때 착탄까지 고정 시간
+  // 포탄 모양 (칸 배수): 길이, 폭/길이, 연기 꼬리 길이(포탄 길이 배수), 화면 최소 길이(px)
+  shellShape: { artillery: { len: 0.25, wid: 0.333, tail: 2.6 }, mortar: { len: 0.15, wid: 0.55, tail: 1.3 }, minPx: 6 },
   mortar: { flash: 0.24, smoke: 0.3, ring: 0.5, flight: [400, 700], perCell: 70, apex: 1.1, blast: 0.55, fogLand: 450 },
   artillery: { flash: 0.4, smoke: 0.55, ring: 0.9, flight: [500, 800], perCell: 55, apex: 1.8, blast: 0.8, nbBlast: 0.5, fogLand: 550 },
 };
@@ -137,7 +139,7 @@ function planAttackFx(ev, o) {
     // 착탄 시각: 발사가 보이면 거리로, 아니면 고정값 (시간으로 거리를 드러내지 않음)
     const flight = Math.max(K.flight[0], Math.min(K.flight[1], K.flight[0] + (dist - 1) * K.perCell));
     const land = rm ? 150 : (fVis ? 60 + flight : K.fogLand);
-    if (fVis && (tVis || mine) && !rm) add('shell', 60, { x1: A.x, y1: A.y, x2: T.x, y2: T.y, ms: flight, apex: K.apex });
+    if (fVis && (tVis || mine) && !rm) add('shell', 60, { x1: A.x, y1: A.y, x2: T.x, y2: T.y, ms: flight, apex: K.apex, art });
     if (fVis && (tVis || mine)) snd('shell_whistle', 60);   // 비행 소리: 비행 그림과 같은 조건 (연출 줄이기여도 소리는 남)
     hitAt = land;
     const showLand = tVis || mine;
@@ -263,7 +265,7 @@ function createFxCanvas(host, env) {
   }
   function spawn(it) {
     if (it.kind === 'smoke' || it.kind === 'dust' || it.kind === 'sparks' || it.kind === 'debris') spawnParticles(it);
-    else shapes.push({ ...it, age: 0 });
+    else shapes.push({ ...it, age: 0, phase: it.kind === 'shell' ? R() : 0 });
   }
   /** plan.items 를 지금부터 재생 (다른 재생과 겹쳐도 됨) */
   function play(items) {
@@ -301,6 +303,55 @@ function createFxCanvas(host, env) {
   }
   const col = FX.color;
   function circle(x, y, r, fill, a) { g.globalAlpha = a; g.fillStyle = fill; g.beginPath(); g.arc(x * k, y * k, Math.max(0.5, r * k), 0, Math.PI * 2); g.fill(); }
+  /* 포탄: 진행 방향을 향한 길쭉한 몸통 + 이어진 연기 띠 + 회전한 그림자. 둥근 점 없음. 크기는 칸 비례(화면 최소 길이 보장) */
+  const ART_PATH = (L, w) => { g.beginPath(); g.moveTo(-L / 2, -w / 2); g.lineTo(L * 0.08, -w / 2); g.quadraticCurveTo(L * 0.36, -w / 2, L / 2, 0); g.quadraticCurveTo(L * 0.36, w / 2, L * 0.08, w / 2); g.lineTo(-L / 2, w / 2); g.closePath(); };
+  const MORT_PATH = (L, w) => { g.beginPath(); g.moveTo(L / 2, 0); g.bezierCurveTo(L / 2, -w * 0.62, L * 0.1, -w * 0.62, -L * 0.2, -w * 0.18); g.lineTo(-L / 2, -w * 0.12); g.lineTo(-L / 2, w * 0.12); g.lineTo(-L * 0.2, w * 0.18); g.bezierCurveTo(L * 0.1, w * 0.62, L / 2, w * 0.62, L / 2, 0); g.closePath(); };
+  const angDiff = (a, b) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
+  function drawShell(s, q) {
+    const S = FX.shellShape, sh = s.art ? S.artillery : S.mortar;
+    const L0 = Math.max(sh.len, S.minPx / k), w0 = L0 * sh.wid;
+    const pos = (u) => { u = Math.max(0, Math.min(1, u)); return { x: s.x1 + (s.x2 - s.x1) * u, y: s.y1 + (s.y2 - s.y1) * u - s.apex * 4 * u * (1 - u) }; };
+    const gnd = { x: s.x1 + (s.x2 - s.x1) * q, y: s.y1 + (s.y2 - s.y1) * q };
+    const P = pos(q), h = gnd.y - P.y;
+    // 방향: 궤적 접선. 박격포는 내려올 때 낙하 지점 쪽으로 머리를 돌리고 낙하 직전 ±10도 흔들림
+    let ang = Math.atan2((s.y2 - s.y1) - s.apex * 4 * (1 - 2 * q), s.x2 - s.x1), L = L0, w = w0;
+    if (!s.art) {
+      const fall = Math.max(0, (q - 0.5) / 0.5);
+      ang += angDiff(ang, Math.atan2(s.y2 - P.y, s.x2 - P.x)) * Math.min(1, fall * 1.4);
+      if (q > 0.8) ang += Math.sin(q * 38 + s.phase * 6.28) * (10 * Math.PI / 180) * ((q - 0.8) / 0.2);
+      const m = 0.8 + 0.6 * fall * fall; L *= m; w *= m;   // 떨어질수록 커짐 (위에서 내려오는 느낌)
+    }
+    // 그림자: 땅 위, 같은 모양을 눕혀서 (높을수록 작고 옅게)
+    g.save(); g.translate(gnd.x * k, gnd.y * k); g.rotate(Math.atan2(s.y2 - s.y1, s.x2 - s.x1)); g.scale(k, k * 0.6);
+    g.globalAlpha = 0.6 * (1 - Math.min(0.6, h / (s.apex * 3))); g.fillStyle = col.shadow; (s.art ? ART_PATH : MORT_PATH)(L0 * 0.9, w0 * 0.9); g.fill(); g.restore();
+    // 연기 꼬리: 이어진 가는 띠 (뒤로 갈수록 가늘고 투명). 박격포는 올라가는 동안만, 짧고 옅게
+    const tailA = s.art ? 0.5 : 0.3 * Math.max(0, 1 - q / 0.55);
+    if (tailA > 0.01 && q > 0.02) {
+      const arc = Math.hypot(s.x2 - s.x1, s.y2 - s.y1) + s.apex * 1.5, dq = Math.min(q, (L0 * sh.tail) / Math.max(0.5, arc)), n = 9, pts = [];
+      for (let i = 0; i <= n; i++) pts.push(pos(q - dq * i / n));
+      const left = [], right = [];
+      for (let i = 0; i <= n; i++) {
+        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)], tx = a.x - b.x, ty = a.y - b.y, tl = Math.hypot(tx, ty) || 1, wd = w0 * 0.32 * (1 - i / n);
+        left.push([(pts[i].x - ty / tl * wd) * k, (pts[i].y + tx / tl * wd) * k]); right.push([(pts[i].x + ty / tl * wd) * k, (pts[i].y - tx / tl * wd) * k]);
+      }
+      const gr = g.createLinearGradient(pts[0].x * k, pts[0].y * k, pts[n].x * k, pts[n].y * k);
+      gr.addColorStop(0, `rgba(${col.shellTail},${tailA})`); gr.addColorStop(1, `rgba(${col.shellTail},0)`);
+      g.globalAlpha = 1; g.fillStyle = gr; g.beginPath(); left.forEach((p2, i) => (i ? g.lineTo(p2[0], p2[1]) : g.moveTo(p2[0], p2[1]))); for (let i = n; i >= 0; i--) g.lineTo(right[i][0], right[i][1]); g.closePath(); g.fill();
+    }
+    // 본체 (+ 포병: 진행 방향 잔상 한 겹, 앞끝 하이라이트 한 줄)
+    g.save(); g.translate(P.x * k, P.y * k); g.rotate(ang); g.scale(k, k);
+    if (s.art) { g.globalAlpha = 0.22; g.save(); g.translate(-L * 0.55, 0); ART_PATH(L, w * 0.9); g.fillStyle = col.shellBody; g.fill(); g.restore(); }
+    g.globalAlpha = 0.35; g.strokeStyle = col.shellHalo; g.lineWidth = Math.max(2.2 / k, w * 0.5); g.lineJoin = 'round'; (s.art ? ART_PATH : MORT_PATH)(L, w); g.stroke();   // 어두운 바닥에서도 보이게 옅은 테두리 빛
+    g.globalAlpha = 1; g.fillStyle = col.shellBody; g.strokeStyle = col.shellEdge; g.lineWidth = Math.max(0.6 / k, w * 0.12);
+    if (s.art) {
+      ART_PATH(L, w); g.fill(); g.stroke();
+      g.beginPath(); g.moveTo(L * 0.27, -w * 0.2); g.lineTo(L * 0.4, -w * 0.06); g.strokeStyle = col.shellHi; g.globalAlpha = 0.8; g.lineWidth = Math.max(1 / k, w * 0.14); g.lineCap = 'round'; g.stroke();
+    } else {
+      for (const sg of [-1, 1]) { g.beginPath(); g.moveTo(-L / 2, sg * w * 0.1); g.lineTo(-L / 2 - L * 0.02, sg * w * 0.62); g.lineTo(-L * 0.18, sg * w * 0.2); g.closePath(); g.fillStyle = col.shellEdge; g.fill(); }   // 꼬리 날개 (십자의 옆모습)
+      g.fillStyle = col.shellBody; MORT_PATH(L, w); g.fill(); g.stroke();
+    }
+    g.restore(); g.globalAlpha = 1;
+  }
   function draw() {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.clearRect(0, 0, cv.width, cv.height);
@@ -328,10 +379,7 @@ function createFxCanvas(host, env) {
         g.globalAlpha = rich ? 0.35 : 0.55; g.strokeStyle = rich ? col.tracerHeavy : col.tracerEdge; g.lineWidth = Math.max(2.5, s.w * k * (rich ? 3 : 2)); g.stroke();   // 바깥 (종이 지도 위 대비)
         g.globalAlpha = 1; g.strokeStyle = s.heavy ? col.tracerHeavy : col.tracer; g.lineWidth = Math.max(1.2, s.w * k); g.stroke();
       } else if (s.kind === 'shell') {
-        const x = s.x1 + (s.x2 - s.x1) * q, y0 = s.y1 + (s.y2 - s.y1) * q, h = s.apex * 4 * q * (1 - q);
-        circle(x, y0, 0.06 * (1 - h / (s.apex * 3)), col.shadow, 0.6);           // 땅의 그림자
-        circle(x, y0 - h, 0.065 + 0.03 * (h / s.apex), col.shell, 1);
-        if (rich) circle(x, y0 - h, 0.12, col.sparkHot, 0.25);
+        drawShell(s, q);
       } else if (s.kind === 'ring') {
         g.globalAlpha = (1 - q) * 0.8; g.strokeStyle = s.dust ? col.dust : col.ring;
         g.lineWidth = Math.max(1, 0.06 * k * (1 - q) + 1);
