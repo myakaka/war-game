@@ -2631,25 +2631,25 @@ SCENARIOS.push({
     terrain: {
       plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
       paddy: 'assets/terrain/wetland.jpg',
-      city: 'assets/vuhledar/ruined-town.png',            // 파괴된 마을: 이 시나리오의 마을 칸 바닥에만 (호스토멜·춘천은 기존 질감)
+      city: 'assets/vuhledar/ruined-town.webp',            // 파괴된 마을: 이 시나리오의 마을 칸 바닥에만 (호스토멜·춘천은 기존 질감)
     },
     unitSet: 'hostomel',                                  // 박격포 그림(assets/units/hostomel/mortar.png)이 있으면 그것, 없으면 포병 그림 70%
-    impactMarks: { mortar: ['assets/vuhledar/scorch-impact.png'], artillery: ['assets/vuhledar/crater.png', 'assets/vuhledar/scorch-impact.png'] },   // 포격 자국(보기용): 박격포=작게, 포병=크게. 없으면 기능 꺼짐
-    dryField: { src: 'assets/vuhledar/dry-field.png', share: 0.3 },   // 평지 칸 바닥에 노이즈 마스크로 섞는 마른 밭 (평지의 30% 안팎)
+    impactMarks: { mortar: ['assets/vuhledar/scorch-impact.webp'], artillery: ['assets/vuhledar/crater.webp', 'assets/vuhledar/scorch-impact.webp'] },   // 포격 자국(보기용): 박격포=작게, 포병=크게. 없으면 기능 꺼짐
+    dryField: { src: 'assets/vuhledar/dry-field.webp', share: 0.3 },   // 평지 칸 바닥에 노이즈 마스크로 섞는 마른 밭 (평지의 30% 안팎)
     fields: [                                             // 밀밭: 평지 칸 두 구역 (가장자리는 흐리고 불규칙). 칸은 계속 평지
-      { src: 'assets/vuhledar/wheat.png', rows: [12, 14], cols: [0, 2], saturation: 0.55, brightness: 0.85 },
-      { src: 'assets/vuhledar/wheat.png', rows: [2, 4], cols: [10, 14], saturation: 0.55, brightness: 0.85 },
+      { src: 'assets/vuhledar/wheat.webp', rows: [12, 14], cols: [0, 2], saturation: 0.55, brightness: 0.85 },
+      { src: 'assets/vuhledar/wheat.webp', rows: [2, 4], cols: [10, 14], saturation: 0.55, brightness: 0.85 },
     ],
     decor: [                                              // 장식 (유닛·선택·거점 표시보다 아래층). from/to = 줄의 첫·끝 칸 (행, 열)
-      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [6, 4], to: [10, 4], shadow: true },      // 방풍림 (세로, 4열 6~10행)
-      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [5, 11], to: [5, 14], shadow: true },  // 방풍림 (가로, 5행 11~14열: 이 칸들은 숲이 아니라 장식만)
-      { type: 'strip', src: 'assets/vuhledar/dirt-road.png', from: [11, 9], to: [11, 15] },                    // 흙길 (아래쪽 마을 동쪽 → 지도 오른쪽 끝)
+      { type: 'strip', src: 'assets/vuhledar/windbreak.webp', from: [6, 4], to: [10, 4], shadow: true },      // 방풍림 (세로, 4열 6~10행)
+      { type: 'strip', src: 'assets/vuhledar/windbreak.webp', from: [5, 11], to: [5, 14], shadow: true },  // 방풍림 (가로, 5행 11~14열: 이 칸들은 숲이 아니라 장식만)
+      { type: 'strip', src: 'assets/vuhledar/dirt-road.webp', from: [11, 9], to: [11, 15] },                    // 흙길 (아래쪽 마을 동쪽 → 지도 오른쪽 끝)
       // 포격 자국 (고정 장식 5개). size = 보이는 지름(칸), fill = 그림 폭 중 보이는 비율
-      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [9, 8], size: 0.85, fill: 0.8, rot: 20 },
-      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [8, 6], size: 0.78, fill: 0.95, rot: 140 },
-      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [6, 11], size: 0.7, fill: 0.8, rot: 250 },
-      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [10, 3], size: 0.62, fill: 0.95, rot: 60 },
-      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [4, 6], size: 0.8, fill: 0.8, rot: 330 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.webp', at: [9, 8], size: 0.85, fill: 0.8, rot: 20 },
+      { type: 'scar', src: 'assets/vuhledar/crater.webp', at: [8, 6], size: 0.78, fill: 0.95, rot: 140 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.webp', at: [6, 11], size: 0.7, fill: 0.8, rot: 250 },
+      { type: 'scar', src: 'assets/vuhledar/crater.webp', at: [10, 3], size: 0.62, fill: 0.95, rot: 60 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.webp', at: [4, 6], size: 0.8, fill: 0.8, rot: 330 },
     ],
     overlays: [],
   },

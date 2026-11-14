@@ -2082,7 +2082,7 @@ test('우글레다르: 승리 조건 — 공격 점유 승리(라운드 끝 확�
 
 test('우글레다르: 그림 데이터는 이 시나리오에만 (다른 시나리오의 art 는 그대로), 그림 파일이 모두 있음', () => {
   const art = VUH().art;
-  assert.equal(art.terrain.city, 'assets/vuhledar/ruined-town.png');
+  assert.equal(art.terrain.city, 'assets/vuhledar/ruined-town.webp');
   for (const id of ['chuncheon', 'hostomel', 'symmetric']) {
     const a = E.SCENARIOS.find((s) => s.id === id).art;
     if (!a) continue;
