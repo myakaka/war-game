@@ -4,6 +4,8 @@
  *   node tools/check.js           기준선(tools/baseline.json)과 비교. 다르면 exit 1
  *   node tools/check.js --save    현재 결과를 기준선으로 저장 (의도한 변경을 확인한 뒤에만)
  *   node tools/check.js --games 20   판 수 바꾸기 (기본 100, 기준선과 같은 값이어야 비교 가능)
+ *   node tools/check.js --only vuhledar[,id]   그 시나리오만 돌림 (시나리오 데이터만 바꿨을 때. 엔진·규칙·AI 를 바꿨으면 전체)
+ *                                 --save 와 함께 쓰면 그 시나리오 항목만 기준선에 갈아 끼우고 나머지는 그대로 둠
  *   node tools/check.js --legacy     행동 제한을 끄고(ENABLE_ACTIVATION_LIMIT=false) v5 기준선(tools/baseline-v5.json)과 비교
  *
  * 조합: 공격 측 프로필 전부 × 방어 보통, 방어 측 쉬움·어려움 × 공격 보통 (시나리오마다).
@@ -20,6 +22,8 @@ const gi = args.indexOf('--games');
 const GAMES = gi >= 0 ? Number(args[gi + 1]) : 100;
 const TRACE_GAMES = 20;
 const SEED = 20250625;   // simulateGames 기본 시드와 같은 값
+const oi = args.indexOf('--only');
+const ONLY = oi >= 0 ? String(args[oi + 1] || '').split(',').filter(Boolean) : null;
 const LEGACY = args.includes('--legacy');
 const BASELINE = path.join(__dirname, LEGACY ? 'baseline-v5.json' : 'baseline.json');
 
@@ -51,7 +55,7 @@ function trace() {
 
 function collect() {
   const out = { games: GAMES, rulesVersion: E.GAME_CONFIG.RULES_VERSION, results: {} };
-  for (const s of E.SCENARIOS.filter((x) => !x.hidden)) {   // 튜토리얼 전용 시나리오(hidden)는 비교 대상 아님
+  for (const s of E.SCENARIOS.filter((x) => !x.hidden && (!ONLY || ONLY.includes(x.id)))) {   // 튜토리얼 전용 시나리오(hidden)는 비교 대상 아님
     E.loadScenario(s.id);
     for (const c of combos()) {
       // role 키(att/def)로 넘김: simulateGames 가 진영 id 또는 역할로 프로필을 고름
@@ -68,11 +72,22 @@ const brief = (r) => (typeof r === 'string' ? r.slice(0, 12)
 
 const t0 = Date.now();
 const now = collect();
+if (ONLY) {
+  const known = new Set(E.SCENARIOS.map((x) => x.id));
+  const bad = ONLY.filter((id) => !known.has(id));
+  if (bad.length || !ONLY.length) { console.error(`unknown scenario: ${bad.join(',') || '(none given)'}`); process.exit(2); }
+}
 const sec = ((Date.now() - t0) / 1000).toFixed(1);
 
 if (SAVE) {
-  fs.writeFileSync(BASELINE, JSON.stringify(now, null, 1) + '\n');
-  console.log(`saved ${path.relative(process.cwd(), BASELINE)} (${Object.keys(now.results).length} entries, ${sec}s)`);
+  let outData = now;
+  if (ONLY && fs.existsSync(BASELINE)) {   // 일부만 저장: 해당 시나리오 항목만 교체, 나머지 보존
+    const old = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+    const keep = Object.fromEntries(Object.entries(old.results).filter(([k]) => !ONLY.some((id) => k.startsWith(id + ' '))));
+    outData = { ...now, results: { ...keep, ...now.results } };
+  }
+  fs.writeFileSync(BASELINE, JSON.stringify(outData, null, 1) + '\n');
+  console.log(`saved ${path.relative(process.cwd(), BASELINE)} (${Object.keys(outData.results).length} entries, ${sec}s)`);
   process.exit(0);
 }
 if (!fs.existsSync(BASELINE)) { console.error('no baseline: run `node tools/check.js --save` first'); process.exit(2); }
@@ -80,7 +95,8 @@ const base = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
 if (base.games !== GAMES) { console.error(`baseline games=${base.games}, now ${GAMES}`); process.exit(2); }
 
 let diff = 0;
-const keys = new Set([...Object.keys(base.results), ...Object.keys(now.results)]);
+const inScope = (k) => !ONLY || ONLY.some((id) => k.startsWith(id + ' '));
+const keys = new Set([...Object.keys(base.results), ...Object.keys(now.results)].filter(inScope));
 for (const k of keys) {
   const a = base.results[k], b = now.results[k];
   const same = JSON.stringify(a) === JSON.stringify(b);

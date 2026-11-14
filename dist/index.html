@@ -1267,7 +1267,7 @@ const STRINGS = {
     'scen.vuhledar.name': '우글레다르',
     'scen.vuhledar.sub': '고지 위 마을 방어전',
     'scen.vuhledar.desc': '2023년 우글레다르 방어전을 모티브로 한 전장. 고지의 마을을 지키는 소수 방어군과 개활지를 건너 기갑으로 돌파하려는 공격군.',
-    'scen.vuhledar.zone': '마을 일대 (0~6행)',
+    'scen.vuhledar.zone': '마을 일대 (9~15행)',
     'obj.VT': '언덕 위 마을', 'obj.VT.short': '마을',
     'obj.RN': '활주로 북단',
     'obj.RC': '활주로 중앙',
@@ -1723,7 +1723,7 @@ const STRINGS = {
     'scen.vuhledar.name': 'Vuhledar',
     'scen.vuhledar.sub': 'Defense of the hilltop village',
     'scen.vuhledar.desc': 'A battlefield inspired by the 2023 defense of Vuhledar: a small defending force holds a village on high ground against an attacker pushing across open fields with armor.',
-    'scen.vuhledar.zone': 'Around the village (rows 0-6)',
+    'scen.vuhledar.zone': 'Around the village (rows 9-15)',
     'obj.VT': 'Hilltop village', 'obj.VT.short': 'Village',
     'obj.RN': 'Runway North',
     'obj.RC': 'Runway Center',
@@ -2555,30 +2555,30 @@ SCENARIOS.push({
   bgm: null,                 // 이 시나리오의 음악 (화면 전용). 파일이 아직 없음
   bgmLoopTrim: [0, 0],
   scaleMeters: 250,
-  // 위쪽 큰 마을(1~4행)이 지킬 마을(거점). 아래쪽 작은 마을(11~13행)은 엄폐물일 뿐 거점 아님.
-  // 4열 5~9행 숲 한 줄 = 방풍림(규칙상 그냥 숲 f), 11~13열 5~8행 w = 습지(게임용 추가 지형)
+  // 아래쪽 큰 마을(11~14행)이 지킬 마을(거점). 위쪽 작은 마을(2~4행)은 엄폐물일 뿐 거점 아님.
+  // 4열 6~10행 숲 한 줄 = 방풍림(규칙상 그냥 숲 f), 11~13열 7~10행 w = 습지(게임용 추가 지형)
   map: [
     '................',
-    '......###.......',
-    '.....#####....f.',
-    '.....#####....f.',
-    '......###.......',
-    '....f......ww...',
-    '....f..ff..www..',
-    '....f..ff..www.f',
-    '....f......ww..f',
-    '..f.f..f.f.....f',
-    '..f.....f.f.....',
-    '......##.f......',
-    '.....###.f......',
-    '......##........',
     '................',
+    '......##........',
+    '.....###.f......',
+    '......##.f......',
+    '..f.....f.f.....',
+    '..f.f..f.f.....f',
+    '....f......ww..f',
+    '....f..ff..www.f',
+    '....f..ff..www..',
+    '....f......ww...',
+    '......###.......',
+    '.....#####....f.',
+    '.....#####....f.',
+    '......###.......',
     '................',
   ],
   // 진영 이름은 글자 표시뿐 (국기·휘장 그림 없음). 색과 모양은 역할(def = 파랑 사각, att = 빨강 마름모)
   sides: {
-    ua: { role: 'def', nameKey: 'side.ua', color: '#1e88e5' },   // 위쪽 (아래를 봄)
-    ru: { role: 'att', nameKey: 'side.ru', color: '#e53935' },   // 아래쪽 (위를 봄)
+    ua: { role: 'def', nameKey: 'side.ua', color: '#1e88e5' },   // 아래쪽
+    ru: { role: 'att', nameKey: 'side.ru', color: '#e53935' },   // 위쪽
   },
   playerSide: 'ua',
   firstMover: 'ru',                      // 선공: 공격군 (라운드 순서 = [선공, 후공])
@@ -2586,28 +2586,28 @@ SCENARIOS.push({
   hq: { ua: null, ru: null },
   objectiveControl: 'presence',          // 묶음 안에 한 칸이라도 있고 상대가 묶음 안에 없으면 점유, 양쪽이 있으면 아무도 점유 못 함
   objectives: [
-    { id: 'VT', nameKey: 'obj.VT', shortNameKey: 'obj.VT.short', cells: [[2, 6], [2, 7], [3, 6], [3, 7]], startOwner: null },
+    { id: 'VT', nameKey: 'obj.VT', shortNameKey: 'obj.VT.short', cells: [[12, 6], [12, 7], [13, 6], [13, 7]], startOwner: null },
   ],
   deployments: [
-    // 우크라이나군 (방어, 위쪽): 기본 배치 (직접 배치를 안 하면 이 값, 공격 AI 의 추정 위치 겸용)
-    { round: 0, side: 'ua', type: 'infantry', pos: [2, 5] }, { round: 0, side: 'ua', type: 'infantry', pos: [3, 8] }, { round: 0, side: 'ua', type: 'infantry', pos: [2, 9] },
-    { round: 0, side: 'ua', type: 'armor', pos: [5, 7] },
-    { round: 0, side: 'ua', type: 'antitank', pos: [4, 6] }, { round: 0, side: 'ua', type: 'antitank', pos: [4, 8] },
-    { round: 0, side: 'ua', type: 'artillery', pos: [1, 7] },
-    { round: 0, side: 'ua', type: 'mortar', pos: [1, 5] },
-    { round: 0, side: 'ua', type: 'signal', pos: [1, 10] },
-    // 러시아군 (공격, 아래쪽): 고정 배치. 포병 없음 (간접 화력은 박격포 1기뿐)
-    { round: 0, side: 'ru', type: 'infantry', pos: [15, 4] }, { round: 0, side: 'ru', type: 'infantry', pos: [15, 8] },
-    { round: 0, side: 'ru', type: 'infantry', pos: [15, 10] }, { round: 0, side: 'ru', type: 'infantry', pos: [15, 13] },
-    { round: 0, side: 'ru', type: 'armor', pos: [14, 5] }, { round: 0, side: 'ru', type: 'armor', pos: [15, 6] },
-    { round: 0, side: 'ru', type: 'armor', pos: [14, 9] }, { round: 0, side: 'ru', type: 'armor', pos: [15, 9] },
-    { round: 0, side: 'ru', type: 'armor', pos: [14, 12] }, { round: 0, side: 'ru', type: 'armor', pos: [15, 12] },
-    { round: 0, side: 'ru', type: 'mortar', pos: [15, 7] },
-    { round: 0, side: 'ru', type: 'recon', pos: [14, 3] },
-    { round: 0, side: 'ru', type: 'signal', pos: [15, 11] },
+    // 우크라이나군 (방어, 아래쪽): 기본 배치 (직접 배치를 안 하면 이 값, 공격 AI 의 추정 위치 겸용)
+    { round: 0, side: 'ua', type: 'infantry', pos: [13, 5] }, { round: 0, side: 'ua', type: 'infantry', pos: [12, 8] }, { round: 0, side: 'ua', type: 'infantry', pos: [13, 9] },
+    { round: 0, side: 'ua', type: 'armor', pos: [10, 7] },
+    { round: 0, side: 'ua', type: 'antitank', pos: [11, 6] }, { round: 0, side: 'ua', type: 'antitank', pos: [11, 8] },
+    { round: 0, side: 'ua', type: 'artillery', pos: [14, 7] },
+    { round: 0, side: 'ua', type: 'mortar', pos: [14, 5] },
+    { round: 0, side: 'ua', type: 'signal', pos: [14, 10] },
+    // 러시아군 (공격, 위쪽): 고정 배치. 포병 없음 (간접 화력은 박격포 1기뿐)
+    { round: 0, side: 'ru', type: 'infantry', pos: [0, 4] }, { round: 0, side: 'ru', type: 'infantry', pos: [0, 8] },
+    { round: 0, side: 'ru', type: 'infantry', pos: [0, 10] }, { round: 0, side: 'ru', type: 'infantry', pos: [0, 13] },
+    { round: 0, side: 'ru', type: 'armor', pos: [1, 5] }, { round: 0, side: 'ru', type: 'armor', pos: [0, 6] },
+    { round: 0, side: 'ru', type: 'armor', pos: [1, 9] }, { round: 0, side: 'ru', type: 'armor', pos: [0, 9] },
+    { round: 0, side: 'ru', type: 'armor', pos: [1, 12] }, { round: 0, side: 'ru', type: 'armor', pos: [0, 12] },
+    { round: 0, side: 'ru', type: 'mortar', pos: [0, 7] },
+    { round: 0, side: 'ru', type: 'recon', pos: [1, 3] },
+    { round: 0, side: 'ru', type: 'signal', pos: [0, 11] },
     // 증원 없음
   ],
-  placementZones: { ua: { rows: [0, 6] }, ru: null },   // 방어군만 직접 배치 가능 (공격군은 고정)
+  placementZones: { ua: { rows: [9, 15] }, ru: null },   // 방어군만 직접 배치 가능 (공격군은 고정)
   zoneLabelKey: 'scen.vuhledar.zone',
   river: null,
   aiConstants: {},
@@ -2634,23 +2634,22 @@ SCENARIOS.push({
       city: 'assets/vuhledar/ruined-town.png',            // 파괴된 마을: 이 시나리오의 마을 칸 바닥에만 (호스토멜·춘천은 기존 질감)
     },
     unitSet: 'hostomel',                                  // 박격포 그림(assets/units/hostomel/mortar.png)이 있으면 그것, 없으면 포병 그림 70%
-    flipFacing: true,                                     // 위쪽(방어) 진영이 아래를 보고 아래쪽(공격) 진영이 위를 봄
     impactMarks: { mortar: ['assets/vuhledar/scorch-impact.png'], artillery: ['assets/vuhledar/crater.png', 'assets/vuhledar/scorch-impact.png'] },   // 포격 자국(보기용): 박격포=작게, 포병=크게. 없으면 기능 꺼짐
     dryField: { src: 'assets/vuhledar/dry-field.png', share: 0.3 },   // 평지 칸 바닥에 노이즈 마스크로 섞는 마른 밭 (평지의 30% 안팎)
     fields: [                                             // 밀밭: 평지 칸 두 구역 (가장자리는 흐리고 불규칙). 칸은 계속 평지
-      { src: 'assets/vuhledar/wheat.png', rows: [1, 3], cols: [0, 2], saturation: 0.55, brightness: 0.85 },
-      { src: 'assets/vuhledar/wheat.png', rows: [11, 13], cols: [10, 14], saturation: 0.55, brightness: 0.85 },
+      { src: 'assets/vuhledar/wheat.png', rows: [12, 14], cols: [0, 2], saturation: 0.55, brightness: 0.85 },
+      { src: 'assets/vuhledar/wheat.png', rows: [2, 4], cols: [10, 14], saturation: 0.55, brightness: 0.85 },
     ],
     decor: [                                              // 장식 (유닛·선택·거점 표시보다 아래층). from/to = 줄의 첫·끝 칸 (행, 열)
-      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [5, 4], to: [9, 4], shadow: true },      // 방풍림 (세로, 4열 5~9행)
-      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [10, 11], to: [10, 14], shadow: true },  // 방풍림 (가로, 10행 11~14열: 이 칸들은 숲이 아니라 장식만)
-      { type: 'strip', src: 'assets/vuhledar/dirt-road.png', from: [4, 9], to: [4, 15] },                    // 흙길 (위쪽 마을 동쪽 → 지도 오른쪽 끝)
+      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [6, 4], to: [10, 4], shadow: true },      // 방풍림 (세로, 4열 6~10행)
+      { type: 'strip', src: 'assets/vuhledar/windbreak.png', from: [5, 11], to: [5, 14], shadow: true },  // 방풍림 (가로, 5행 11~14열: 이 칸들은 숲이 아니라 장식만)
+      { type: 'strip', src: 'assets/vuhledar/dirt-road.png', from: [11, 9], to: [11, 15] },                    // 흙길 (아래쪽 마을 동쪽 → 지도 오른쪽 끝)
       // 포격 자국 (고정 장식 5개). size = 보이는 지름(칸), fill = 그림 폭 중 보이는 비율
-      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [6, 8], size: 0.85, fill: 0.8, rot: 20 },
-      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [7, 6], size: 0.78, fill: 0.95, rot: 140 },
-      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [9, 11], size: 0.7, fill: 0.8, rot: 250 },
-      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [5, 3], size: 0.62, fill: 0.95, rot: 60 },
-      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [11, 6], size: 0.8, fill: 0.8, rot: 330 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [9, 8], size: 0.85, fill: 0.8, rot: 20 },
+      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [8, 6], size: 0.78, fill: 0.95, rot: 140 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [6, 11], size: 0.7, fill: 0.8, rot: 250 },
+      { type: 'scar', src: 'assets/vuhledar/crater.png', at: [10, 3], size: 0.62, fill: 0.95, rot: 60 },
+      { type: 'scar', src: 'assets/vuhledar/scorch-impact.png', at: [4, 6], size: 0.8, fill: 0.8, rot: 330 },
     ],
     overlays: [],
   },

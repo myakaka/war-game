@@ -1997,9 +1997,9 @@ const countBy = (s, side) => {
 test('우글레다르: 데이터가 요청한 표와 같음 (지도, 거점 묶음, 병력과 위치, 행동 제한, 선공, 라운드, 증원 없음)', () => {
   const s = VUH();
   assert.equal(s.map.length, 16); assert.ok(s.map.every((r) => r.length === 16));
-  assert.equal(s.map[1], '......###.......'); assert.equal(s.map[11], '......##.f......');
+  assert.equal(s.map[14], '......###.......'); assert.equal(s.map[4], '......##.f......');   // 우크라이나군이 아래쪽 (위아래 반전)
   assert.ok(!s.symmetric, '대칭 시나리오가 아님');
-  assert.deepEqual([...s.objectives.map((o) => [...o.cells].map((p) => [...p].join(',')).join(' '))], ['2,6 2,7 3,6 3,7']);
+  assert.deepEqual([...s.objectives.map((o) => [...o.cells].map((p) => [...p].join(',')).join(' '))], ['12,6 12,7 13,6 13,7']);
   for (const [r, c] of s.objectives[0].cells) assert.equal(s.map[r][c], '#', '거점 칸은 마을');
   assert.deepEqual(countBy(s, 'ua'), { infantry: 3, armor: 1, antitank: 2, artillery: 1, mortar: 1, signal: 1 });
   assert.deepEqual(countBy(s, 'ru'), { infantry: 4, armor: 6, mortar: 1, recon: 1, signal: 1 });
@@ -2008,15 +2008,15 @@ test('우글레다르: 데이터가 요청한 표와 같음 (지도, 거점 묶�
   assert.ok(!s.deployments.some((d) => d.round > 0), '증원 없음');
   assert.ok(!s.deployments.some((d) => d.side === 'ru' && d.type === 'artillery'), '러시아군은 포병 없음');
   const at = (side, type) => [...s.deployments.filter((d) => d.side === side && d.type === type).map((d) => [...d.pos].join(','))];
-  assert.deepEqual(at('ua', 'infantry'), ['2,5', '3,8', '2,9']); assert.deepEqual(at('ua', 'antitank'), ['4,6', '4,8']);
-  assert.deepEqual(at('ua', 'artillery'), ['1,7']); assert.deepEqual(at('ua', 'mortar'), ['1,5']); assert.deepEqual(at('ru', 'mortar'), ['15,7']);
-  assert.deepEqual(at('ru', 'armor'), ['14,5', '15,6', '14,9', '15,9', '14,12', '15,12']);
+  assert.deepEqual(at('ua', 'infantry'), ['13,5', '12,8', '13,9']); assert.deepEqual(at('ua', 'antitank'), ['11,6', '11,8']);
+  assert.deepEqual(at('ua', 'artillery'), ['14,7']); assert.deepEqual(at('ua', 'mortar'), ['14,5']); assert.deepEqual(at('ru', 'mortar'), ['0,7']);
+  assert.deepEqual(at('ru', 'armor'), ['1,5', '0,6', '1,9', '0,9', '1,12', '0,12']);
   assert.deepEqual({ ...s.activations }, { def: 4, att: 6 });
   assert.equal(s.firstMover, 'ru'); assert.equal(s.rounds, 10); assert.equal(s.playerSide, 'ua');
-  assert.equal(JSON.stringify(s.placementZones.ua), '{"rows":[0,6]}'); assert.equal(s.placementZones.ru, null);
+  assert.equal(JSON.stringify(s.placementZones.ua), '{"rows":[9,15]}'); assert.equal(s.placementZones.ru, null);
   assert.equal(s.bgm, null);
   assert.ok(s.tags.length <= 3 && s.aiProfiles.join() === 'easy,normal,hard');
-  for (const d of s.deployments.filter((x) => x.side === 'ua')) assert.ok(d.pos[0] >= 0 && d.pos[0] <= 6, `ua ${d.type} ${d.pos}`);   // 기본 배치(방어)는 배치 구역 안
+  for (const d of s.deployments.filter((x) => x.side === 'ua')) assert.ok(d.pos[0] >= 9 && d.pos[0] <= 15, `ua ${d.type} ${d.pos}`);   // 기본 배치(방어)는 배치 구역 안
 });
 
 test('우글레다르: validateScenario 통과, 일부러 어긋나게 하면 실패 (맵 밖 유닛·잘못된 지형·겹침·맵 밖 거점·모르는 진영)', () => {
@@ -2025,7 +2025,7 @@ test('우글레다르: validateScenario 통과, 일부러 어긋나게 하면 �
   assert.ok(bad((s) => { s.deployments[0].pos = [16, 3]; }) > 0, '맵 밖 유닛');
   assert.ok(bad((s) => { s.map[0] = 'X' + s.map[0].slice(1); }) > 0, '잘못된 지형 코드');
   assert.ok(bad((s) => { s.deployments[1].pos = s.deployments[0].pos.slice(); }) > 0, '배치 겹침');
-  assert.ok(bad((s) => { s.objectives[0].cells = [[2, 6], [2, 7], [3, 6], [3, 16]]; }) > 0, '맵 밖 거점 칸');
+  assert.ok(bad((s) => { s.objectives[0].cells = [[12, 6], [12, 7], [13, 6], [13, 16]]; }) > 0, '맵 밖 거점 칸');
   assert.ok(bad((s) => { s.deployments.push({ round: 0, side: 'zz', type: 'infantry', pos: [8, 8] }); }) > 0, '모르는 진영');
 });
 
@@ -2054,7 +2054,7 @@ test('우글레다르: 간접 화력은 병종별 한 세트이고 러시아군�
 
 test('우글레다르: 승리 조건 — 공격 점유 승리(라운드 끝 확인), 방어 라운드 제한 승리, 묶음 점유 판정, 전멸', () => {
   const mk = () => { const st = fresh('vuhledar'); st.units = []; st.turn = 'ru'; st.round = 3; E.startTurn(st); return st; };
-  const cell = [2, 6], other = [3, 7];
+  const cell = [12, 6], other = [13, 7];
   let st = mk();   // 공격군이 묶음 안, 방어군은 묶음 밖: 선공 턴이 끝난 뒤에는 확인하지 않고 후공(방어) 턴이 끝난 뒤 확인
   put(st, { id: 'R1', side: 'ru', type: 'infantry', r: cell[0], c: cell[1] }); put(st, { id: 'U1', side: 'ua', type: 'infantry', r: 8, c: 8 });
   E.updateObjectiveControl(st);
