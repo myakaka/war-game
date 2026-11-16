@@ -5,7 +5,7 @@
 const fs = require('fs'), os = require('os'), path = require('path');
 const { execFileSync } = require('child_process');
 const BASE = path.join(__dirname, 'layout-baseline.json');
-const R = `window.R=()=>{const ids=['#app','#hud','#hud-r1','#hud-r2','#stage','#map-col','#board','#side','#card','#card-sum','#controls','#btn-end-turn','#logbar','#drawer','#tray','#coach','.icon-row','#btn-log','#btn-legend','#btn-settings','#overlay','#modal','#pop-legend']; return {cls: document.querySelector('#app').className, cell: getComputedStyle(document.documentElement).getPropertyValue('--cell'), r: ids.map(s=>{const e=document.querySelector(s); if(!e) return s+':none'; const r=e.getBoundingClientRect(); return s+':'+[r.x,r.y,r.width,r.height].map(Math.round).join(',')})}}; window.W=(ms)=>new Promise(r=>setTimeout(r,ms));`;
+const R = `window.R=()=>{const ids=['#app','#hud','#hud-r1','#hud-r2','#stage','#map-col','#board','#side','#card','#card-sum','#controls','#btn-end-turn','#logbar','#drawer','#tray','#tut-bar','.icon-row','#btn-log','#btn-legend','#btn-settings','#overlay','#modal','#pop-legend']; return {cls: document.querySelector('#app').className, cell: getComputedStyle(document.documentElement).getPropertyValue('--cell'), r: ids.map(s=>{const e=document.querySelector(s); if(!e) return s+':none'; const r=e.getBoundingClientRect(); return s+':'+[r.x,r.y,r.width,r.height].map(Math.round).join(',')})}}; window.W=(ms)=>new Promise(r=>setTimeout(r,ms));`;
 const views = [[360, 640, true], [390, 844, true], [740, 360, true], [880, 1000, false]];
 const steps = [];
 for (const [w, h, mobile] of views) {

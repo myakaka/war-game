@@ -790,7 +790,7 @@
   ui.zoom = zoomIdentity();
   ui.zoomW = 0;
   const vpSize = () => ({ w: frameEl.offsetWidth, h: frameEl.offsetHeight });
-  const zoomable = () => ui.screen === 'game' || ui.screen === 'deploy';
+  const zoomable = () => (ui.screen === 'game' || ui.screen === 'deploy') && !ui.tut;   // 튜토리얼은 전체 보기 고정
   /** 틀 안에서 첫 칸의 위치 (라벨 + 지도 테두리 2px) */
   const boardGeo = () => ({ ox: boardEl.offsetLeft + 2, oy: boardEl.offsetTop + 2, cell: ui.cellSize || cellPx(), n: N });
   function applyZoom(v, animate = false) {
@@ -1166,7 +1166,7 @@
     renderHeader();
     renderPanel();
     renderTutMarks();
-    renderCoach();
+    renderTutUi();
     drawMinimap();
   }
 
@@ -2239,7 +2239,9 @@
       // 터치: 첫 탭 = 명중률 배지(포병은 착탄 미리보기 포함), 같은 대상 두 번째 탭 = 공격 확인창
       if (touch && armed !== i) { ui.touchArm = i; clearHover(); renderHover(i); return; }
       clearHover();
-      if (ATTACK_CONFIRM) showAttackConfirm(sel.id, p); else playerAttack(sel.id, p);
+      const cardBeat = ui.tut && tutorialBeat(ui.tut.step, ui.tut.log, st);
+      if (cardBeat && cardBeat.card) tutPreviewCard(sel.id, p, cardBeat.card);   // 튜토리얼 전용 설명 창 (공격 확인창 아님)
+      else if (ATTACK_CONFIRM) showAttackConfirm(sel.id, p); else playerAttack(sel.id, p);
       return;
     }
     if (sel && ui.dualSet.has(i)) {
@@ -2321,10 +2323,9 @@
     ui.view = st;
     ui.busy = false;
     ui.selectedId = null;
-    if (ui.tut) tutorialRecord(ui.tut.log, { kind: 'attack', unit: id, at: { r: target.r, c: target.c } }, events, st);
+    if (ui.tut) tutRecord({ kind: 'attack', unit: id, at: { r: target.r, c: target.c } }, events);
     render();
     logEvents(events);
-    if (ui.tut) tutRecord(null, []);
     if (st.winner) showResult();
   }
 
@@ -2573,7 +2574,7 @@
     const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
     const hc = computeHitChance(st, id, target);
     const tu = getUnitAt(st, target.r, target.c);
-    if (ui.tut) tutRecord({ kind: 'preview', unit: id, at: { r: target.r, c: target.c } }, [], false);
+    if (ui.tut) tutRecord({ kind: 'preview', unit: id, at: { r: target.r, c: target.c } }, []);
     zoomShow([sel, target]);   // 확대 중이면 공격자·대상이 둘 다 보이게
     // 시야 밖 칸은 유닛 유무를 드러내지 않음
     const what = hc.fogged ? { t: 'confirm.whatFog', p: { pos: P(target) } }
@@ -3389,6 +3390,7 @@
     hideTip();
     hideBalloon();
     if (ui.state && ui.screen === 'game') renderControls();
+    if (ui.tut) renderTutUi();   // 확인 창이 열려 있는 동안 말풍선은 숨김
   }
   function hideOverlay() {
     ui.rulesBack = null;
@@ -3404,6 +3406,7 @@
     ui.overlayReturn = null;
     if (back && back.isConnected && back.offsetParent && !back.disabled) back.focus();
     if (ui.state && ui.screen === 'game') renderControls();
+    if (ui.tut) renderTutUi();
   }
 
   /** 인트로: 이동·공격 규칙 (상수에서 생성) */
@@ -3828,55 +3831,117 @@
   }
 
   /* =====================================================================
-     튜토리얼 (8단계 실습 + 연습 판). 판정·주사위·안개는 일반 게임과 같은 엔진 호출이고,
-     이 코드는 허용 입력 관문, 코치 창, 깜빡이는 표시, 단계 이동만 맡는다. 정답·추천은 보여 주지 않는다
+     튜토리얼 (실습 단계 + 연습 판). 판정·주사위·안개는 일반 게임과 같은 엔진 호출이고,
+     이 코드는 허용 입력 관문, 상단 바, 지도 위 말풍선(안내·결과), 깜빡이는 표시와 어둡게 하기, 단계 이동만 맡는다. 정답·추천은 보여 주지 않는다
      ===================================================================== */
-  const TUT_KEY = 'chuncheon1950.tutorial';   // { seen, done:[단계 id] } — 저장이 안 돼도 동작
+  const TUT_KEY = 'chuncheon1950.tutorial';   // { seen, done:[단계 id] } — 저장이 안 돼도 동작. 옛 기록(8단계 id)은 그대로 읽고 항상 처음부터 시작
   function tutLoad() { try { const v = JSON.parse(localStorage.getItem(TUT_KEY) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
   function tutMark(patch) { try { localStorage.setItem(TUT_KEY, JSON.stringify({ ...tutLoad(), ...patch })); } catch (e) { /* 저장 불가 환경 */ } }
   const tutOk = (act) => (act.kind === 'dual'
     ? tutorialAllows(ui.tut.step, { ...act, kind: 'move' }, ui.state, ui.tut.log) || tutorialAllows(ui.tut.step, { ...act, kind: 'preview' }, ui.state, ui.tut.log)
     : tutorialAllows(ui.tut.step, act, ui.state, ui.tut.log));
-  /** 지금 목표에 맞는 안내 한 줄 (대상 위치는 이미 보이는 깜빡임으로만 가리킴) */
-  function tutHintText() {
-    const { step, log } = ui.tut;
-    const g = step.goal[tutorialCurrent(step, log, ui.state)];
-    if (!g) return t('tut.hintDone');
-    const pick = g.unit && ui.selectedId !== g.unit && !['selectBlocked', 'selectCooldown'].includes(g.do);
-    const key = pick ? 'select' : ['contested', 'own'].includes(g.do) ? 'attack' : g.do;
-    return t('tut.hint', { what: { t: 'tut.what.' + key } });
-  }
+  let tutTimer = 0;   // 결과 말풍선이 없는 단계 끝에서 자동으로 다음 단계로 넘어가는 짧은 지연 (결과 말풍선은 '다음' 버튼을 눌러야 넘어감)
+  const tutStopTimer = () => { clearTimeout(tutTimer); tutTimer = 0; };
+  const overlayShown = () => $('#overlay').classList.contains('show');
+
+  /** 허용되지 않은 입력: 상태는 그대로, 소리와 말풍선 흔들기(연출 줄이기면 없음)로만 알림 */
   function tutBlocked() {
     if (!ui.tut) return;
     ui.clickSfx = null;
     sfx('ui_error');
-    ui.tut.hint = tutHintText();
-    renderCoach();
-    announce(ui.tut.hint);
+    const b = $('#tut-bubble');
+    if (!b.hidden && !ui.reduceMotion) { b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge'); }
+    const msg = b.hidden ? '' : b.querySelector('.tb-main').textContent;
+    if (msg) announce(msg);
   }
-  /** 입력 기록 → 목표 진행. action 이 null 이면 진행만 다시 셈 */
-  function tutRecord(action, events, clearHint = true) {
-    if (!ui.tut) return;
-    if (action) tutorialRecord(ui.tut.log, action, events, ui.state);
-    if (clearHint) ui.tut.hint = null;
-    const prog = tutorialProgress(ui.tut.step, ui.tut.log, ui.state);
-    if (prog.complete && !ui.tut.complete) {
-      ui.tut.complete = true;
-      const done = new Set(tutLoad().done || []);
-      done.add(ui.tut.step.id);
-      tutMark({ done: [...done] });
-      announce(t(ui.tut.step.doneKey, tutorialParams()));
+  /** 결과 말풍선을 붙일 칸: 공격·확인은 대상 칸, 이동은 도착 칸, 선택은 그 유닛 칸 (턴 종료는 없음) */
+  function tutAnchorOf(action, events) {
+    if (!action) return null;
+    if (action.at) return [action.at.r, action.at.c];
+    if (action.kind === 'endTurn') {   // 상대 사격으로 밀려나거나 격파·제압된 내 유닛 곁
+      const e = (events || []).find((x) => x.side === PLAYER && ['retreat', 'destroyed', 'suppressed'].includes(x.type));
+      const p = e && (e.to || e.pos);
+      return p ? [p.r, p.c] : null;
     }
-    renderCoach();
+    const u = action.unit && getUnit(ui.state, action.unit);
+    return u ? [u.r, u.c] : null;
+  }
+  /** 입력 기록 → 목표 진행 → beat 를 끝냈으면 결과 말풍선 (끝난 단계는 결과가 사라진 뒤 자동으로 다음 단계). action 이 null 이면 진행만 다시 셈 */
+  function tutRecord(action, events) {
+    if (!ui.tut) return;
+    const T = ui.tut;
+    const before = tutorialCurrent(T.step, T.log, ui.state), beat = tutorialBeats(T.step)[before];
+    if (action) tutorialRecord(T.log, action, events, ui.state);
+    const after = tutorialCurrent(T.step, T.log, ui.state), complete = after >= tutorialBeats(T.step).length;
+    if (T.result && !T.result.complete) { tutStopTimer(); T.result = null; }   // 새 입력이 오면 지난 결과 말풍선은 바로 걷음
+    if (after > before) {
+      if (complete) {
+        const done = new Set(tutLoad().done || []);
+        done.add(T.step.id);
+        tutMark({ done: [...done] });
+      }
+      const res = tutorialResult(beat, { events: events || [], st: ui.state, log: T.log });
+      if (res) { const anchor = tutAnchorOf(action, events); T.result = { key: res.key, sub: res.sub, anchor, button: !anchor && !!action && action.kind === 'endTurn', complete, focused: false }; }
+      else if (complete) { tutStopTimer(); tutTimer = setTimeout(tutAdvance, 600); }
+    }
+    renderTutUi();
+  }
+  /** 튜토리얼 전용 설명 창: 명중률(시야 밖은 ?)과 보정 내역 + 이 단계의 설명 한 단락 + 확인 버튼 하나. 공격하지 않고 상태도 바꾸지 않음 */
+  function tutPreviewCard(id, target, cardKey) {
+    const st = ui.state, me = ui.viewer, sel = getUnit(st, id);
+    if (!sel) return;
+    const hc = computeHitChance(st, id, target);
+    zoomShow([sel, target]);
+    hideTip();
+    const pct = hc.fogged ? '<div class="confirm-pct unk">?</div>' : `<div class="confirm-pct ${hc.chance >= 50 ? 'good' : 'bad'}">${hc.chance}%</div>`;
+    const draw = () => {
+      showOverlay(`<div class="atk-confirm compact tut-card">
+        <h2>${esc(t('tut.card.title'))}</h2>
+        ${pct}
+        <div class="ac-line">${esc(t(cardKey, tutorialParams()))}</div>
+        <div class="ac-detail">${attackPreviewHtml(st, sel, target, me)}</div>
+        <div class="btn-row" style="margin-top:10px"><button class="primary" id="btn-tut-card">${esc(t('btn.tutCardOk'))}</button></div>
+      </div>`, draw);
+      $('#btn-tut-card').onclick = () => { hideOverlay(); render(); };
+      if (ui.wide) overlayCenter();
+      $('#btn-tut-card').focus();
+    };
+    draw();
+    tutRecord({ kind: 'preview', unit: id, at: { r: target.r, c: target.c } }, []);   // 창이 열린 뒤에 기록: 결과 말풍선은 창을 닫을 때 나타남
+  }
+  /** 결과 말풍선의 '다음' 버튼: 단계가 끝났으면 다음 단계, 아니면 다음 안내 말풍선 */
+  function tutResultDone() {
+    if (!ui.tut) return;
+    tutStopTimer();
+    const r = ui.tut.result;
+    ui.tut.result = null;
+    if (r && r.complete) tutAdvance(); else renderTutUi();
+  }
+  function tutAdvance() {
+    tutStopTimer();
+    if (!ui.tut) return;
+    if (ui.tut.k + 1 < tutorialSteps().length) loadTutStep(ui.tut.k + 1); else showPracticeOffer();
   }
   /** 턴 종료: 엔진 endTurn + 단계의 정해진 상대 행동 (AI 없음). 로그는 일반 게임처럼 내 시야 기준 */
-  function tutEndTurn() {
-    const st = ui.state;
+  async function tutEndTurn() {
+    const st = ui.state, token = ui.gameId;
     const before = cloneState(st);
-    const events = tutorialEndTurn(st, ui.tut.step, ui.tut.rng);
-    ui.view = st;
+    const shots = [];   // 상대의 정해진 사격: 상태는 엔진이 먼저 확정하고, 화면은 일반 게임의 AI 사격과 같은 연출(playAttack)로 한 발씩 재생
+    const events = tutorialEndTurn(st, ui.tut.step, ui.tut.rng, ui.tut.log.filter((e) => e.kind === 'endTurn').length + 1, (s) => shots.push(s));
     annotate(events, visMapOf(before, st));
     ui.turnEvents.push(...events);
+    if (shots.length) {
+      ui.busy = true;
+      for (const s of shots) {
+        const vis = new Set([...getVisibleTiles(s.pre, PLAYER), ...getVisibleTiles(s.post, PLAYER)]);
+        await playAttack(s.events, s.pre, s.post, vis);
+        if (token !== ui.gameId || !ui.tut) return;
+        await wait(STEP_MS * 0.4);
+        if (token !== ui.gameId || !ui.tut) return;
+      }
+      ui.busy = false;
+    }
+    ui.view = st;
     logEvents(events);
     tutRecord({ kind: 'endTurn' }, events);
     render();
@@ -3890,8 +3955,9 @@
     if (GAME_CONFIG.SCENARIO_ID !== TUTORIAL_ID) applyScenario(TUTORIAL_ID, false);
     loadTutStep(k);
   }
-  /** 단계 불러오기 (이전·다음·다시 해 보기 모두 여기서 시작 상태로) */
+  /** 단계 불러오기 (이전·다시 해 보기·자동 다음 단계 모두 여기서 시작 상태로) */
   function loadTutStep(k) {
+    tutStopTimer();
     const steps = tutorialSteps();
     k = Math.max(0, Math.min(steps.length - 1, k));
     const step = steps[k];
@@ -3902,7 +3968,7 @@
     hideOverlay();
     closePop(false);
     ui.deploy = null;
-    ui.tut = { k, step, log: [], rng: createSeededRng(step.seed), hint: null, complete: false };
+    ui.tut = { k, step, log: [], rng: createSeededRng(step.seed), result: null };
     ui.state = tutorialState(step);
     ui.view = ui.state;
     ui.viewer = PLAYER;
@@ -3916,14 +3982,15 @@
     ui.flash = new Set();
     ui.unread = 0;
     ui.touchArm = -1;
-    ui.coachHtml = '';
     $('#log').innerHTML = '';
     if (ui.endArmed) disarmEnd(false);
+    applyZoom(zoomIdentity());   // 튜토리얼은 전체 보기 고정
     applyModeUi();
     setScreen('game');
     renderLog();
     render();
     fitLayout();
+    renderTutUi();   // 상단 바가 생기거나 사라진 뒤 지도 크기가 바뀐 상태에서 말풍선 위치를 다시 잡음
   }
   /** 마지막 단계 뒤: 연습 판 제안 */
   function showPracticeOffer() {
@@ -3935,9 +4002,10 @@
     $('#btn-practice-main').onclick = goMenu;
     $('#btn-practice-go').focus();
   }
-  /** 연습 판: 일반 규칙·AI 그대로 (중립 AI 쉬움). 코치 창 없음, 위쪽 '?' 로 규칙 */
+  /** 연습 판: 일반 규칙·AI 그대로 (중립 AI 쉬움). 말풍선 없음, 위쪽 '?' 로 규칙 */
   function startPractice() {
     if (!ui.tut && !ui.practice) { ui.tutBack = GAME_CONFIG.SCENARIO_ID; ui.tutMode = ui.mode; }
+    tutStopTimer();
     ui.tut = null;
     ui.practice = true;
     ui.mode = 'ai';
@@ -3947,54 +4015,104 @@
   /** 튜토리얼·연습 판을 떠날 때: 원래 시나리오와 모드로 */
   function tutCleanup() {
     const back = ui.tutBack;
+    tutStopTimer();
     ui.tut = null;
     ui.practice = false;
     if (ui.tutMode) ui.mode = ui.tutMode;
     ui.tutBack = null;
     ui.tutMode = null;
-    renderCoach();
+    renderTutUi();
     if (back && GAME_CONFIG.SCENARIO_ID !== back) applyScenario(back, false);
   }
-  /** 깜빡이는 표시 (눌러 볼 곳만. 좋고 나쁨의 표시가 아님) + 턴 종료 버튼 표시 + 연습 판의 '?' */
+  /** 눌러 볼 곳: 노란 맥박 고리 + 그 밖의 지도는 약하게 어둡게 (보기만, 누르기는 허용 입력 관문이 막음) + 턴 종료 버튼 표시 + 연습 판의 '?' */
   function renderTutMarks() {
     $('#btn-help').hidden = !((ui.tut || ui.practice) && ui.screen === 'game');
     let layer = boardEl.querySelector('.tut-layer');
-    const cellsHl = ui.tut && ui.screen === 'game' && !ui.busy ? tutorialHighlight(ui.tut.step, ui.tut.log, ui.state, ui.selectedId) : [];
-    const g = ui.tut ? ui.tut.step.goal[tutorialCurrent(ui.tut.step, ui.tut.log, ui.state)] : null;
-    $('#btn-end-turn').classList.toggle('tut-pulse-btn', !!g && g.do === 'endTurn');
-    if (!cellsHl.length) { if (layer) layer.innerHTML = ''; return; }
+    const beat = ui.tut && ui.screen === 'game' && !ui.busy ? tutorialBeat(ui.tut.step, ui.tut.log, ui.state) : null;
+    const tg = beat ? tutorialTarget(beat, ui.state) : null;
+    $('#btn-end-turn').classList.toggle('tut-pulse-btn', !!tg && tg.button === 'endTurn');
+    const dim = !!tg && !tg.button && tg.bright.length > 0;
+    if (!tg || (!tg.cells.length && !dim)) { if (layer) layer.innerHTML = ''; return; }
     if (!layer) { layer = document.createElement('div'); layer.className = 'tut-layer'; layer.setAttribute('aria-hidden', 'true'); boardEl.appendChild(layer); }
     layer.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
     layer.style.gridTemplateRows = `repeat(${N}, 1fr)`;
-    layer.innerHTML = cellsHl.map(([r, c]) => `<div class="tut-pulse" style="grid-row:${r + 1};grid-column:${c + 1}"></div>`).join('');
+    const pos = (r, c) => `grid-row:${r + 1};grid-column:${c + 1}`;
+    let html = '';
+    if (dim) {
+      const lit = new Set(tg.bright.map(([r, c]) => idx(r, c)));
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!lit.has(idx(r, c))) html += `<div class="tut-dim" style="${pos(r, c)}"></div>`;
+    }
+    layer.innerHTML = html + tg.cells.map(([r, c]) => `<div class="tut-pulse" style="${pos(r, c)}"></div>`).join('');
   }
-  /** 코치 창: 진행 점, n/8, 제목, 문구(넘치면 문구만 스크롤), 안내 한 줄, 이전·다시 해 보기·다음·종료 */
-  function renderCoach() {
-    const el = $('#coach');
-    if (!ui.tut || ui.screen !== 'game') { if (!el.hidden) { el.hidden = true; el.innerHTML = ''; ui.coachHtml = ''; } return; }
-    const steps = tutorialSteps(), { k, step } = ui.tut, max = steps.length;
-    const prog = tutorialProgress(step, ui.tut.log, ui.state);
-    const P = tutorialParams();
-    const doneIds = new Set(tutLoad().done || []);
-    if (prog.complete) doneIds.add(step.id);
-    const dots = steps.map((s, i) => `<span class="cdot${i === k ? ' cur' : ''}${doneIds.has(s.id) ? ' done' : ''}"></span>`).join('');
-    const html = `<div class="coach-head"><span class="coach-dots" aria-hidden="true">${dots}</span><span class="coach-n" aria-label="${esc(t('aria.tutProgress', { n: k + 1, max }))}">${esc(t('tut.progress', { n: k + 1, max }))}</span>`
-      + `<span class="coach-title tx">${esc(t(step.titleKey))}</span>${prog.complete ? `<span class="chip green sm">${esc(t('tut.doneChip'))}</span>` : ''}</div>`
-      + `<div class="coach-text">${esc(t(step.textKey, P))}${prog.complete ? `<div class="coach-done">${esc(t(step.doneKey, P))}</div>` : ''}</div>`
-      + `<div class="coach-hint" role="status">${ui.tut.hint ? esc(ui.tut.hint) : ''}</div>`
-      + `<div class="coach-btns"><button id="tut-prev"${k === 0 ? ' disabled' : ''}>${esc(t('btn.tutPrev'))}</button><button id="tut-retry">${esc(t('btn.tutRetry'))}</button>`
-      + `<button id="tut-next"${prog.complete ? ' class="primary"' : ''}>${esc(t('btn.tutNext'))}</button><button id="tut-exit">${esc(t('btn.tutExit'))}</button></div>`;
-    el.hidden = false;
-    if (html === ui.coachHtml) return;   // 같은 내용이면 다시 그리지 않음 (버튼 초점 유지)
-    const focusId = document.activeElement && el.contains(document.activeElement) ? document.activeElement.id : null;
-    ui.coachHtml = html;
-    el.innerHTML = html;
-    $('#tut-prev').onclick = () => loadTutStep(k - 1);
-    $('#tut-retry').onclick = () => loadTutStep(k);
-    $('#tut-next').onclick = () => (k + 1 < max ? loadTutStep(k + 1) : showPracticeOffer());
-    $('#tut-exit').onclick = goMenu;
-    if (focusId && $('#' + focusId)) $('#' + focusId).focus();
+  /** 상단 바(튜토리얼 n/큰 단계 수, 이전·다시·종료)와 지도 위 말풍선. 말풍선은 결과가 있으면 결과, 없으면 지금 beat 의 안내 */
+  function renderTutUi() {
+    const bar = $('#tut-bar'), bub = $('#tut-bubble');
+    const on = !!ui.tut && ui.screen === 'game';
+    document.body.classList.toggle('tutorial', on);
+    if (!on) { bar.hidden = true; bub.hidden = true; return; }
+    const T = ui.tut, max = tutorialSteps().length;
+    const host = ui.wide && !ui.pc ? $('#side') : $('#hud');   // 상단 줄에 들어가지 않는 휴대폰 가로는 오른쪽 열 맨 위
+    if (bar.parentNode !== host) { if (host.id === 'side') host.insertBefore(bar, host.firstChild); else host.appendChild(bar); fitLayout(); }
+    bar.hidden = false;
+    $('#tut-n').textContent = t('tut.bar', { n: T.k + 1, max });
+    $('#tut-n').setAttribute('aria-label', t('aria.tutProgress', { n: T.k + 1, max }));
+    $('#tut-prev').textContent = t('btn.tutPrev');
+    $('#tut-prev').disabled = T.k === 0;
+    $('#tut-retry').textContent = t('btn.tutRetry');
+    $('#tut-exit').textContent = t('btn.tutExit');
+    const beat = tutorialBeat(T.step, T.log, ui.state), P = tutorialParams(), res = T.result;
+    const hold = ui.busy || overlayShown();   // 연출 중이거나 확인 창이 열려 있으면 말풍선은 잠시 숨김
+    let text = null, sub = null, anchorCell = null, anchorRect = null;
+    const wrap = $('#board-wrap'), wr = wrap.getBoundingClientRect();
+    const rel = (el) => { const r = el.getBoundingClientRect(); return { x: r.left - wr.left, y: r.top - wr.top, w: r.width, h: r.height }; };
+    const cellRect = (p) => rel(cells[idx(p[0], p[1])].el);
+    const avoid = [];
+    // 마우스를 올리면 대상 칸 위쪽에 명중률 배지가 뜸 → 말풍선이 그 자리를 가리지 않게 대상 칸마다 위쪽 띠를 피함
+    const badgeZone = (p) => { const r = cellRect(p), w = Math.max(r.w, 64); return { x: r.x + r.w / 2 - w / 2, y: r.y - 26, w, h: 30 }; };
+    if (res) { text = t(res.key, P); sub = res.sub ? t(res.sub, P) : null; anchorCell = res.anchor; if (res.button) anchorRect = rel($('#btn-end-turn')); }
+    else if (beat) {
+      text = t(beat.hint, P); sub = beat.sub ? t(beat.sub, P) : null;
+      const tg = tutorialTarget(beat, ui.state);
+      anchorCell = tg.anchor;
+      for (const p of tg.cells) { avoid.push(cellRect(p)); avoid.push(badgeZone(p)); }
+      if (tg.button) anchorRect = rel($('#btn-end-turn'));
+    }
+    if (!text || hold) { bub.hidden = true; return; }
+    bub.classList.toggle('result', !!res);
+    bub.querySelector('.tb-main').textContent = text;
+    bub.querySelector('.tb-sub').textContent = sub || '';
+    const nx = bub.querySelector('.tb-next');
+    nx.hidden = !res;
+    nx.textContent = t('btn.tutNext');
+    bub.hidden = false;
+    if (res && !res.focused) { res.focused = true; nx.focus({ preventScroll: true }); }   // 키보드는 Enter 로 바로 다음으로
+    bub.style.left = '0px'; bub.style.top = '0px';
+    bub.style.maxWidth = Math.floor(wr.width * 0.7) + 'px';   // 가로는 지도 틀의 70%까지, 넘으면 줄바꿈
+    if (anchorCell) anchorRect = cellRect(anchorCell);
+    if (anchorRect) avoid.push(anchorRect);
+    const sel = ui.selectedId && getUnit(ui.state, ui.selectedId);
+    if (sel) avoid.push(cellRect([sel.r, sel.c]));   // 공격자·선택한 유닛
+    for (const id of ['col-labels', 'row-labels']) { const el = document.getElementById(id); if (el) avoid.push(rel(el)); }   // 좌표 글자 줄을 가리지 않음
+    for (const el of boardEl.querySelectorAll('.unit')) avoid.push(rel(el));   // 화면에 그려진 유닛(내 유닛과 보이는 적)은 되도록 가리지 않음. 안 그려진 유닛은 계산에도 안 들어감
+    const p = tutorialPlaceBubble({ box: { w: wr.width, h: wr.height }, size: { w: bub.offsetWidth, h: bub.offsetHeight }, anchor: anchorRect, avoid });
+    bub.style.left = Math.round(p.x) + 'px';
+    bub.style.top = Math.round(p.y) + 'px';
+    const tail = bub.querySelector('.tb-tail');
+    tail.style.cssText = '';
+    if (p.tail) {
+      const e = p.tail.edge, o = Math.round(p.tail.pos - 6) + 'px';
+      if (e === 'bottom') { tail.style.bottom = '-6px'; tail.style.left = o; }
+      else if (e === 'top') { tail.style.top = '-6px'; tail.style.left = o; }
+      else if (e === 'left') { tail.style.left = '-6px'; tail.style.top = o; }
+      else { tail.style.right = '-6px'; tail.style.top = o; }
+    }
   }
+  $('#tut-prev').onclick = () => { if (ui.tut) loadTutStep(ui.tut.k - 1); };
+  $('#tut-retry').onclick = () => { if (ui.tut) loadTutStep(ui.tut.k); };
+  $('#tut-exit').onclick = () => goMenu();
+  $('#tut-bubble .tb-next').onclick = () => { if (ui.tut && ui.tut.result) tutResultDone(); };
+  // 지도 틀 크기가 바뀌면(화면 회전·창 크기·배치 전환·지도 다시 그리기) 말풍선 위치를 다시 잡음
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (ui.tut) renderTutUi(); }).observe($('#board-wrap'));
 
   /* ---------- 게임 기록 (묶음별 누적, localStorage). 값은 언어와 무관한 코드값 ---------- */
   const RECORD_KEY = 'chuncheon1950.gameRecords';
@@ -4245,6 +4363,7 @@
       root.setProperty('--abar-free', Math.max(0, Math.floor(free)) + 'px');
     }
     if (ui.confirm) keepUnitsAboveSheet();
+    if (ui.tut) renderTutUi();   // 지도 크기가 바뀌면 말풍선 위치도 다시
   }
   let layoutRaf = 0;
   const onResize = () => { cancelAnimationFrame(layoutRaf); layoutRaf = requestAnimationFrame(() => { hideBalloon(); hideTip(); fitLayout(); }); };

@@ -972,9 +972,9 @@ test('대칭 AI: 같은 시드면 모든 행동이 같고(새 AI·기존 AI·tur
   assert.ok('aiIntel' in fresh('symmetric'));
 });
 
-/* ---------------- 튜토리얼 (js/tutorial.js, scenarios/tutorial.js 의 tutorialSteps) ---------------- */
+/* ---------------- 튜토리얼 (js/tutorial.js, scenarios/tutorial.js 의 tutorialSteps: 큰 단계 → beats) ---------------- */
 const TP = (r, c) => ({ r, c });
-/** 단계별 풀이 (허용된 입력만으로 목표 도달) */
+/** 단계별 풀이 (허용된 입력만으로 모든 beat 도달) */
 const TUT_SOLUTION = {
   select: [['select', 'A1'], ['move', 'A1', TP(5, 3)]],
   attack: [['select', 'A1'], ['preview', 'A1', TP(3, 3)], ['attack', 'A1', TP(3, 3)]],
@@ -984,77 +984,120 @@ const TUT_SOLUTION = {
   objective: [['select', 'A1'], ['move', 'A1', TP(2, 4)], ['select', 'A2'], ['attack', 'A2', TP(1, 5)]],
   mortar: [['select', 'A1'], ['attack', 'A1', TP(3, 4)]],
   artillery: [['select', 'A1'], ['attack', 'A1', TP(3, 3)], ['endTurn'], ['select', 'A1']],
+  retreat: [['endTurn'], ['endTurn'], ['endTurn'], ['select', 'A3']],
 };
-/** 화면과 같은 순서로 입력을 엔진에 적용 (허용되지 않은 입력은 아무것도 하지 않음) */
+/** 화면과 같은 순서로 입력을 엔진에 적용 (허용되지 않은 입력은 아무것도 하지 않음). results: beat 를 끝낸 순간 고른 결과 말풍선 */
 function tutPlay(step, actions, seed = step.seed) {
-  const st = E.tutorialState(step), rng = E.createSeededRng(seed), log = [], events = [], refused = [];
+  const st = E.tutorialState(step), rng = E.createSeededRng(seed), log = [], events = [], refused = [], results = [];
   for (const [kind, unit, at] of actions) {
     const a = { kind, unit, at };
     if (!E.tutorialAllows(step, a, st, log)) { refused.push(kind); continue; }
+    const before = E.tutorialCurrent(step, log, st), beat = E.tutorialBeats(step)[before];
     let ev = [];
     if (kind === 'move') ev = E.moveUnit(st, unit, at);
     else if (kind === 'attack') ev = E.resolveAttack(st, unit, at, rng);
-    else if (kind === 'endTurn') ev = E.tutorialEndTurn(st, step, rng);
+    else if (kind === 'endTurn') ev = E.tutorialEndTurn(st, step, rng, log.filter((e) => e.kind === 'endTurn').length + 1);
     events.push(...ev);
     E.tutorialRecord(log, a, ev, st);
+    if (E.tutorialCurrent(step, log, st) > before) { const rs = E.tutorialResult(beat, { events: ev, st, log }); if (rs) results.push({ beat: before, key: rs.key, sub: rs.sub }); }
   }
-  return { st, log, events, refused, prog: E.tutorialProgress(step, log, st) };
+  return { st, log, events, refused, results, prog: E.tutorialProgress(step, log, st) };
 }
 const tutSteps = () => { E.loadScenario('tutorial'); return E.tutorialSteps(); };
 
-test('튜토리얼 데이터: 8단계, 유닛·깜빡임 칸이 지도 안·지나갈 수 있는 칸, 유닛 칸 겹침 없음, 튜토리얼 시나리오는 시작 화면 목록에 없음', () => {
+test('튜토리얼 데이터: 단계 id 중복 없음, validateTutorialSteps 오류 없음 (칸이 지도 안·겹침 없음·문구 ko/en 있음·hint 22자·sub 28자), 튜토리얼 시나리오는 시작 화면 목록에 없음', () => {
   const steps = tutSteps(), n = C().MAP.length;
-  assert.equal(steps.length, 8);
-  assert.equal(new Set(steps.map((s) => s.id)).size, 8);
-  const inMap = (p) => p[0] >= 0 && p[0] < n && p[1] >= 0 && p[1] < n;
-  for (const s of steps) {
-    const seen = new Set();
-    for (const u of s.setup.units) {
-      assert.ok(inMap(u.pos), `${s.id} ${u.type}`);
-      const ter = C().TERRAIN[C().MAP[u.pos[0]][u.pos[1]]];
-      assert.ok(!(ter.impassableFor || []).includes(u.type), `${s.id} ${u.type} 지형`);
-      assert.ok(!seen.has(u.pos.join(',')), `${s.id} 겹침`);
-      seen.add(u.pos.join(','));
-    }
-    for (const p of [...(s.highlight || []), ...s.goal.flatMap((g) => g.hl || [])]) assert.ok(inMap(p), `${s.id} hl ${p}`);
-    for (const g of s.goal) assert.ok(['select', 'move', 'attack', 'preview', 'selectBlocked', 'selectCooldown', 'endTurn', 'contested', 'own'].includes(g.do), g.do);
-    for (const k of [s.titleKey, s.textKey, s.doneKey]) for (const lang of ['ko', 'en']) assert.ok(k in run('STRINGS')[lang], `${lang} ${k}`);
+  assert.ok(steps.length >= 8);
+  assert.equal(new Set(steps.map((s) => s.id)).size, steps.length);
+  jsonEq(E.validateTutorialSteps(steps), []);
+  for (const s of steps) for (const u of s.setup.units) {
+    const ter = C().TERRAIN[C().MAP[u.pos[0]][u.pos[1]]];
+    assert.ok(!(ter.impassableFor || []).includes(u.type), `${s.id} ${u.type} 지형`);
   }
+  assert.ok(steps.every((s) => s.beats.every((b) => b.target)), 'target');
+  assert.ok(n > 0);
   assert.ok(!E.listScenarios().some((s) => s.id === 'tutorial' || s.id === 'tutorialPractice'));
   assert.deepEqual([...E.validateScenario(E.SCENARIOS.find((s) => s.id === 'tutorialPractice'))], []);
 });
 
-test('튜토리얼: 허용된 입력만으로 8단계를 모두 끝까지 진행 (엔진을 실제로 돌림), 게임이 끝나지 않음', () => {
+test('validateTutorialSteps: 22자 넘는 hint, 28자 넘는 sub, 지도 밖 target, 없는 문구 키를 잡아냄', () => {
+  const S = run('STRINGS'), good = tutSteps();
+  const clone = () => JSON.parse(JSON.stringify(good));
+  S.ko['zz.long'] = '가'.repeat(23); S.en['zz.long'] = 'x'.repeat(23);
+  S.ko['zz.sub'] = '가'.repeat(29); S.en['zz.sub'] = 'x'.repeat(29);
+  S.ko['zz.ok'] = '가'.repeat(22); S.en['zz.ok'] = 'x'.repeat(22);
+  try {
+    const a = clone(); a[0].beats[0].hint = 'zz.long';
+    assert.equal(E.validateTutorialSteps(a).length, 2, 'ko, en 모두 잡음');
+    const b = clone(); b[0].beats[0].sub = 'zz.sub';
+    assert.equal(E.validateTutorialSteps(b).length, 2);
+    const c = clone(); c[0].beats[0].hint = 'zz.ok';
+    jsonEq(E.validateTutorialSteps(c), [], '정확히 22자는 통과');
+    const d = clone(); d[1].beats[1].target = { cells: [[9, 9]] };
+    assert.equal(E.validateTutorialSteps(d).length, 1);
+    const e = clone(); e[0].beats[0].hint = 'zz.missing';
+    assert.ok(E.validateTutorialSteps(e).length >= 1);
+    const f = clone(); f[0].beats[1].onResult = [{ key: 'zz.long' }];
+    assert.equal(E.validateTutorialSteps(f).length, 2, '결과 말풍선도 22자 규칙');
+  } finally { for (const k of ['zz.long', 'zz.sub', 'zz.ok']) { delete S.ko[k]; delete S.en[k]; } }
+  assert.equal(run('getLang')(), 'ko', '검사 뒤 언어 복원');
+});
+
+test('튜토리얼: 허용된 입력만으로 모든 단계를 끝까지 진행 (엔진을 실제로 돌림), 게임이 끝나지 않음, 모든 beat 도달', () => {
   for (const step of tutSteps()) {
     const r = tutPlay(step, TUT_SOLUTION[step.id]);
     assert.deepEqual(r.refused, [], `${step.id} 거부된 입력`);
     assert.ok(r.prog.complete, `${step.id} 완료 ${JSON.stringify(r.prog.done)}`);
+    assert.equal(r.prog.done.length, step.beats.length, step.id);
     assert.equal(r.st.winner, null, step.id);
   }
 });
 
-test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중으로 점유, 8단계 아군도 포병 파편에 맞음·다음 턴 쿨다운)', () => {
+test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중으로 점유, 8단계 아군도 포병 파편에 맞음·다음 턴 쿨다운) + 결과 말풍선이 결과에 맞게 고름', () => {
   const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
   const rolls = (r) => r.events.filter((e) => e.type === 'diceRoll');
-  assert.equal(rolls(tutPlay(by.attack, TUT_SOLUTION.attack))[0].hit, false);
+  const two = tutPlay(by.attack, TUT_SOLUTION.attack);
+  assert.equal(rolls(two)[0].hit, false);
+  assert.equal(two.results.at(-1).key, 'tr.miss');
   const six = tutPlay(by.objective, TUT_SOLUTION.objective);
   assert.ok(six.log.some((e) => e.kind === 'contested'));
   assert.equal(six.st.objectives[0].owner, 'ally');
+  jsonEq(six.results.map((r) => r.key), ['tr.contested', 'tr.owned']);
   const eight = tutPlay(by.artillery, TUT_SOLUTION.artillery);
   assert.ok(rolls(eight)[0].hit);
   assert.ok(eight.events.some((e) => e.type === 'splashDamage' && e.unitId === 'A2'), '아군 파편 피해');
   assert.ok(eight.log.at(-1).cooling, '다음 턴 포병은 쿨다운');
   assert.ok(run('onCooldown')(eight.st, eight.st.units.find((u) => u.id === 'A1')));
+  jsonEq(eight.results.map((r) => r.key), ['tr.splash', 'tr.cooling']);
+  const five = tutPlay(by.activation, TUT_SOLUTION.activation);
+  jsonEq(five.results.map((r) => r.key), ['tr.actAll', 'tr.blocked', 'tr.actRefill']);
+  // 9단계: 일반 게임과 같은 엔진 판정 (직접 사격 후퇴 → 뒤가 막히면 격파 → 박격포 정중앙 제압), 상대는 정해진 사격만
+  const nine = tutPlay(by.retreat, TUT_SOLUTION.retreat);
+  jsonEq(nine.results.map((r) => r.key), ['tr.retreat', 'tr.retreatBlocked', 'tr.suppressed', 'tr.suppSel']);
+  const ev9 = nine.events;
+  const rt = ev9.find((e) => e.type === 'retreat');
+  assert.ok(rt && rt.unitId === 'A1' && rt.from.r === 4 && rt.to.r === 5 && rt.from.c === rt.to.c, '공격자 반대 방향으로 ' + C().RETREAT.STEPS + '칸');
+  assert.ok(ev9.some((e) => e.type === 'destroyed' && e.unitId === 'A2' && e.cause === 'retreatBlocked'), '지도 끝이라 후퇴 불가 → 격파');
+  assert.ok(ev9.some((e) => e.type === 'suppressed' && e.unitId === 'A3'), '박격포 정중앙 → 제압');
+  assert.ok(nine.st.units.find((u) => u.id === 'A3').suppressed > 0);
+  assert.ok(!nine.st.units.some((u) => u.id === 'A2'));
+  assert.equal(nine.st.winner, null);
+  assert.ok(nine.log.at(-1).suppressed, '제압된 유닛 선택 기록');
+  // 상대는 정해진 사격만: 턴 종료마다 한 발씩 (같은 턴 종료에 다음 사격이 미리 나가지 않음)
+  assert.equal(tutPlay(by.retreat, [['endTurn']]).events.filter((e) => e.type === 'diceRoll').length, 1);
+  // 모든 단계의 마지막 beat 는 결과 말풍선이 있음 (다음 단계로 넘어가기 전 한 줄)
+  for (const s of Object.values(by)) assert.ok(tutPlay(s, TUT_SOLUTION[s.id]).results.some((r) => r.beat === s.beats.length - 1), `${s.id} 마지막 결과`);
 });
 
-test('튜토리얼: 허용되지 않은 입력은 거부되고 상태가 그대로 (순서가 있는 단계는 앞 목표 먼저)', () => {
+test('튜토리얼: 허용되지 않은 입력은 거부되고 상태가 그대로 (beat 순서대로만, 단계가 끝난 뒤에도 상태 변화 없음)', () => {
   const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
   const bad = [
-    [by.select, ['select', 'A2']], [by.select, ['move', 'A2', TP(5, 6)]], [by.select, ['endTurn']], [by.select, ['cell']],
-    [by.attack, ['move', 'A1', TP(5, 3)]], [by.terrain, ['attack', 'A1', TP(3, 2)]],
-    [by.fog, ['move', 'A1', TP(5, 3)]], [by.fog, ['preview', 'A2', TP(4, 6)]],     // 순서: 보병 이동 전에는 박격포 확인 불가
-    [by.activation, ['move', 'A2', TP(5, 5)]], [by.objective, ['attack', 'A2', TP(1, 5)]],   // 순서: 거점 진입 전 공격 불가
-    [by.artillery, ['endTurn']],                                                     // 순서: 사격 전 턴 종료 불가
+    [by.select, ['select', 'A2']], [by.select, ['move', 'A1', TP(5, 3)]], [by.select, ['move', 'A2', TP(5, 6)]], [by.select, ['endTurn']], [by.select, ['cell']],
+    [by.attack, ['move', 'A1', TP(5, 3)]], [by.attack, ['attack', 'A1', TP(3, 3)]],              // 순서: 선택 전에는 공격 불가
+    [by.terrain, ['attack', 'A1', TP(3, 2)]],
+    [by.fog, ['move', 'A1', TP(5, 3)]], [by.fog, ['preview', 'A2', TP(4, 6)]],                  // 순서: 보병 이동 전에는 박격포 확인 불가
+    [by.activation, ['move', 'A2', TP(5, 5)]], [by.objective, ['attack', 'A2', TP(1, 5)]],      // 순서: 거점 진입 전 공격 불가
+    [by.artillery, ['endTurn']],                                                                 // 순서: 사격 전 턴 종료 불가
   ];
   for (const [step, [kind, unit, at]] of bad) {
     const st = E.tutorialState(step), before = JSON.stringify(st);
@@ -1063,33 +1106,64 @@ test('튜토리얼: 허용되지 않은 입력은 거부되고 상태가 그대�
     assert.deepEqual(r.refused, [kind]);
     assert.equal(JSON.stringify(r.st), before, `${step.id} 상태 변화 없음`);
   }
-  // 단계가 끝난 뒤에는 상태를 바꾸는 입력을 더 받지 않음 (순서가 있는 단계)
+  // 허용 칸이 아닌 칸으로 이동·공격 거부 (4단계 보병은 표시된 칸만)
+  const fog = tutPlay(by.fog, [['select', 'A1'], ['move', 'A1', TP(5, 3)]]);
+  assert.deepEqual(fog.refused, ['move']);
+  // 단계가 끝난 뒤에는 상태를 바꾸는 입력을 더 받지 않음
   const done = tutPlay(by.artillery, TUT_SOLUTION.artillery);
   assert.equal(E.tutorialAllows(by.artillery, { kind: 'endTurn' }, done.st, done.log), false);
+  assert.equal(E.tutorialAllows(by.artillery, { kind: 'move', unit: 'A1', at: TP(6, 3) }, done.st, done.log), false);
 });
 
-test('튜토리얼: 다시 해 보기 = 같은 시드로 같은 결과', () => {
+test('튜토리얼: 눌러야 할 곳(tutorialTarget) — 유닛은 지금 위치를 따라가고, 이동 beat 는 갈 수 있는 칸 전체, 버튼 beat 는 칸 표시 없음', () => {
+  const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
+  const st = E.tutorialState(by.select);
+  let tg = E.tutorialTarget(by.select.beats[0], st);
+  jsonEq(tg.cells, [[6, 3]]);
+  jsonEq(tg.anchor, [6, 3]);
+  tg = E.tutorialTarget(by.select.beats[1], st);
+  jsonEq(tg.cells, []);
+  const reach = run('getReachableTiles')(st, 'A1');
+  assert.ok(reach.length > 0);
+  assert.equal(tg.bright.length, reach.length + 1);
+  assert.ok(reach.every((p) => tg.bright.some((q) => q[0] === p.r && q[1] === p.c)));
+  tg = E.tutorialTarget(by.activation.beats[3], E.tutorialState(by.activation));
+  assert.equal(tg.button, 'endTurn');
+  jsonEq(tg.cells, []);
+  // 유닛이 움직이면 목표 표시도 따라감
+  const r = tutPlay(by.select, TUT_SOLUTION.select);
+  const moved = r.st.units.find((u) => u.id === 'A1');
+  jsonEq(E.tutorialTarget({ target: { unit: 'A1' } }, r.st).cells, [[moved.r, moved.c]]);
+});
+
+test('튜토리얼: 다시 해 보기 = 같은 시드로 같은 결과 (이벤트·결과 말풍선 포함)', () => {
   for (const step of tutSteps()) {
     const a = tutPlay(step, TUT_SOLUTION[step.id]), b = tutPlay(step, TUT_SOLUTION[step.id]);
     assert.equal(JSON.stringify(b.st), JSON.stringify(a.st), step.id);
     assert.equal(JSON.stringify(b.events), JSON.stringify(a.events), step.id);
+    assert.equal(JSON.stringify(b.results), JSON.stringify(a.results), step.id);
   }
 });
 
-test('튜토리얼 문구의 수치는 데이터에서 읽음 (사거리·쿨다운·행동 수를 바꾸면 문구가 바뀜)', () => {
+test('튜토리얼 문구의 수치는 데이터에서 읽음 (사거리·쿨다운·행동 수·지형·안개를 바꾸면 말풍선 문구가 바뀜)', () => {
   const t = run('t');
   const s = tutSteps();
-  const text = (id) => { const st = s.find((x) => x.id === id); return t(st.textKey, E.tutorialParams()) + ' ' + t(st.doneKey, E.tutorialParams()); };
-  assert.ok(text('mortar').includes('2~4'));
-  assert.ok(text('artillery').includes('2~5'));
-  assert.ok(text('select').includes('3'));
+  const P = () => E.tutorialParams();
+  const txt = (key) => t(key, P());
+  assert.equal(txt('tb.mortar.2s'), '사거리 2~4칸');
+  assert.equal(txt('tb.artillery.2s'), '사거리 2~5칸');
+  assert.ok(txt('tr.act.sub').includes('3'));
+  assert.ok(txt('tr.forest').includes('10%'));
+  assert.ok(txt('tr.fog').includes('50%'));
+  assert.ok(txt('tr.cooling').includes('1턴'));
   E.loadScenario('tutorial', { fires: { mortar: { range: 3 }, artillery: { range: 6, cooldown: 2 } }, activations: { def: 4, att: 4 } });
-  assert.ok(text('mortar').includes('2~3'), text('mortar'));
-  assert.ok(text('artillery').includes('2~6') && text('artillery').includes('2번'), text('artillery'));
-  assert.ok(text('activation').includes('4기'), text('activation'));
-  // 대칭 전장 점수 설명도 그 시나리오 데이터 (공개 값)
-  assert.ok(text('objective').includes('중앙 2'));
+  assert.equal(txt('tb.mortar.2s'), '사거리 2~3칸');
+  assert.equal(txt('tb.artillery.2s'), '사거리 2~6칸');
+  assert.ok(txt('tr.cooling').includes('2턴'), txt('tr.cooling'));
+  assert.ok(txt('tr.act.sub').includes('4기'), txt('tr.act.sub'));
+  jsonEq(E.validateTutorialSteps(E.tutorialSteps()), [], '수치가 바뀌어도 글자 수 규칙 유지');
   E.loadScenario('tutorial');
+  assert.ok(s.length > 0);
 });
 
 test('튜토리얼 상태는 엔진의 일반 상태와 같은 형식이고, 다른 시나리오·결과에는 영향 없음', () => {
@@ -1103,6 +1177,43 @@ test('튜토리얼 상태는 엔진의 일반 상태와 같은 형식이고, 다
   E.simulateGames(1, { scenario: 'tutorialPractice', quiet: true });
   const b = JSON.stringify(E.simulateGames(2, { scenario: 'symmetric', quiet: true }));
   assert.equal(b, a);
+});
+
+test('튜토리얼 말풍선 위치: 360x640·390x844·412x915·1280 지도 영역에서 모든 대상 칸마다 화면 밖으로 나가지 않고, 가릴 곳(대상·공격자 칸)을 가리지 않음', () => {
+  // [말풍선을 놓는 지도 틀 폭, 높이, 칸 크기]: 휴대폰 세로 세 가지와 PC (튜토리얼 지도 8x8, 틀 = 칸 × 8 + 라벨·테두리)
+  const areas = [[344, 8 * 34 + 16, 34], [374, 8 * 38 + 16, 38], [396, 8 * 40 + 16, 40], [640, 8 * 70 + 16, 70]];
+  const sizes = [[150, 40], [220, 40], [230, 62], [250, 64]];   // 한 줄·두 줄·보조 줄 포함
+  let n = 0;
+  for (const [W, H, cell] of areas) {
+    const ox = Math.round((W - 8 * cell) / 2), oy = 12;
+    const rect = (r, c) => ({ x: ox + c * cell, y: oy + r * cell, w: cell, h: cell });
+    for (const [bw, bh] of sizes) for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const a = rect(r, c);
+      const others = [rect((r + 3) % 8, (c + 2) % 8), rect((r + 5) % 8, (c + 6) % 8)];   // 공격자·다른 강조 칸
+      const avoid = [a, ...others];
+      const p = E.tutorialPlaceBubble({ box: { w: W, h: H }, size: { w: bw, h: bh }, anchor: a, avoid });
+      const where = `${W}x${H} ${bw}x${bh} (${r},${c})`;
+      assert.ok(p.x >= 8 && p.y >= 8 && p.x + p.w <= W - 8 && p.y + bh <= H - 8, `화면 안 ${where} ${JSON.stringify(p)}`);
+      for (const v of avoid) assert.ok(p.x >= v.x + v.w || p.x + p.w <= v.x || p.y >= v.y + v.h || p.y + bh <= v.y, `가림 ${where} ${JSON.stringify(p)} ${JSON.stringify(v)}`);
+      assert.ok(p.w <= W * 0.7 + 1e-6 || bw > W * 0.7, `폭 ${where}`);
+      n++;
+    }
+  }
+  assert.ok(n > 500);
+  // 기본은 대상 위쪽, 위가 모자라면 아래로
+  const mid = E.tutorialPlaceBubble({ box: { w: 360, h: 300 }, size: { w: 160, h: 40 }, anchor: { x: 160, y: 150, w: 30, h: 30 }, avoid: [{ x: 160, y: 150, w: 30, h: 30 }] });
+  assert.ok(mid.y + 40 < 150 && mid.tail.edge === 'bottom');
+  const top = E.tutorialPlaceBubble({ box: { w: 360, h: 300 }, size: { w: 160, h: 40 }, anchor: { x: 160, y: 20, w: 30, h: 30 }, avoid: [{ x: 160, y: 20, w: 30, h: 30 }] });
+  assert.ok(top.y > 50 && top.tail.edge === 'top');
+  // 턴 종료 버튼처럼 지도 틀 밖이 대상이면: 그쪽 가장자리에 붙고 꼬리가 버튼 쪽을 가리킴 (아래 = 휴대폰, 오른쪽 = PC)
+  const below = E.tutorialPlaceBubble({ box: { w: 344, h: 288 }, size: { w: 160, h: 40 }, anchor: { x: 150, y: 300, w: 120, h: 52 }, avoid: [{ x: 150, y: 300, w: 120, h: 52 }] });
+  assert.ok(below.y + 40 === 288 - 8 && below.tail.edge === 'bottom');
+  const right = E.tutorialPlaceBubble({ box: { w: 560, h: 576 }, size: { w: 160, h: 40 }, anchor: { x: 600, y: 500, w: 120, h: 52 }, avoid: [{ x: 600, y: 500, w: 120, h: 52 }] });
+  assert.ok(right.x + right.w <= 560 - 8 && right.x >= 8 && right.x + right.w > 560 - 8 - 200 && ['right', 'bottom'].includes(right.tail.edge), JSON.stringify(right));
+  // 가리킬 칸이 없으면(버튼 바깥 등) 꼬리 없이 위쪽 가장자리
+  const none = E.tutorialPlaceBubble({ box: { w: 360, h: 300 }, size: { w: 160, h: 40 }, anchor: null, avoid: [] });
+  assert.equal(none.y, 8);
+  assert.equal(none.tail, null);
 });
 
 /* ---------------- 지도 확대/이동 (js/zoom.js, 보기 전용 계산) ---------------- */

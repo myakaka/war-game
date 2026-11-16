@@ -644,27 +644,33 @@ body.reduce-motion #btn-end-turn.act-out { animation: none; }
   .rules-table th, .rules-table td { padding: 4px 3px; }
 }
 
-/* ===== 튜토리얼 코치 창 (좁은 화면: 조작 줄 바로 위, 화면 높이 30% 이내 / 넓은 화면: 오른쪽 패널) ===== */
-.coach { background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-height: 0; flex: 0 0 auto; }
-#app.narrow .coach { max-height: 30vh; max-height: 30dvh; }
-.coach-head { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; }
-.coach-dots { display: inline-flex; gap: 4px; flex: 0 0 auto; }
-.cdot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--muted); }
-.cdot.done { background: var(--muted); }
-.cdot.cur { background: #ffd54f; border-color: #ffd54f; }
-.coach-n { color: var(--muted); font-size: 13px; flex: 0 0 auto; }
-.coach-title { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; min-width: 0; word-break: keep-all; }
-.coach-text { font-size: 14px; line-height: 1.45; overflow-y: auto; min-height: 0; flex: 1 1 auto; word-break: keep-all; }
-.coach-done { margin-top: 4px; color: #9fe0a6; }
-.coach-hint { font-size: 14px; color: var(--warn); }
-.coach-hint:empty { display: none; }
-.coach-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; flex: 0 0 auto; }
-#app.narrow .coach-btns { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr); }
-.coach-btns button { min-height: 44px; padding: 0 4px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; word-break: keep-all; }
+/* ===== 튜토리얼: 상단 바(HUD 안 한 줄) + 지도 위 말풍선. 하단 설명 창은 없음 ===== */
+.tut-bar { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; white-space: nowrap; }
+.tut-bar[hidden] { display: none; }
+.tut-n { color: var(--muted); font-size: 13px; font-weight: 700; margin-right: auto; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tut-bar button { min-height: var(--touch); min-width: var(--touch); padding: 0 10px; font-size: 13px; white-space: nowrap; word-break: keep-all; }
+#app.narrow .tut-bar { overflow: hidden; }
+#side > .tut-bar { order: -1; }   /* 휴대폰 가로: 상단 한 줄이 모자라 오른쪽 열 맨 위로 (renderTutUi 가 옮김) */
+#app.pc .tut-bar { flex: 1 1 100%; order: 11; }
+body.tutorial .zoom-ctl, body.tutorial .minimap { display: none !important; }   /* 튜토리얼은 전체 보기 고정 (말풍선 위치가 틀어지지 않게) */
+.tut-bubble { position: absolute; z-index: 12; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 12px;
+  background: #fff; color: #1d2330; font-size: 14px; line-height: 1.35; font-weight: 700; word-break: keep-all; pointer-events: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45); }
+.tut-bubble[hidden] { display: none; }
+.tut-bubble .tb-sub { font-size: 12px; font-weight: 500; color: #4a5365; }
+.tut-bubble .tb-sub:empty { display: none; }
+.tut-bubble.result { pointer-events: auto; background: #fff7d6; }
+.tut-bubble .tb-next { align-self: flex-end; margin-top: 6px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px; background: #2f6fd1; color: #fff; font-size: 14px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.tut-bubble .tb-next[hidden] { display: none; }
+.tut-bubble .tb-next:focus-visible { outline: 3px solid #1d2330; outline-offset: 2px; }
+.tut-bubble .tb-tail { position: absolute; width: 12px; height: 12px; background: inherit; transform: rotate(45deg); }
+.tut-bubble.nudge { animation: tutNudge 0.3s; }
+@keyframes tutNudge { 0%, 100% { translate: 0 0; } 25% { translate: -4px 0; } 75% { translate: 4px 0; } }
+body.reduce-motion .tut-bubble.nudge { animation: none; }
+.tut-dim { background: rgba(0, 0, 0, 0.45); }
 /* 눌러 볼 곳 표시: 살짝 맥박 치는 테두리 (정답 표시가 아님). 연출 줄이기면 고정 테두리 */
 .tut-layer { position: absolute; inset: 0; display: grid; pointer-events: none; z-index: 9; }
 .tut-pulse { border: 3px solid #ffd54f; border-radius: 4px; margin: 1px; animation: tutPulse 1.2s ease-in-out infinite; }
-#btn-end-turn.tut-pulse-btn { box-shadow: 0 0 0 3px #ffd54f; animation: tutPulse 1.2s ease-in-out infinite; }
+#btn-end-turn.tut-pulse-btn { box-shadow: inset 0 0 0 3px #ffd54f; animation: tutPulse 1.2s ease-in-out infinite; }
 @keyframes tutPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 body.reduce-motion .tut-pulse, body.reduce-motion #btn-end-turn.tut-pulse-btn { animation: none; opacity: 1; }
 .hud-help { width: 32px; height: 32px; padding: 0; font-weight: 700; flex: 0 0 auto; }
@@ -708,7 +714,7 @@ body.reduce-motion .tut-pulse, body.reduce-motion #btn-end-turn.tut-pulse-btn { 
 #app.pc #hud-units { order: 8; }
 #app.pc .hud-objs { order: 10; flex-wrap: wrap; flex: 1 1 100%; }
 /* 2~4. 카드는 내용만큼(넘치면 안에서 스크롤), 로그는 남는 공간 */
-#app.pc .card, #app.pc .tray, #app.pc .coach { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+#app.pc .card, #app.pc .tray { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 #app.pc #drawer, #app.pc.drawer-open #drawer { flex: 1 1 0; width: auto; min-height: 84px; border-width: 1px; transition: none; }
 #app.pc #log { min-width: 0; }
 /* 5. 아래 고정: 보조 버튼 줄 → 남은 행동 → 턴 종료(큰 버튼) */
@@ -727,7 +733,7 @@ body.pc #overlay.at-map .modal { position: fixed; width: 400px; max-width: calc(
 #app.pc .map-status > .chip { flex: 0 1 auto; min-width: 0; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
 #app.pc .map-status > #hud-turn { flex-shrink: 3; }
 body[data-screen="start"] .map-status, body[data-screen="curtain"] .map-status { display: none !important; }
-#app.pc .card, #app.pc #log, #app.pc .tray, #app.pc .coach { scrollbar-width: thin; scrollbar-color: #3a4352 transparent; }
+#app.pc .card, #app.pc #log, #app.pc .tray { scrollbar-width: thin; scrollbar-color: #3a4352 transparent; }
 body[data-screen="deploy"] #app.pc .card-btns { display: none; }   /* 배치 화면: 유닛 카드가 없을 때와 같게 */
 /* 상태 칩의 긴/짧은 글자 (짧은 쪽은 PC 지도 위 상태 줄이 넘칠 때만) */
 .chip .bl { display: contents; }

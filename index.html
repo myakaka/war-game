@@ -25,6 +25,10 @@
       <span class="chip" id="hud-units"></span>
       <span class="chip green" id="hud-reinf" hidden></span>
     </div>
+    <div class="tut-bar" id="tut-bar" hidden>
+      <span class="tut-n" id="tut-n"></span>
+      <button id="tut-prev"></button><button id="tut-retry"></button><button id="tut-exit"></button>
+    </div>
   </header>
 
   <div id="stage">
@@ -46,6 +50,7 @@
             <button id="zoom-out" data-i18n-aria="aria.zoomOut" data-i18n-title="aria.zoomOut">&minus;</button>
             <button id="zoom-fit" class="zoom-fit" data-i18n-aria="aria.zoomFit" data-i18n-title="aria.zoomFit">&#x2922;</button>
           </div>
+          <div id="tut-bubble" class="tut-bubble" role="status" aria-live="polite" hidden><span class="tb-main"></span><span class="tb-sub"></span><button type="button" class="tb-next" hidden></button><i class="tb-tail" aria-hidden="true"></i></div>
           <div id="banner" class="turn-banner" aria-hidden="true"></div>
           <div id="dice"></div>
         </div>
@@ -68,7 +73,6 @@
         </div>
       </section>
       <section id="tray" class="tray" hidden></section>
-      <section id="coach" class="coach" hidden aria-live="polite"></section>
 
       <div class="controls" id="controls">
         <button id="btn-end-turn" class="primary"><span class="tx" id="end-label"></span><span class="cnt" id="end-cnt"></span></button>
