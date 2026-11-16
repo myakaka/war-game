@@ -548,8 +548,8 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
   padding: 6px 12px; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
 }        /* 행동 한도 소진 (행동 완료의 흐림과 구분: 회색) */
 .sw.act-spent svg { filter: grayscale(1); opacity: 0.6; }
-#btn-end-turn.act-out { box-shadow: 0 0 0 2px var(--warn); animation: act-out-pulse 1.6s ease-in-out infinite; }
-@keyframes act-out-pulse { 0%, 100% { box-shadow: 0 0 0 2px var(--warn); } 50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.35); } }
+#btn-end-turn.act-out { box-shadow: inset 0 0 0 2px var(--warn); animation: act-out-pulse 1.6s ease-in-out infinite; }   /* 안쪽 링: 컨테이너 가장자리에서 잘리지 않음 */
+@keyframes act-out-pulse { 0%, 100% { box-shadow: inset 0 0 0 2px var(--warn); } 50% { box-shadow: inset 0 0 0 5px rgba(245, 158, 11, 0.55); } }
 body.reduce-motion #btn-end-turn.act-out { animation: none; }
 .stepper { display: inline-flex; align-items: center; flex: 0 0 auto; }
 .stepper > button { width: 32px; height: 32px; padding: 0; font-size: 16px; }
