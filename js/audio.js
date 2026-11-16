@@ -27,11 +27,12 @@ const AUDIO = {
     unit_destroyed: ['unit_destroyed.wav'],
     move_infantry: ['move_infantry.wav'], move_vehicle: ['move_vehicle.wav'],
     shell_whistle: [], score_up: [], objective_captured: [], victory: [], defeat: [],
+    dice_roll: [], dice_land: [],   // 주사위 굴림 연출 (파일이 없으면 조용히 건너뜀)
   },
   // 로딩 순서: UI → 전투 핵심 → 나머지
   loadOrder: ['ui_click', 'ui_cancel', 'ui_error', 'ui_turn_end',
     'fire_rifle', 'fire_tank', 'fire_at', 'hit_small', 'hit_big', 'miss_dirt', 'mortar_fire', 'mortar_impact', 'artillery_fire', 'artillery_impact',
-    'unit_destroyed', 'move_infantry', 'move_vehicle', 'shell_whistle', 'score_up', 'objective_captured', 'victory', 'defeat'],
+    'unit_destroyed', 'move_infantry', 'move_vehicle', 'shell_whistle', 'score_up', 'objective_captured', 'victory', 'defeat', 'dice_roll', 'dice_land'],
   gain: {},                           // 소리별 크기 보정 (기본 1). 종류로만 정함
   vehicleTypes: ['armor', 'recon', 'signal', 'artillery'],   // 이동 소리: 이 병종은 move_vehicle, 나머지는 move_infantry
   menuBgm: null,                      // 메뉴·시나리오 선택 화면 음악 (예: 'sound/bgm_menu'). 파일이 없으면 null

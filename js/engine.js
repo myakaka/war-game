@@ -932,9 +932,11 @@ function scoreTargetResult(state) {
 }
 
 /* =========================== 4. 전투 수치 =========================== */
+/** 체력이 줄어서 생기는 공격력·방어력 감점 (classic 과 데모 2 가 같은 식) */
+const hpPenalty = (u) => (GAME_CONFIG.MAX_HP - u.hp) * GAME_CONFIG.COMBAT.hpPenaltyPerLoss;
 function effectiveStats(u) {
   const t = GAME_CONFIG.UNIT_TYPES[u.type];
-  const pen = (GAME_CONFIG.MAX_HP - u.hp) * GAME_CONFIG.COMBAT.hpPenaltyPerLoss;
+  const pen = hpPenalty(u);
   return {
     atkSoft: Math.max(0, t.atkSoft - pen),
     atkArmor: Math.max(0, t.atkArmor - pen),
@@ -1004,7 +1006,8 @@ function rollDice(rng) { return 1 + Math.floor(rng() * diceSides()); }
  * movedAttack: 이동 후 공격이면 MOVE_ATTACK_PENALTY (ENABLE_MOVE_ATTACK 일 때만)
  * parts[]: { key, p, value } — key 는 언어와 무관한 항목 코드 (화면에서 'part.<key>' 문자열로 표시)
  */
-function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAttack = false, indirectPenalty = 0 }) {
+function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAttack = false, indirectPenalty = 0, from = null }) {
+  if (usesDiceHit(attacker, defender)) return diceBreakdown({ attacker, defender, terrain, from });   // 데모 2: 직접 사격은 주사위 개수 방식 (js/combat.js). from = 이동 후 공격 위치(AI 평가용)
   const C = GAME_CONFIG.COMBAT;
   const parts = [{ key: 'base', value: C.baseHit }];
   if (defender) {
@@ -1044,7 +1047,7 @@ function computeHitChance(state, attackerId, targetPos) {
     attacker: a, defender: target, terrain: terrainAt(targetPos.r, targetPos.c),
     signal: hasSignalSupport(state, a), fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, a),
   });
-  return { ...res, fogged, movedAttack, targetId: target ? target.id : null, damage: target ? calcDamage(a, target) : 0, indirect: !!unitType(a).indirect };
+  return { ...res, fogged: res.dice ? false : fogged, movedAttack: res.dice ? false : movedAttack, targetId: target ? target.id : null, damage: target ? calcDamage(a, target) : 0, indirect: !!unitType(a).indirect };
 }
 
 /* =========================== 5. 시야 / 기억 =========================== */
@@ -1221,6 +1224,8 @@ function getAttackableTiles(state, unitId) {
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
       if (inFireRange(state, u, u, { r, c }) && (!vis || vis.has(idx(r, c)))) out.push({ r, c });
     }
+  } else if (isDiceRules()) {   // 데모 2: 상하좌우 직선, 방향마다 가장 가까운 유닛 하나 (js/combat.js)
+    for (const p of diceTargetsFrom(state, u, u, getVisibleTiles(state, u.side))) out.push({ r: p.r, c: p.c });
   } else {
     const vis = getVisibleTiles(state, u.side);
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
@@ -1299,14 +1304,21 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   noteActivation(state, a);
   const t = unitType(a);
   const hc = computeHitChance(state, attackerId, targetPos);
-  const roll = rollDice(rng);          // rng = 주사위 전용 스트림 (AI 노이즈와 분리)
-  const hit = roll <= hc.need;         // d100: need = 명중률, d10: need = 명중률 / 10
+  let roll, hit, rolls = null;
+  if (hc.dice) {   // 데모 2 직접 사격: 공격력 개수만큼 d10(0~9), 하나라도 0 이거나 N 이상이면 명중 (굴린 눈은 순서대로 기록)
+    const r = diceRollAll(rng, hc.dice.count, hc.dice.need);
+    rolls = r.rolls; hit = r.hit; roll = null;
+  } else {
+    roll = rollDice(rng);          // rng = 주사위 전용 스트림 (AI 노이즈와 분리)
+    hit = roll <= hc.need;         // d100: need = 명중률, d10: need = 명중률 / 10
+  }
   const events = [{
     type: 'diceRoll', attackerId: a.id, side: a.side, unitType: a.type, from: { r: a.r, c: a.c },
     target: { ...targetPos }, chance: hc.chance, raw: hc.raw, sides: hc.sides, need: hc.need, roll, hit,
     fogged: hc.fogged, movedAttack: hc.movedAttack, indirect: !!t.indirect, parts: hc.parts,
     targetType: hc.targetId ? getUnit(state, hc.targetId).type : null,   // 통계용 (화면에는 표시하지 않음)
   }];
+  if (hc.dice) Object.assign(events[0], { rule: 'dice', rolls, diceCount: hc.dice.count, dice: { ...hc.dice } });   // classic 이벤트에는 이 필드들이 없음
   events.push({ type: hit ? 'hit' : 'miss', attackerId: a.id, side: a.side, target: { ...targetPos } });
 
   if (hit) {
@@ -2144,7 +2156,7 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
   const target = tg.kind === 'visible' ? getUnitAt(state, tg.r, tg.c)
     : tg.kind === 'battery' ? { type: 'artillery', hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c }
     : (tg.kind === 'intel' || tg.kind === 'likely') ? { id: tg.id, type: tg.type, hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c } : null;
-  const hc = calcHitBreakdown({ attacker: u, defender: target, terrain: terrainAt(tg.r, tg.c), signal, fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, u) });
+  const hc = calcHitBreakdown({ attacker: u, defender: target, terrain: terrainAt(tg.r, tg.c), signal, fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, u), from });
   const p = (hc.chance / 100) * (tg.kind === 'battery' || tg.kind === 'intel' || tg.kind === 'likely' ? tg.conf : 1);
   let s = 0;
   if (target) {
@@ -2252,6 +2264,11 @@ function aiActionOptions(state, u, rng, diff) {
       for (const tg of tgs) options.push({ move: d.remaining == null ? d : { r: d.r, c: d.c }, target: tg, score: base + aiScoreAttack(state, ctx, u, d, tg, movedAttack) });
     } else if (t.indirect) {
       if (stay) for (const tg of artyTargets) options.push({ move: d, target: tg, score: base + aiScoreAttack(state, ctx, u, d, tg) });
+    } else if (isDiceRules()) {   // 데모 2: 도착 칸에서 네 방향 직선의 첫 유닛 중 보이는 적 (사거리 maxRange 포함, js/combat.js)
+      for (const p of diceTargetsFrom(state, u, d, ctx.vis)) {
+        const tg = { r: p.r, c: p.c, kind: 'visible' };
+        options.push({ move: d.remaining == null ? d : { r: d.r, c: d.c }, target: tg, score: base + aiScoreAttack(state, ctx, u, d, tg, movedAttack) });
+      }
     } else {
       for (const [dr, dc] of DIRS) {
         const r = d.r + dr, c = d.c + dc;
@@ -2428,6 +2445,12 @@ const SIM_CROSS_TYPES = ['infantry', 'armor'];   // 도하 지표를 셀 병종 
  *   detail: 진영별 첫 거점 소유 라운드, 평균 손실, 증원 도착 수를 res.detail 에 추가
  */
 function simulateGames(n = 100, opts = {}) {
+  if (opts.ruleset && opts.ruleset !== rulesetOf()) {   // 규칙 세트 지정 ('dice' = 데모 2). 지정하지 않으면 지금 규칙 세트 (classic) 그대로
+    const prevSet = rulesetOf();
+    setRuleset(opts.ruleset);
+    try { return simulateGames(n, { ...opts, ruleset: undefined }); }
+    finally { setRuleset(prevSet); }
+  }
   if (opts.scenario || opts.overrides) {
     const prev = GAME_CONFIG.SCENARIO_ID;
     loadScenario(opts.scenario || prev, opts.overrides || null);

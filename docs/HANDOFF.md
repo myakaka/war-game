@@ -1,16 +1,20 @@
-# HANDOFF (2026-11-16) — 튜토리얼 말풍선 개편 (작업 전 태그 `stable-before-tutorial-overlay`)
+# HANDOFF (2026-11-17) — 데모 2 (주사위 규칙 + 수치 표 + 굴림 연출) (태그 `stable-before-demo2`, `-demo2-stats`, `stable-before-dice-motion`)
 
-## 끝난 것: 하단 설명 패널 → 지도 위 말풍선, 8단계 → 9단계 (규칙·수치·AI·기존 시나리오 변경 없음, rulesVersion 12 그대로)
-- 검증: test 220 통과·18 건너뜀·실패 0, check.js 28건 모두 SAME(1150초), layout-check 32 SAME. 브라우저(헤드리스 Edge): 360x640·390x844·412x915·740x360·1280x800, 영어.
-- 데이터(`js/scenarios/tutorial.js`): 단계마다 `id, seed, setup, enemyScript(turn?), beats[]`. beat = `{ hint, sub?, target, goal, allowedActions, onResult[] }` (hint·sub·결과는 STRINGS 키, `tb.*` 안내 / `tr.*` 결과). target: `{unit}|{cells}|{move}|{button}`. 9단계 `retreat`(시드 15): 턴 종료 3번 → 후퇴 → 후퇴 불가 격파 → 박격포 제압 → 제압 유닛 선택.
-- 로직(`js/tutorial.js`, DOM 없음): `tutorialBeat/Current/Progress/Allows/Target/Result`, `tutorialPlaceBubble`(말풍선 위치 순수 계산), `validateTutorialSteps`(hint 22자·sub 28자, ko/en, 지도 안), 목표 `endTurn.n`, `selectSuppressed`.
-- 화면(`ui.js` 튜토리얼 구역): `renderTutUi`(상단 바 `#tut-bar` + 말풍선 `#tut-bubble`), `renderTutMarks`(맥박 고리 + 어둡게), `tutRecord`(beat 완료 → 결과 말풍선 3초 → 자동 다음 단계). 줌·미니맵은 튜토리얼 중 숨김·고정. `#coach` 삭제, CSS `.tut-*`.
-- 문구: 옛 코치 문구 78개 삭제(긴 설명은 규칙 화면에 이미 있음).
-- 결정: 말풍선은 지도 틀 폭 70%에서 줄바꿈(한 줄 고정 아님). 휴대폰 가로(740x360)는 바를 오른쪽 열 맨 위로. 확인 창·연출 중에는 말풍선 숨김(3초도 안 셈). `다시`는 큰 단계 전체 재시작. 행동 한도 결과 문구는 "이번 턴 행동 한도를 다 썼습니다"(그 유닛이 아니라 팀 한도라서).
-- 후속 수정(같은 날): ① 결과 말풍선은 3초 자동 넘김 대신 지도 위 `다음 ▶` 버튼(`.tb-next`)으로 넘김. ② 말풍선이 명중률 배지 자리(대상 칸 위쪽 띠)와 좌표 글자 줄을 피함. ③ 3·4단계(terrain 2·3, fog 4)는 beat `card` 키 → 평소 공격 확인창 대신 튜토리얼 전용 설명 창 `tutPreviewCard`(명중률·보정 내역·설명·확인 버튼, 공격 안 함). ④ 턴 종료 버튼 표시는 안쪽 링(`inset` 그림자)이라 안 잘림. ⑤ 8·9단계 상대 사격은 `tutorialEndTurn(..., onShot)` 로 사격 직전·직후 상태를 받아 `playAttack` 으로 재생(주사위·후퇴 미끄러짐, 약 3.5초). 판정·난수 순서는 그대로. 검증: test 220 통과·실패 0, layout-check 32 SAME, 브라우저 3·9·2단계 확인.
-- 알려진 것: 하위 단계(beat)별 되돌리기는 없음. 4단계 설명은 설명 창 하나로 처리(말풍선 추가 없음). `tools/shot.js` 훅에 `startTutorial`, `loadTutStep` 추가. 말풍선 위치 검사는 순수 함수 테스트 + 브라우저 몇 곳(전 화면 자동 검사는 없음).
-- 다음에 볼 곳: 문구 다듬기(표는 보고 참고, 키는 `strings.js` 의 `tb.*`·`tr.*`), 상대 사격 연출 재생, 이어하기, 우글레다르 `draft`, 대칭 전장 가격·예산(임시값).
+## 주사위 굴림 연출 (보여 주기만, 엔진·규칙·AI·시뮬레이션 불변)
+- 새 파일 `js/dice-fx.js`(fx.js 다음): 상수 `DICE_FX`(배속 내 0.7·상대 1.6, 정지 0.8초+0.2초 간격, 문구 0.5초 뒤, 0.3초 정지, 0.2초 사라짐, 크기 60/52px 등 한 곳), 순수 함수 `diceFxTimeline/Speed/Faces/ShouldPlay/Size/Place/Palette`(테스트 대상), `diceFx.play/cancel`(캔버스 3D 10면체, reference/dice-demo.html 포팅). 호출은 `ui.js` `playDiceFx`(`playAttack` 안 `ev.rule==='dice'` 분기)와 `clearFx`(cancel)뿐. 소리 `dice_roll`·`dice_land`는 `AUDIO.files` 빈 목록(파일 없으면 조용히).
+- **적용 범위: `dice` 규칙의 직접 사격만.** classic 굴림은 1~10(0~9 아님)이라 지시대로 적용 중지(기존 숫자 연출 유지), 간접 화력·튜토리얼도 classic 판정이라 그대로. 안 보이는 공격·가림 화면에서는 시작 안 함, 공격자가 안 보이면 병종·보너스 문구 생략. 화면·키 입력으로 건너뛰기, 연출 줄이기는 0.4초 결과만. 색은 공격 진영의 시나리오 색(`SIDES[x].color`)에서 파생(없으면 참고 파일의 파랑/빨강).
+- 검증: test 239 통과·18 건너뜀·실패 0(연출 테스트 9개 추가), layout-check 32 SAME, 엔진 쪽 파일(engine·combat·rules·ai-intel·tutorial) 변경 없음(위 classic check.js 28건 SAME 결과 그대로). 브라우저: PC·390x844·360x640, 내 공격·적 공격·건너뛰기·연출 줄이기·classic 불변.
+- 알려진 것: 엔진 `resolveAttack` 의 불법 공격 오류 문구가 `const t` 때문에 ReferenceError 로 나옴(잠복 버그, 건드리지 않음). 지도 어둡게는 0.45.
 
-## 이전 작업 요약
-- 대칭 전장 직접 편성(7기 기본, `draft`, `setDraft`)은 커밋 f6cf9a0, 우글레다르·후퇴·제압 전역화(v12)·포탄 모양·WebP는 git 기록 참고.
-- 파일 필요: 없는 소리 5개(shell_whistle, score_up, objective_captured, victory, defeat), BGM. 결정 필요: 이어하기, 게임 이름, 우글레다르 균형.
+## 데모 2 규칙 세트
+
+## 끝난 것: 규칙 세트 스위치 `ruleset: 'classic' | 'dice'` (rulesVersion 12 그대로, classic 동작·시드 결과 불변)
+- 검증: classic `check.js` 28건 모두 SAME(1020초), test 228 통과·18 건너뜀·실패 0(데모 2 테스트 8개 추가), layout-check 32건(시작 화면 6건은 메뉴 항목이 늘어 기준선 갱신). dice 는 4개 시나리오 × 난이도 3 × 진영 2 모두 끝까지 돌고 같은 시드는 같은 결과. 브라우저: PC·390x844에서 확인 시트·주사위 결과·로그·규칙 화면·메뉴.
+- 새 모듈 `js/combat.js`(engine.js 다음): `rulesetOf/setRuleset`, `diceBreakdown`(A·D·지형·거리 → N·확률), `diceTargetsFrom`(네 방향 첫 유닛, maxRange), `diceRollAll`. 엔진은 `calcHitBreakdown`(+`from` 인자), `getAttackableTiles`, `resolveAttack`(이벤트에 `rule:'dice', rolls, diceCount, dice{}`), AI 후보(`aiActionOptions`), `simulateGames(opts.ruleset)` 에서 이 함수를 부른다.
+- 데이터: `RULES.RULESET`, `RULES.DICE_RULES`(sides 10, terrainDivisor 10, distanceStep 1, `commsEffect: null`), **`RULES.DICE_STATS`**(`js/rules.js`, 병종별 `attack`(주사위 수)·`defense`·`maxRange`(null 무제한)·`bonusDice`{대상 병종: +n}. 수치는 이 표만 고치면 확인 시트·판정·AI·카드·규칙 화면이 같이 바뀜. 표에 attack 이 없으면 직접 사격 없음 = 박격포·포병·통신). 지형 보너스 = −(hitMod%)/10. 표 오류는 `diceStatsErrors()`가 알리고 `setRuleset('dice')`가 던짐.
+- 체력 보정: `hpPenalty(u)`(engine.js, classic 과 같은 식). 주사위 수 = `max(1, attack + bonus − hpPenalty)`(attack 이 있는 유닛만), 방어 = `max(0, defense − hpPenalty)`. 확인 시트는 `주사위 4개 (대전차 +2)`·`주사위 1개 (최소)`.
+- 화면(`ui.js`): 메인 메뉴 `데모 2` 항목(`ui.demo2`) → 시나리오·시작 설정 그대로 → `newGame` 에서 `setRuleset`(goMenu·튜토리얼은 classic 으로 되돌림). 상단 `데모 2` 칩(`#hud-demo2`), `showDiceConfirm`(주사위 개수·필요한 숫자·계산 한 줄·확률), `showDiceRolls`(굴린 눈 한 줄, 성공한 눈 강조), 로그 `dicelog.dice`, 규칙 화면 `diceRuleHtml`(5줄 + 튜토리얼 안내). 데모 2 에서는 통신 보너스 표시·반경을 숨김.
+- 결정: 안 보이는 적은 사격선을 막지도 열지도 않음(안개 규칙, 막는 유닛 존재가 드러나지 않게). 수치 표 단계에서 직접 사격 유닛은 최소 1개 보장이라 명중 불가 조합은 없어짐(통신·간접 화력은 직접 사격 자체가 없음). 피해량(`calcDamage`)은 아직 classic 대인/대기갑 수치 기준. 위협 추정(가상 유닛)은 인접 거리로 계산. 저장: 진행 중 판 저장이 아직 없어 `ruleset` 은 `RULESET` 기본값 classic 과 판 시작 때 고정으로 처리(저장 기능이 생기면 저장 데이터에 `ruleset` 추가, 없으면 classic).
+- 알려진 것: AI 이동·위협 계산(engine 1630~1740줄, ai-intel.js)은 아직 classic 기하(인접·맨해튼)라 dice 에서 AI가 사격선에 서는 법을 모름. dice 에서 AI 가 고른 공격이 실행 직전 불가능해 건너뛴 경우가 판당 0~0.3번(hostomel·대칭·부흘레다르). 수치 표 적용 전 1차 측정에서는 명중률이 약 85~90% 였고 일부 시나리오 라운드가 짧아짐(표 적용 뒤 재측정 안 함). 유닛 카드·규칙의 지형 표는 여전히 % 값. 이동 후 공격 비용·이동 후 보정 문구(`intro.maPenalty`)는 dice 에서 보정이 없어도 그대로 표시.
+- 다음에 볼 곳: 플레이하며 `DICE_STATS` 수치 조정, 피해량을 `dice` 전용으로 할지 결정, 통신 새 효과(`commsEffect`), AI 사격선 이동, 이어하기(저장 시 ruleset), 유닛 설명 문구(통신 '명중률을 올립니다')가 dice 에서는 틀림.
+- 튜토리얼 개편(말풍선·9단계)과 후속 수정은 커밋 2622fcf·149f8e5. 파일 필요: 없는 소리 5개, BGM. 결정 필요: 이어하기, 게임 이름, 우글레다르 균형.

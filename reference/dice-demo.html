@@ -1,0 +1,93 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>10면체 주사위 연출 시안</title>
+<style>
+html,body{margin:0;height:100%;background:#15171b;color:#eee;font-family:"Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
+#wrap{max-width:420px;margin:0 auto;padding:16px;box-sizing:border-box}
+h1{font-size:16px;margin:4px 0 12px}
+#stage{position:relative;height:300px;border-radius:14px;background:radial-gradient(circle at 50% 40%,#2a3a2a,#141a14);overflow:hidden;cursor:pointer}
+#title{position:absolute;left:12px;right:12px;top:14px;background:rgba(20,22,28,.92);border-radius:12px;padding:8px 10px;font-size:14px;font-weight:700;text-align:center}
+#title small{display:block;font-weight:400;color:#bbb;font-size:12px;margin-top:2px}
+#row{position:absolute;left:0;right:0;top:110px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.die{width:60px;height:64px}.die canvas{width:60px;height:64px}.small .die{width:52px;height:55px}.small .die canvas{width:52px;height:55px}#row{gap:6px}
+#verdict{position:absolute;left:0;right:0;top:230px;text-align:center;font-size:32px;font-weight:900}
+#hint{position:absolute;bottom:6px;width:100%;text-align:center;font-size:11px;color:#778}
+.ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;font-size:14px}
+.ctl label{display:flex;gap:6px;align-items:center}
+select,button{font-size:15px;padding:8px 12px;border-radius:10px;border:1px solid #444;background:#232730;color:#eee}
+button.go{background:#3a6fd8;border-color:#3a6fd8;font-weight:700}
+</style></head><body><div id="wrap"><h1>10면체 주사위 연출 시안</h1>
+<div id="stage"><div id="title"></div><div id="row"></div><div id="verdict"></div><div id="hint">화면을 누르면 건너뜁니다</div></div>
+<div class="ctl">
+<label>주사위 수 <select id="selA"></select></label>
+<label>필요한 숫자 <select id="selN"></select></label>
+<label>공격 <select id="selS"><option value="ally">아군 (파랑, 느리게)</option><option value="enemy">적군 (빨강, 빠르게)</option></select></label>
+<button class="go" id="go">굴리기</button></div>
+<p style="font-size:12px;color:#889;margin-top:14px">0~9의 10면체이고, 0이거나 필요한 숫자 이상이면 성공(밝게 빛남)입니다. 하나라도 성공하면 명중입니다. 결과는 무작위로 정해지고, 굴러가는 모습은 그 결과로 멈추도록 보여 주는 연출입니다.</p></div>
+<script>
+const $=id=>document.getElementById(id);
+for(let i=1;i<=6;i++)$('selA').add(new Option(i+'개',i));$('selA').value=4;
+for(let i=1;i<=10;i++)$('selN').add(new Option(i+' 이상',i));$('selN').value=7;
+const Z=0.1056,V=[[0,0,1.05],[0,0,-1.05]];
+for(let k=0;k<5;k++){const a=k*72*Math.PI/180;V.push([Math.cos(a),Math.sin(a),Z])}
+for(let k=0;k<5;k++){const a=(k*72+36)*Math.PI/180;V.push([Math.cos(a),Math.sin(a),-Z])}
+const F=[];for(let k=0;k<5;k++)F.push([0,2+k,7+k,2+(k+1)%5]);
+for(let k=0;k<5;k++)F.push([1,7+(k+1)%5,2+(k+1)%5,7+k]);
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const nrm=v=>{const l=Math.hypot(...v);return v.map(x=>x/l)},dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+function fnorm(f,P){const n=cr(sub(P[f[1]],P[f[0]]),sub(P[f[3]],P[f[0]]));const c=[0,1,2].map(i=>(P[f[0]][i]+P[f[1]][i]+P[f[2]][i]+P[f[3]][i])/4);return dot(n,c)<0?nrm(n.map(x=>-x)):nrm(n)}
+function mm(A,B){const R=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)R[i][j]+=A[i][k]*B[k][j];return R}
+const Rx=a=>[[1,0,0],[0,Math.cos(a),-Math.sin(a)],[0,Math.sin(a),Math.cos(a)]],Ry=a=>[[Math.cos(a),0,Math.sin(a)],[0,1,0],[-Math.sin(a),0,Math.cos(a)]],Rz=a=>[[Math.cos(a),-Math.sin(a),0],[Math.sin(a),Math.cos(a),0],[0,0,1]];
+const ap=(R,v)=>[0,1,2].map(i=>R[i][0]*v[0]+R[i][1]*v[1]+R[i][2]*v[2]);
+function rodr(n,t){const v=cr(n,t),c=dot(n,t),s=Math.hypot(...v);if(s<1e-9)return[[1,0,0],[0,1,0],[0,0,1]];const k=v.map(x=>x/s);const K=[[0,-k[2],k[1]],[k[2],0,-k[0]],[-k[1],k[0],0]];const KK=mm(K,K),I=[[1,0,0],[0,1,0],[0,0,1]];const R=[[0,0,0],[0,0,0],[0,0,0]];for(let i=0;i<3;i++)for(let j=0;j<3;j++)R[i][j]=I[i][j]+K[i][j]*s+KK[i][j]*(1-c);return R}
+let REST=rodr(fnorm(F[0],V),[0,0,1]);{const p=ap(REST,V[0]);REST=mm(Rz(Math.atan2(p[0],p[1])),REST)}
+// 낡은 질감: 면 위치 기준(u,v)으로 고정된 얼룩과 긁힌 자국
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const TEX=F.map((_,i)=>{const r=mulberry(1000+i*77);const dots=[],scr=[];
+ for(let k=0;k<70;k++)dots.push({u:r(),v:r(),s:0.004+r()*0.016,a:0.10+r()*0.30,dark:r()<0.62});
+ for(let k=0;k<4;k++){const u=r(),v=r();scr.push({u1:u,v1:v,u2:Math.min(1,Math.max(0,u+(r()-.5)*.5)),v2:Math.min(1,Math.max(0,v+(r()-.5)*.5))})}
+ return {dots,scr}});
+const bil=(p,u,v)=>[(1-u)*(1-v)*p[0][0]+u*(1-v)*p[1][0]+u*v*p[2][0]+(1-u)*v*p[3][0],(1-u)*(1-v)*p[0][1]+u*(1-v)*p[1][1]+u*v*p[2][1]+(1-u)*v*p[3][1]];
+function drawDie(cv,R,digit,col){const ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+const P=V.map(v=>ap(R,v)),sc=W*0.42,cx=W/2,cy=H/2,L=nrm([-0.4,0.6,0.7]);
+const faces=F.map((f,i)=>({f,i,n:fnorm(f,P)})).filter(o=>o.n[2]>0.02).sort((a,b)=>a.n[2]-b.n[2]);ctx.lineJoin='round';
+for(const o of faces){const sh=0.45+0.55*Math.max(0,dot(o.n,L)),pts=o.f.map(j=>[cx+P[j][0]*sc,cy-P[j][1]*sc]),b=col.base;
+ ctx.save();ctx.beginPath();pts.forEach((p,k)=>k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();
+ ctx.fillStyle=`rgb(${b.map(x=>Math.round(x*sh)).join(',')})`;ctx.fill();ctx.clip();
+ // 닳은 가운데 얼룩(밝게) + 가장자리 어둡게
+ const mx=(pts[0][0]+pts[2][0])/2,my=(pts[0][1]+pts[2][1])/2,g=ctx.createRadialGradient(mx,my,0,mx,my,W*0.28);
+ g.addColorStop(0,'rgba(255,240,200,0.14)');g.addColorStop(1,'rgba(0,0,0,0.22)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ for(const d of TEX[o.i].dots){const p=bil(pts,d.u,d.v);ctx.fillStyle=d.dark?`rgba(15,10,5,${d.a})`:`rgba(255,235,190,${d.a*0.8})`;ctx.beginPath();ctx.arc(p[0],p[1],d.s*W,0,6.3);ctx.fill()}
+ ctx.lineWidth=Math.max(1,W*0.006);for(const sc2 of TEX[o.i].scr){const p1=bil(pts,sc2.u1,sc2.v1),p2=bil(pts,sc2.u2,sc2.v2);ctx.strokeStyle='rgba(255,240,210,0.22)';ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke()}
+ ctx.restore();
+ ctx.beginPath();pts.forEach((p,k)=>k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();
+ ctx.strokeStyle=col.edge;ctx.lineWidth=W*0.03;ctx.stroke();
+ ctx.strokeStyle='rgba(255,235,190,0.28)';ctx.lineWidth=W*0.008;ctx.stroke()}
+const top=faces[faces.length-1];if(top){const mx=top.f.reduce((s,j)=>s+P[j][0],0)/4,my=top.f.reduce((s,j)=>s+P[j][1],0)/4,x=cx+mx*sc,y=cy-my*sc+W*0.03;
+ ctx.font=`800 ${W*0.30}px "Noto Sans KR","Malgun Gothic",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillText(digit,x+W*0.008,y+W*0.012);   // 음각 느낌의 그림자
+ ctx.globalAlpha=col.numAlpha||1;ctx.fillStyle='#f4efe2';ctx.fillText(digit,x,y);ctx.globalAlpha=1}}
+const PAL={ally:{roll:{base:[58,104,176],edge:'#0f1f3d'},ok:{base:[78,134,228],edge:'#0f1f3d',glow:'#7fb2ff'},no:{base:[62,74,100],edge:'#141a2a',numAlpha:.55}},
+ enemy:{roll:{base:[176,56,52],edge:'#3d0f0e'},ok:{base:[228,84,76],edge:'#3d0f0e',glow:'#ff9a8f'},no:{base:[104,66,64],edge:'#2a1413',numAlpha:.55}}};
+const rnd=s=>{s=Math.sin(s*127.1)*43758.5453;return s-Math.floor(s)};
+let state=null,raf=0;
+function start(){
+ const A=+$('selA').value,N=+$('selN').value,side=$('selS').value,speed=side==='ally'?0.7:1.6;
+ const finals=Array.from({length:A},()=>Math.floor(Math.random()*10));
+ const hit=finals.some(f=>f===0||f>=N);
+ $('title').innerHTML=`주사위 ${A}개<small>${N} 이상이면 성공 (0은 항상 성공)</small>`;
+ const row=$('row');row.innerHTML='';row.className=A>=5?'small':'';
+ for(let i=0;i<A;i++){const d=document.createElement('div');d.className='die';const cv=document.createElement('canvas');cv.width=180;cv.height=190;d.appendChild(cv);row.appendChild(d)}
+ $('verdict').textContent='';state={A,N,finals,hit,speed,side,t0:performance.now(),seed:Math.random()*1000};
+ cancelAnimationFrame(raf);loop();
+}
+function render(t){const {A,N,finals,hit,seed,side}=state,ds=$('row').children,pal=PAL[side];
+ const stopAt=i=>800+i*200,end=1700+(A-4>0?(A-4)*0:0),vt=Math.max(1700,stopAt(A-1)+500);
+ for(let i=0;i<A;i++){const d=ds[i],cv=d.firstChild,stop=stopAt(i);d.style.opacity=t>100+i*40?1:0;
+  if(t<stop){const k=Math.floor(t/55)+i*7+Math.floor(seed),v=Math.floor(rnd(k)*10),u=(stop-t)/(stop-100),ph=t/130+i*1.7;
+   drawDie(cv,mm(REST,mm(Rz(ph*1.3),mm(Ry(ph*2.1),Rx(ph*2.7)))),v,pal.roll);d.style.transform=`translateY(${-Math.abs(Math.sin(t/90+i))*14*u}px)`;d.style.filter='drop-shadow(0 4px 5px rgba(0,0,0,.55))'}
+  else{const f=finals[i],ok=f===0||f>=N,a=Math.min(1,(t-stop)/160);d.style.transform=`scale(${1+0.2*Math.sin(Math.PI*a)})`;drawDie(cv,REST,f,ok?pal.ok:pal.no);d.style.filter=ok?`drop-shadow(0 0 12px ${pal.ok.glow})`:'drop-shadow(0 3px 4px rgba(0,0,0,.5))'}}
+ const v=$('verdict');if(t>=vt){const a=Math.min(1,(t-vt)/160);v.textContent=hit?'명중!':'빗나감';v.style.color=hit?(side==='ally'?'#8fbaff':'#ff9a8f'):'#aab';v.style.transform=`scale(${1.5-0.5*a})`;v.style.opacity=a}else v.textContent='';
+ return t>=vt+300}
+function loop(){const t=(performance.now()-state.t0)*state.speed;if(render(t))return;raf=requestAnimationFrame(loop)}
+function skip(){if(!state)return;state.t0=performance.now()-5000/state.speed;cancelAnimationFrame(raf);render(5000)}
+$('go').onclick=start;$('stage').onclick=skip;start();
+</script></body></html>

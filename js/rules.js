@@ -12,6 +12,28 @@ const RULES = {
     SUPPRESS_TURNS: 1,                      // 제압 지속 (제압된 유닛의 자기 턴 수)
     SUPPRESS_SOURCES: ['mortar', 'artillery'],   // 정중앙 직격이 제압을 일으키는 간접 화력 병종
   },
+  RULESET: 'classic',                       // 규칙 세트 (판 시작 때 setRuleset 이 고정): 'classic' = 지금 규칙 · 'dice' = 데모 2 (직접 사격만 주사위 개수 방식, js/combat.js). rulesVersion 은 classic 규칙의 버전
+  DICE_RULES: {                             // 데모 2('dice') 직접 사격 공통 수치 (js/combat.js)
+    sides: 10,                              // 주사위 면 수: 0 ~ 면 수-1 (0 은 항상 성공)
+    terrainDivisor: 10,                     // 지형 방어 보너스 = -(지형 명중 보정 %) / 이 값 (예: 숲 -10% → +1, 도심 -20% → +2, 강 +20% → -2)
+    distanceStep: 1,                        // 거리 보정: 거리가 한 칸 늘 때마다 필요한 숫자 +이 값 (인접은 0)
+    commsEffect: null,                      // 통신 유닛의 새 효과 자리 (아직 미정 = 효과 없음)
+  },
+  // 데모 2('dice') 병종 수치 표. 이 표만 고치면 확인 시트·판정·AI·규칙 화면이 같이 바뀐다 (classic 은 UNIT_TYPES 의 값을 그대로 씀).
+  //   attack      주사위 개수 (유닛당 한 값, 대인/대기갑 구분 없음). 없으면 직접 사격을 하지 않음 (간접 화력·통신)
+  //   defense     방어력 = 필요한 숫자의 기본값
+  //   maxRange    직접 사격 최대 사거리(칸). null = 무제한. 간접 화력의 사거리는 classic 그대로 (UNIT_TYPES)
+  //   bonusDice   { 대상 병종 키: +주사위 수 } 공격자 쪽 보너스. 대상이 그 병종일 때만 더 굴림
+  // 체력이 줄면 classic 과 같은 식(hpPenalty)으로 깎임: 주사위 수 = max(1, attack + bonus - 체력 보정), 방어 = max(0, defense - 체력 보정)
+  DICE_STATS: {
+    infantry:  { attack: 2, defense: 5, maxRange: 4, bonusDice: null },
+    armor:     { attack: 3, defense: 6, maxRange: 6, bonusDice: null },
+    antitank:  { attack: 2, defense: 4, maxRange: 6, bonusDice: { armor: 2 } },
+    recon:     { attack: 1, defense: 4, maxRange: 3, bonusDice: null },
+    mortar:    { defense: 4 },
+    artillery: { defense: 3 },
+    signal:    { defense: 3 },
+  },
   ENABLE_ACTIVATION_LIMIT: true,            // true: 시나리오 activations 의 진영별 행동 한도 적용 · false: 한도 무시 (v5 와 완전히 같은 동작)
   ATTACK_AFTER_MOVE: false,                 // (ENABLE_MOVE_ATTACK 가 false 일 때만 사용) false: 한 유닛은 한 턴에 이동 또는 공격 중 하나만 (포병은 항상 false)
   ENABLE_MOVE_ATTACK: true,                 // true: 남은 이동력 >= 공격 비용이면 이동 후 공격 가능 (포병·통신 제외)
