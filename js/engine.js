@@ -1042,6 +1042,15 @@ function computeHitChance(state, attackerId, targetPos) {
   const vis = getVisibleTiles(state, a.side);
   const fogged = !vis.has(idx(targetPos.r, targetPos.c));
   const target = getUnitAt(state, targetPos.r, targetPos.c);
+  if (isDiceRules() && isIndirectDiceType(a.type)) {   // 데모 2 간접 화력: 한 번 굴려 범위 안 유닛마다 자기 필요한 숫자로 판정 (js/combat.js diceIndirectArea)
+    const area = diceIndirectArea(state, a, targetPos);
+    const ctr = area.units.find((x) => x.center) || null;
+    const { units, ...head } = area;
+    const dice = { ...head, indirect: true, need: ctr ? ctr.need : null, def: ctr ? ctr.def : null, terrain: ctr ? ctr.terrain : 0, terrainKey: ctr ? ctr.terrainKey : null, oneP: ctr ? diceOneP(ctr.need) : null,
+      area: units.map((x) => ({ id: x.id, side: x.unit.side, type: x.unit.type, r: x.unit.r, c: x.unit.c, hp: x.unit.hp, center: x.center, need: x.need, def: x.def, terrain: x.terrain, p: x.p })) };
+    return { chance: ctr ? ctr.p * 100 : 0, raw: ctr ? ctr.need : 0, parts: [], sides: diceRules().sides, need: ctr ? ctr.need : null, dice, fogged: area.blind, movedAttack: false,
+      targetId: target ? target.id : null, damage: target ? calcDamage(a, target) : 0, indirect: true };
+  }
   const movedAttack = isMoveAttack(a);
   const res = calcHitBreakdown({
     attacker: a, defender: target, terrain: terrainAt(targetPos.r, targetPos.c),
@@ -1305,7 +1314,12 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   const ut = unitType(a);
   const hc = computeHitChance(state, attackerId, targetPos);
   let roll, hit, rolls = null;
-  if (hc.dice) {   // 데모 2 직접 사격: 공격력 개수만큼 d10(0~9), 하나라도 0 이거나 N 이상이면 명중 (굴린 눈은 순서대로 기록)
+  let unitHits = null;   // 데모 2 간접 화력: 범위 안 유닛별 판정 [{ id, hit }]
+  if (hc.dice && hc.dice.area) {   // 데모 2 간접 화력: 주사위는 한 세트, 범위 안 유닛마다 자기 필요한 숫자로 (눈 하나라도 0 이거나 N 이상이면 그 유닛 명중)
+    rolls = diceRollFaces(rng, hc.dice.count); roll = null;
+    unitHits = hc.dice.area.map((x) => ({ id: x.id, hit: rolls.some((f) => diceFaceOk(f, x.need)) }));
+    hit = unitHits.some((x) => x.hit);
+  } else if (hc.dice) {   // 데모 2 직접 사격: 공격력 개수만큼 d10(0~9), 하나라도 0 이거나 N 이상이면 명중 (굴린 눈은 순서대로 기록)
     const r = diceRollAll(rng, hc.dice.count, hc.dice.need);
     rolls = r.rolls; hit = r.hit; roll = null;
   } else {
@@ -1320,15 +1334,22 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   }];
   if (hc.dice) Object.assign(events[0], { rule: 'dice', rolls, diceCount: hc.dice.count, dice: { ...hc.dice } });   // classic 이벤트에는 이 필드들이 없음
   events.push({ type: hit ? 'hit' : 'miss', attackerId: a.id, side: a.side, target: { ...targetPos } });
+  if (unitHits) {   // 범위 안 유닛마다 명중/빗나감 (화면은 보이는 유닛만 표시)
+    for (const x of hc.dice.area) {
+      const uh = unitHits.find((h) => h.id === x.id);
+      events.push({ type: 'diceUnit', unitId: x.id, side: x.side, unitType: x.type, pos: { r: x.r, c: x.c }, center: x.center, need: x.need, hit: uh.hit });
+    }
+  }
 
   if (hit) {
     const hits = [];
     const center = getUnitAt(state, targetPos.r, targetPos.c);
-    if (center) hits.push({ unit: center, amount: calcDamage(a, center), splash: false });
+    const landed = (u) => !unitHits || unitHits.find((h) => h.id === u.id).hit;   // 데모 2 간접 화력: 빗나간 유닛은 피해·후퇴·제압 없음
+    if (center && landed(center)) hits.push({ unit: center, amount: calcDamage(a, center), splash: false });
     if (ut.indirect && ut.splash !== false) {   // 포병: 인접 4칸 (적·아군 모두). 박격포는 한 칸만
       for (const [dr, dc] of DIRS) {
         const o = getUnitAt(state, targetPos.r + dr, targetPos.c + dc);
-        if (o) hits.push({ unit: o, amount: GAME_CONFIG.COMBAT.splashDamage, splash: true });
+        if (o && landed(o)) hits.push({ unit: o, amount: GAME_CONFIG.COMBAT.splashDamage, splash: true });
       }
     }
     for (const h of hits) {   // 피해는 동시에 적용
@@ -2001,6 +2022,7 @@ function aiEstimateThreat(state, ctx, u, pos) {
     if (et.indirect && !et.moveFire) { if (d < R.min || d > R.max) continue; }
     else if (d > et.move + R.max) continue;
     // 이동 후 공격 규칙: 다가와서 치는 적은 명중률 보정 (ENABLE_MOVE_ATTACK 가 꺼져 있으면 calcHitBreakdown 이 무시)
+    if (et.indirect && isDiceRules()) { total += diceIndirectChance(e, me, ter, d) * Math.min(calcDamage(e, me), me.hp); continue; }   // 데모 2: 간접 화력 위험도 주사위 규칙으로
     const hc = calcHitBreakdown({ attacker: e, defender: me, terrain: ter, signal: false, fogged: false, movedAttack: !(et.indirect && !et.moveFire) && d > R.max });
     total += (hc.chance / 100) * Math.min(calcDamage(e, me), me.hp);
   }
@@ -2156,8 +2178,16 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
   const target = tg.kind === 'visible' ? getUnitAt(state, tg.r, tg.c)
     : tg.kind === 'battery' ? { type: 'artillery', hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c }
     : (tg.kind === 'intel' || tg.kind === 'likely') ? { id: tg.id, type: tg.type, hp: tg.hp, side: enemyOf(u.side), r: tg.r, c: tg.c } : null;
-  const hc = calcHitBreakdown({ attacker: u, defender: target, terrain: terrainAt(tg.r, tg.c), signal, fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, u), from });
-  const p = (hc.chance / 100) * (tg.kind === 'battery' || tg.kind === 'intel' || tg.kind === 'likely' ? tg.conf : 1);
+  const conf = tg.kind === 'battery' || tg.kind === 'intel' || tg.kind === 'likely' ? tg.conf : 1;
+  // 데모 2 간접 화력: 한 번 굴려 범위 안 유닛마다 자기 필요한 숫자 (js/combat.js). 판정과 같은 함수. 맹사격(조준 칸이 내 시야 밖) 보정 포함
+  const diceInd = isDiceRules() && isIndirectDiceType(u.type);
+  const pOf = diceInd ? (v) => diceIndirectChance(u, v, terrainAt(v.r, v.c), manhattan(from, tg), fogged) * conf : null;
+  let p;
+  if (diceInd) p = target ? pOf({ type: target.type, hp: target.hp, r: tg.r, c: tg.c }) : 0;
+  else {
+    const hc = calcHitBreakdown({ attacker: u, defender: target, terrain: terrainAt(tg.r, tg.c), signal, fogged, movedAttack, indirectPenalty: indirectPenaltyOf(state, u), from });
+    p = (hc.chance / 100) * conf;
+  }
   let s = 0;
   if (target) {
     const dmg = calcDamage(u, target);
@@ -2175,16 +2205,17 @@ function aiScoreAttack(state, ctx, u, from, tg, movedAttack = false) {
     for (const [dr, dc] of DIRS) {
       const o = getUnitAt(state, tg.r + dr, tg.c + dc);
       if (!o) continue;
-      if (o.side === u.side) s -= W.friendlyFire * p * V[o.type] * (o.hp <= splash ? 2 : 1);   // 오폭 회피
+      const po = diceInd ? pOf(o) : p;   // 데모 2: 이웃 유닛마다 자기 필요한 숫자로 따진 확률
+      if (o.side === u.side) s -= W.friendlyFire * po * V[o.type] * (o.hp <= splash ? 2 : 1);   // 오폭 회피
       else if (ctx.vis.has(idx(o.r, o.c))) {
-        s += W.damage * p * splash * V[o.type];
-        if (o.hp <= splash) s += W.kill * p * V[o.type];
+        s += W.damage * po * splash * V[o.type];
+        if (o.hp <= splash) s += W.kill * po * V[o.type];
       }
     }
     if (!ctx.isAttacker && C.CROSSINGS.some((x) => manhattan(x, tg) <= 1)) s += W.crossingFire;
   }
   if (ctx.v2 && target) s += symV2Attack(state, ctx, u, target, p, tg.kind, from);   // 위협 제거·마무리·집중 (ai-intel.js)
-  else if (!ctx.neutral && target && tg.kind === 'visible') s += retreatGain(state, ctx, W, u, from, target, p);   // 후퇴 불가 격파·거점 비우기·제압 (공통 모듈, 기존 AI)
+  else if (!ctx.neutral && target && tg.kind === 'visible') s += retreatGain(state, ctx, W, u, from, target, p, diceInd ? pOf : undefined);   // 후퇴 불가 격파·거점 비우기·제압 (공통 모듈, 기존 AI)
   return s;
 }
 

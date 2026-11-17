@@ -1399,7 +1399,7 @@
     if (isDiceRules()) {   // 데모 2: 수치 표(DICE_STATS)의 값 — 주사위 · 보너스 · 방어 · 시야 · 사거리
       const ds = diceStatsOf(u.type) || {}, dc = diceCount(u, null);
       const bon = ds.bonusDice ? Object.entries(ds.bonusDice).map(([k, n]) => `${typeName(k)} +${n}`).join(', ') : '';
-      const maxR = ds.attack == null ? rangeText(ty, u) : (ds.maxRange == null ? '∞' : ds.maxRange);
+      const maxR = !isDirectType(u.type) ? rangeText(ty, u) : (ds.maxRange == null ? '∞' : ds.maxRange);   // 간접 화력은 classic 사거리
       h += `<div class="stat5">${cell('stat.dice', dc ? dc.count : '-', dc ? ds.attack : null)}`
         + `<div title="${esc(bon)}"><div class="k tx">${esc(t('stat.diceBonus'))}</div><div class="v">${bon ? '+' + Math.max(...Object.values(ds.bonusDice)) : '-'}</div></div>`
         + `${cell('stat.def', diceDefense(u), ds.defense)}${cell('stat.vision', ty.vision)}${cell('stat.range', maxR)}</div>`;
@@ -1598,6 +1598,7 @@
       case 'suppressed': return [ev.pos];
       case 'ambush': return [ev.at];
       case 'diceRoll': return [ev.target];
+      case 'diceUnit': return [ev.pos];
       case 'damage': case 'splashDamage': case 'destroyed': case 'captured': case 'objectiveLost': case 'arrival': return [ev.pos];
       default: return [];
     }
@@ -1613,7 +1614,7 @@
     // 로그 색 막대: 사건의 진영. 시야 밖에서 온 공격과 그 피해는 'unk' (출처 불명, 주황)
     const roll = fresh.find((e) => e.type === 'diceRoll');
     const unseenSrc = (s) => !!roll && roll.side !== s && !visMap[s].has(idx(roll.from.r, roll.from.c));
-    const hitTypes = ['diceRoll', 'damage', 'splashDamage', 'destroyed', 'retreat', 'suppressed'];
+    const hitTypes = ['diceRoll', 'diceUnit', 'damage', 'splashDamage', 'destroyed', 'retreat', 'suppressed'];
     for (const ev of fresh) {
       for (const s of Object.keys(ev.descBy)) {
         const d = ev.descBy[s];
@@ -1645,13 +1646,14 @@
 
   /** 로그용 주사위 표기 (메시지 파라미터). d10: "d10=4 / 명중 6/10", d100: "d100=43 / 명중률 60%" */
   function diceLog(ev, hideChance = false) {
+    if (ev.rule === 'dice' && ev.dice.area) return { t: 'dicelog.diceInd', p: { rolls: ev.rolls.join(' ') } };   // 간접 화력: 필요한 숫자는 유닛마다 달라 줄에 쓰지 않음 (시야 밖 유닛 정보 보호)
     if (ev.rule === 'dice') return { t: 'dicelog.dice', p: { rolls: ev.rolls.join(' '), need: ev.dice.need } };   // 데모 2: 굴린 눈 전부, 필요한 숫자
     const d10 = (ev.sides || 100) === 10;
     const need = hideChance ? '?' : (d10 ? { t: 'dicelog.need10', p: { n: ev.need } } : { t: 'dicelog.need100', p: { n: ev.chance } });
     return { t: d10 ? 'dicelog.d10' : 'dicelog.d100', p: { roll: ev.roll, need, moved: ev.movedAttack ? { t: 'dicelog.moved' } : '' } };
   }
   const VERB = (ev) => ({ t: ev.indirect ? 'verb.fire' : 'verb.attack' });
-  const RES = (ev) => ({ t: ev.hit ? 'res.hit' : 'res.miss' });
+  const RES = (ev) => ({ t: ev.dice && ev.dice.area ? 'res.land' : ev.hit ? 'res.hit' : 'res.miss' });   // 데모 2 간접 화력: 유닛별 결과는 diceUnit 로그가 보이는 유닛만
 
   /** 격파 로그 문구 키: 후퇴 불가·재직격은 원인을 함께 */
   const DESTROY_KEY = (ev, full) => (ev.cause === 'retreatBlocked' ? 'log.destroyedRetreat' : ev.cause === 'resuppressed' ? 'log.destroyedResupp' : 'log.destroyed') + (full ? 'Full' : '');
@@ -1661,6 +1663,7 @@
       case 'move': return M('log.move', { who: WHO(ev.side, ev.unitType), from: P(ev.from), to: P(ev.to) }, ev.side);
       case 'ambush': return M('log.ambushFull', { who: WHO(ev.side, ev.unitType), enemy: S(enemyOf(ev.side)), blocker: U(ev.blockerType), at: P(ev.at) }, ev.side);
       case 'diceRoll': return M('log.attackFull', { who: WHO(ev.side, ev.unitType), from: P(ev.from), target: P(ev.target), verb: VERB(ev), dice: diceLog(ev), res: RES(ev) }, ev.side);
+      case 'diceUnit': return M('log.diceUnitFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos), res: { t: ev.hit ? 'res.hit' : 'res.miss' } }, ev.side);
       case 'damage': case 'splashDamage':
         return M('log.damage', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos), n: ev.amount, splash: ev.type === 'splashDamage' ? { t: 'log.splash' } : '', hp: ev.hp }, '');
       case 'destroyed': return M(DESTROY_KEY(ev, true), { who: WHO(ev.side, ev.unitType), pos: P(ev.pos) }, 'bad');
@@ -1706,6 +1709,9 @@
         }
         return null;
       }
+      case 'diceUnit':   // 데모 2 간접 화력: 범위 안 유닛별 결과 — 내 시야 안 유닛만 (내 유닛은 항상 보임)
+        if (mine || seen(ev.pos)) return M('log.diceUnit', { who: REL(mine, ev.unitType), pos: P(ev.pos), res: { t: ev.hit ? 'res.hit' : 'res.miss' } }, mine ? 'bad' : '');
+        return null;
       case 'damage':
       case 'splashDamage':
         if (mine || seen(ev.pos)) {
@@ -1953,6 +1959,19 @@
     }, token);
     svg.remove();
   }
+  /** 데모 2 간접 화력: 범위 안 유닛 위에 '명중'/'빗나감' 글자 (피해 숫자보다 위). 보이는 유닛에만 부름 */
+  async function diceUnitTagFx(pos, hit) {
+    const token = ui.gameId, mul = speedMul(), D = DESIGN.fx.dmg;
+    const cx = unitCx(pos), cy = unitCy(pos) - 4 - D.font;
+    const svg = fxSvg(`<text x="${cx}" y="${cy}" fill="${hit ? D.color : DESIGN.fx.miss.color}" stroke="#fff" stroke-width="${D.stroke}" paint-order="stroke" stroke-linejoin="round" font-size="${Math.round(D.font * 0.75)}" font-weight="900" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif">${esc(t(hit ? 'res.hit' : 'res.miss'))}</text>`);
+    const txt = svg.firstChild;
+    if (ui.reduceMotion) { await rawWait(D.msRM * mul); svg.remove(); return; }
+    await tween(D.ms * mul, (p) => {
+      txt.setAttribute('y', (cy - D.rise * easeOut(p)).toFixed(2));
+      txt.setAttribute('opacity', p < D.fadeFrom ? '1' : String(1 - (p - D.fadeFrom) / (1 - D.fadeFrom)));
+    }, token);
+    svg.remove();
+  }
   /** 빗나감: 회색 × (글자 없음) */
   async function missFx(pos) {
     const token = ui.gameId, mul = speedMul(), X = DESIGN.fx.miss;
@@ -2132,19 +2151,22 @@
   }
 
   /** 데모 2 주사위 굴림: 멈추는 눈은 엔진이 굴린 값(ev.rolls). 공격자가 안 보이면 공격자 이름·병종을 문구에 쓰지 않음 */
-  async function playDiceFx(ev, mine, fVis) {
+  async function playDiceFx(ev, mine, fVis, vis) {
     const host = $('#board-wrap'), hr = host.getBoundingClientRect();
     const rel = (p) => { const r = cells[idx(p.r, p.c)].el.getBoundingClientRect(); return { x: r.left - hr.left, y: r.top - hr.top, w: r.width, h: r.height }; };
     const known = mine || fVis;   // 공격자를 아는 경우만 병종 표시
     const color = GAME_CONFIG.SIDES[ev.side] && GAME_CONFIG.SIDES[ev.side].color;
     const hit = ev.hit;
-    announce(t('live.dice', { who: known ? REL(mine, ev.unitType) : { t: 'dice.enemyFire' }, result: `${ev.rolls.join(' ')} ${t(hit ? 'res.hit' : 'res.miss')}` }));
+    // 간접 화력: 한 세트의 눈이라 결과 문구는 없고(유닛별 명중/빗나감은 착탄 뒤 유닛 위에 표시), 성공 표시는 보이는 유닛 중 가장 낮은 필요한 숫자 기준 (안 보이는 유닛 정보를 쓰지 않음)
+    const ind = !!ev.dice.area;
+    const seenNeeds = ind ? diceAreaVisible(ev.dice.area, vis).map((x) => x.need) : [];
+    announce(t('live.dice', { who: known ? REL(mine, ev.unitType) : { t: 'dice.enemyFire' }, result: ind ? ev.rolls.join(' ') : `${ev.rolls.join(' ')} ${t(hit ? 'res.hit' : 'res.miss')}` }));
     await diceFx.play({
-      host, count: ev.rolls.length, rolls: ev.rolls, need: ev.dice.need, mine, reduce: ui.reduceMotion, speedMul: speedMul(),
-      title: diceHeadText(ev.dice, known ? ev.unitType : null),
+      host, count: ev.rolls.length, rolls: ev.rolls, need: ind ? (seenNeeds.length ? Math.min(...seenNeeds) : 99) : ev.dice.need, mine, reduce: ui.reduceMotion, speedMul: speedMul(),
+      title: ind ? diceIndHead(ev.dice) : diceHeadText(ev.dice, known ? ev.unitType : null),
       palette: diceFxPalette(color, mine ? 'ally' : 'enemy'),
       avoid: [rel(ev.from), rel(ev.target)],   // 공격자와 대상 유닛을 가리지 않게 위아래로 옮김
-      hitText: t('res.hitBang'), missText: t('res.miss'),
+      hitText: ind ? '' : t('res.hitBang'), missText: ind ? '' : t('res.miss'),
       onRoll: () => sfx('dice_roll'), onLand: () => sfx('dice_land'),   // 소리 파일이 없으면 audio 가 조용히 건너뜀
     });
   }
@@ -2161,10 +2183,13 @@
     const mine = ev.side === me;
     const tVis = vis.has(idx(ev.target.r, ev.target.c));
     const fVis = vis.has(idx(ev.from.r, ev.from.c));
+    // 데모 2 간접 화력: 포탄은 항상 조준한 칸에 떨어짐 (연출은 유닛별 결과와 무관 → 안 보이는 유닛의 명중 여부가 그림으로 새지 않음). 결과 글자는 보이는 유닛에만
+    const indD = !!(ev.dice && ev.dice.area);
+    const fxEv = indD ? { ...ev, hit: true } : ev;
     const faced = rich.on && !ui.reduceMotion && tVis && fVis ? ev.attackerId : null;   // 방향 전환: 양 끝이 모두 보이는 공격만
     const turning = faced ? turnUnit(faced, faceAngle(ev.side, ev.unitType, ev.from, ev.target), DESIGN.rich.face.turnMs) : null;   // 주사위와 동시에
     if (ev.rule === 'dice') {   // 데모 2 직접 사격: 캔버스 주사위 굴림 연출 (js/dice-fx.js). 안 보이는 공격·가림 화면에서는 시작하지 않음
-      if (diceFxShouldPlay({ rule: ev.rule, mine, tVis, fVis, curtain: ui.screen === 'curtain' })) await playDiceFx(ev, mine, fVis);
+      if (diceFxShouldPlay({ rule: ev.rule, mine, tVis: indD ? false : tVis, fVis, curtain: ui.screen === 'curtain' })) await playDiceFx(ev, mine, fVis, vis);   // 간접 화력: 내 사격이거나 쏘는 유닛이 보일 때만 (안 보이는 포격은 착탄만)
       if (token !== ui.gameId) return;
     } else if (mine || tVis || fVis) {
       const who = mine ? REL(true, ev.unitType) : (fVis ? REL(false, ev.unitType) : { t: 'dice.enemyFire' });
@@ -2176,7 +2201,7 @@
     // 발사 → 탄도/비행 → 착탄 (js/fx.js 가 시야 규칙으로 목록을 만들고 캔버스가 그림. 끝나는 여운은 기다리지 않음)
     const dmg = events.filter((e) => (e.type === 'damage' || e.type === 'splashDamage') && vis.has(idx(e.pos.r, e.pos.c)));
     const dead = events.filter((e) => e.type === 'destroyed' && vis.has(idx(e.pos.r, e.pos.c)));
-    const plan = planAttackFx(ev, {
+    const plan = planAttackFx(fxEv, {
       me, vis, N, rm: ui.reduceMotion, seed: fxSeed++,
       dmg: dmg.map((e) => ({ pos: e.pos, splash: e.type === 'splashDamage' })), dead: dead.map((e) => ({ pos: e.pos })),
       splash: !!ev.indirect && GAME_CONFIG.UNIT_TYPES[ev.unitType].splash !== false,
@@ -2188,10 +2213,10 @@
     await wait(plan.hitAt);
     if (token !== ui.gameId) return;
     if (ui.reduceMotion) {   // 연출 줄이기: 기존 정지 표시도 함께 (빗나감 ×, 포격 칸 색칠)
-      if (!ev.hit) { if (tVis) await missFx(ev.target); }
+      if (!fxEv.hit) { if (tVis) await missFx(ev.target); }
       else if (ev.indirect && tVis) await impactFx(ev.target, vis, GAME_CONFIG.UNIT_TYPES[ev.unitType].splash === false);
     }
-    if (ev.hit && mine && !tVis && !hotseat()) pushLog(me, M('log.hitUnknown', null, me));
+    if (!indD && ev.hit && mine && !tVis && !hotseat()) pushLog(me, M('log.hitUnknown', null, me));   // 데모 2 간접 화력은 안 보이는 유닛의 명중을 알리지 않음
     if (token !== ui.gameId) return;
     await Promise.all(plan.units.map((u) => wait(u.at - plan.hitAt).then(() => (ui.reduceMotion ? shakeFx(u.pos) : unitHitFx(u.pos, u.push)))));
     if (faced) turnUnit(faced, 0, DESIGN.rich.face.backMs);   // 공격 연출이 끝나면 원래 방향으로 (기다리지 않음)
@@ -2199,7 +2224,7 @@
     // 후퇴: 출발·도착 칸이 모두 보이는 유닛만 미끄러짐을 그림 (피해 연출이 끝난 뒤). 하나라도 시야 밖이면 그림 없이 결과 상태만
     const slides = ui.reduceMotion ? [] : events.filter((e) => e.type === 'retreat' && vis.has(idx(e.from.r, e.from.c)) && vis.has(idx(e.to.r, e.to.c)));
     for (const e of slides) ui.anim.hideUnits.add(e.unitId);
-    recordImpactMark(ev, pre, vis);
+    recordImpactMark(fxEv, pre, vis);
     ui.view = post; render();   // 체력 숫자는 번쩍임 직후에 바뀜
     const cs0 = slides.length ? cellPx() : 0;
     const slideEls = slides.map((e) => {
@@ -2209,7 +2234,8 @@
       fxLayer.appendChild(el);
       return el;
     });
-    await Promise.all([...dmg.map((e) => damageNumberFx(e.pos, e.amount, e.side === ev.side)), ...dead.map(destroyFx)]);
+    const tags = indD ? events.filter((e) => e.type === 'diceUnit' && vis.has(idx(e.pos.r, e.pos.c))) : [];   // 보이는 유닛만
+    await Promise.all([...dmg.map((e) => damageNumberFx(e.pos, e.amount, e.side === ev.side)), ...tags.map((e) => diceUnitTagFx(e.pos, e.hit)), ...dead.map(destroyFx)]);
     if (slides.length) {
       const mv = sfx(moveSoundOf(slides[0].unitType));
       await tween(DESIGN.fx.retreatMs * speedMul(), (p) => {
@@ -2525,7 +2551,8 @@
         }
       }
     }
-    g += pillBadge(cellX(p) + CS / 2, cellY(p) - H.badge.h / 2 + 2, hc.fogged ? '?' : `${Math.round(hc.chance)}%`);
+    const pillText = hc.dice && hc.dice.area ? (hc.dice.blind ? '?' : (getUnitAt(st, p.r, p.c) ? `${Math.round(hc.chance)}%` : '–')) : (hc.fogged ? '?' : `${Math.round(hc.chance)}%`);   // 데모 2 간접 화력: 안 보이는 칸은 '?', 보이는 빈 칸은 '–'
+    g += pillBadge(cellX(p) + CS / 2, cellY(p) - H.badge.h / 2 + 2, pillText);
     hlHover.innerHTML = g;
   }
 
@@ -2624,13 +2651,34 @@
   /** '방어 3 + 지형 1 + 거리 2 = 6' (0인 항은 숨기고, 음수 항은 빼기로) */
   function diceCalcLine(d) {
     let s = t('dice2.cDef', { n: d.def });
-    for (const [key, v] of [['dice2.cTer', d.terrain], ['dice2.cDist', d.distBonus]]) {
+    for (const [key, v] of [['dice2.cTer', d.terrain], ['dice2.cDist', d.distBonus], ['dice2.cBlind', d.blindBonus]]) {
       if (v) s += ` ${v > 0 ? '+' : '−'} ${t(key)} ${Math.abs(v)}`;
     }
     return `${s} = ${d.need}`;
   }
+  /** 데모 2 간접 화력 머리 줄: '주사위 3개 · 한 번 굴려서 범위 안 모두에게 적용' */
+  const diceIndHead = (d) => t('dice2.ind.head', { n: d.count, note: d.minApplied ? ` (${t('dice2.noteMin')})` : '' });
+  /**
+   * 데모 2 간접 화력 확인 시트·툴팁 본문. 지금 내 시야 안 유닛만 나열한다 (안개 규칙):
+   * 안 보이는 칸은 '안 보이는 칸 (+n)' 한 줄뿐이고, 시야 밖 유닛의 필요한 숫자·확률·존재는 어디에도 쓰지 않는다.
+   */
+  function diceIndHtml(hc) {
+    const st = ui.state, me = ui.viewer, d = hc.dice;
+    const rows = diceAreaVisible(d.area, getVisibleTiles(st, me));
+    const ctr = rows.find((x) => x.center);
+    let html = `<div class="big dc-main">${esc(diceIndHead(d))}</div>`;
+    if (d.blind) html += `<div class="warn">${esc(t('dice2.ind.blind', { n: d.blindBonus }))}</div>`;
+    if (ctr) {   // 중심 칸에 보이는 유닛: 직접 사격 시트와 같은 계산 한 줄 + 확률
+      html += `<div class="hint dc-calc">${esc(diceCalcLine({ def: ctr.def, terrain: ctr.terrain, distBonus: d.distBonus, blindBonus: 0, need: ctr.need }))}</div>`;
+      html += `<div class="hint">${esc(t('dice2.p', { p: dicePctText(ctr.p * 100) }))}</div>`;
+    }
+    if (rows.length) html += rows.map((x) => `<div class="row"><span>${esc(t('dice2.ind.row', { who: REL(x.side === me, x.type), need: x.need, p: dicePctText(x.p * 100) }))}</span></div>`).join('');
+    else html += `<div class="hint">${esc(t('dice2.ind.none'))}</div>`;
+    return html;
+  }
   /** 데모 2 호버 툴팁의 명중 내용 (확인 시트와 같은 숫자) */
   function diceTipHtml(hc, target, attackerType) {
+    if (hc.dice.area) return diceIndHtml(hc);
     const st = ui.state, me = ui.viewer, d = hc.dice;
     let html = `<div class="big">${esc(diceHeadText(d, attackerType))}</div>`;
     html += `<div class="hint">${esc(diceCalcLine(d))}</div><div class="hint">${esc(t('dice2.p', { p: dicePctText(hc.chance) }))}</div>`;
@@ -2643,16 +2691,18 @@
   }
   /** 데모 2 공격 확인 창: 주사위 개수와 필요한 숫자 → 계산 한 줄 → 확률 (칩 없음) */
   function showDiceConfirm(id, target, sel, hc, tu) {
-    const me = ui.viewer, d = hc.dice;
-    const what = tu ? { t: 'confirm.whatUnit', p: { who: REL(tu.side === me, tu.type), pos: P(target) } } : { t: 'confirm.whatEmpty', p: { pos: P(target) } };
+    const me = ui.viewer, d = hc.dice, ind = !!d.area;
+    const what = ind && d.blind ? { t: 'confirm.whatFog', p: { pos: P(target) } }   // 맹사격: 시야 밖 칸은 유닛 유무를 드러내지 않음
+      : tu ? { t: 'confirm.whatUnit', p: { who: REL(tu.side === me, tu.type), pos: P(target) } } : { t: 'confirm.whatEmpty', p: { pos: P(target) } };
+    const body = ind ? diceIndHtml(hc) : `<div class="dc-main">${esc(diceHeadText(d, sel.type))}</div>
+      <div class="dc-calc">${esc(diceCalcLine(d))}</div>
+      <div class="hint">${esc(t('dice2.p', { p: dicePctText(hc.chance) }))}</div>`;
     hideTip();
     showOverlay(`<div class="atk-confirm compact dice-confirm">
-      <h2>${esc(t('confirm.title.attack'))}</h2>
+      <h2>${esc(t(ind ? 'confirm.title.fire' : 'confirm.title.attack'))}</h2>
       <div class="ac-line">${esc(t('confirm.line', { unit: U(sel.type), from: P(sel), what }))}</div>
-      <div class="dc-main">${esc(diceHeadText(d, sel.type))}</div>
-      <div class="dc-calc">${esc(diceCalcLine(d))}</div>
-      <div class="hint">${esc(t('dice2.p', { p: dicePctText(hc.chance) }))}</div>
-      <div class="btn-row" style="margin-top:10px"><button class="primary" id="btn-atk-yes">${esc(t('confirm.yes.attack'))}</button><button id="btn-atk-no">${esc(t('confirm.no'))}</button></div>
+      ${body}
+      <div class="btn-row" style="margin-top:10px"><button class="primary" id="btn-atk-yes">${esc(t(ind ? 'confirm.yes.fire' : 'confirm.yes.attack'))}</button><button id="btn-atk-no">${esc(t('confirm.no'))}</button></div>
     </div>`, () => showDiceConfirm(id, target, sel, hc, tu));
     if (ui.wide) overlayCenter();
     ui.confirm = { id, target };
@@ -2672,7 +2722,7 @@
     const tu = getUnitAt(st, target.r, target.c);
     if (ui.tut) tutRecord({ kind: 'preview', unit: id, at: { r: target.r, c: target.c } }, []);
     zoomShow([sel, target]);   // 확대 중이면 공격자·대상이 둘 다 보이게
-    if (hc.dice) { showDiceConfirm(id, target, sel, hc, tu); return; }   // 데모 2: 칩 없는 단순 확인 창
+    if (hc.dice) { showDiceConfirm(id, target, sel, hc, hc.dice.blind ? null : tu); return; }   // 맹사격: 시야 밖 칸의 유닛 정보는 넘기지 않음   // 데모 2: 칩 없는 단순 확인 창
     // 시야 밖 칸은 유닛 유무를 드러내지 않음
     const what = hc.fogged ? { t: 'confirm.whatFog', p: { pos: P(target) } }
       : tu ? { t: 'confirm.whatUnit', p: { who: REL(tu.side === me, tu.type), pos: P(target) } }
@@ -3848,7 +3898,7 @@
       .map((k) => `${t(C.UNIT_TYPES[k].nameKey)} ${diceStatsOf(k).maxRange == null ? t('rules.dice.unlimited') : diceStatsOf(k).maxRange}`).join(t('list.sep'));
     const bonus = Object.keys(C.UNIT_TYPES).filter((k) => isDirectType(k) && scenarioHasType(k) && diceStatsOf(k).bonusDice)
       .map((k) => Object.entries(diceStatsOf(k).bonusDice).map(([bk, n]) => t('rules.dice.bonusItem', { unit: t(C.UNIT_TYPES[k].nameKey), target: t(C.UNIT_TYPES[bk].nameKey), n })).join(' ')).join(' ');
-    return `<ul>${li(t('rules.dice.1'))}${li(t('rules.dice.2', { terr: terr || '0', step: R.distanceStep }))}${li(t('rules.dice.3', { max: R.sides - 1, bonus }))}${li(t('rules.dice.4', { ranges }))}${li(t('rules.dice.5'))}</ul>`
+    return `<ul>${li(t('rules.dice.1'))}${li(t('rules.dice.2', { terr: terr || '0', step: R.distanceStep }))}${li(t('rules.dice.3', { max: R.sides - 1, bonus }))}${li(t('rules.dice.4', { ranges }))}${li(t('rules.dice.6', { mortar: C.DICE_STATS.mortar.attack, artillery: C.DICE_STATS.artillery.attack, blind: R.blindPenalty }))}${li(t('rules.dice.5'))}</ul>`
       + `<div class="hint">${esc(t('rules.dice.tut'))}</div>`;
   }
   const ruleSecs = () => ['goal', ...(GAME_CONFIG.DRAFT ? ['draft'] : []), 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'retreat', 'zoom', 'terms'];   // 편성 항목은 직접 편성이 있는 시나리오(대칭 전장)만
@@ -3888,7 +3938,7 @@
         const rows = types.map((k) => {
           const ty = C.UNIT_TYPES[k], dice = isDiceRules(), ds = diceStatsOf(k) || {};
           const atkTxt = dice ? (ds.attack != null ? ds.attack + (ds.bonusDice ? ` (${Object.entries(ds.bonusDice).map(([bk, n]) => `${t(C.UNIT_TYPES[bk].nameKey)} +${n}`).join(', ')})` : '') : '-') : (ty.canAttack ? `${ty.atkSoft}/${ty.atkArmor}` : '-');
-          const rngTxt = dice && ds.attack != null ? (ds.maxRange == null ? t('rules.dice.unlimited') : ds.maxRange) : rangeText(ty, { side: PLAYER, type: k });
+          const rngTxt = dice && isDirectType(k) ? (ds.maxRange == null ? t('rules.dice.unlimited') : ds.maxRange) : rangeText(ty, { side: PLAYER, type: k });
           return `<tr><td class="ru-name">${symHtml(PLAYER, k)}<span>${esc(t(ty.nameKey))}</span></td><td>${ty.move}</td><td>${ty.vision}</td><td>${esc(atkTxt)}</td><td>${dice ? ds.defense : ty.def}</td><td>${esc(rngTxt)}</td></tr>`
             + `<tr class="ru-desc"><td colspan="6">${esc(t('unitDesc.' + k))}</td></tr>`;
         }).join('');

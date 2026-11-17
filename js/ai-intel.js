@@ -210,7 +210,7 @@ function threatMap(state, side, defType, K, records = null, resting = null) {
         const d = Math.abs(r - e.r) + Math.abs(c - e.c);
         if (d < lo || d > hi) continue;
         const i = r * N + c;
-        const p = hitOf(att, !!et.moveFire && d > R.max, pen, memo, r, c) * w;
+        const p = (isDiceRules() ? diceIndirectChance(att, def, terrainAt(r, c), d) : hitOf(att, !!et.moveFire && d > R.max, pen, memo, r, c)) * w;   // 데모 2: 주사위 규칙 (거리 d 가 필요한 숫자에 들어감)
         dmg[i] += p * amount;
         if (et.splash !== false) artyP[i] += p;
       }
@@ -486,7 +486,7 @@ function intelOnSuppress(state, attacker, events) {
 /** 이 사격이 (명중하면) 가져올 후퇴·제압 효과의 가치. 보이는 표적과 그 파편 칸의 적만 센다 */
 function symV2RetreatGain(state, ctx, u, from, target, p) { return retreatGain(state, ctx, ctx.v2.V, u, from, target, p); }
 /** 공통: V = { retreatKill, retreatClear, suppress, resuppressKill } 가중치 세트 */
-function retreatGain(state, ctx, V, u, from, target, p) {
+function retreatGain(state, ctx, V, u, from, target, p, pOfVictim) {   // pOfVictim: 데모 2 간접 화력에서 유닛마다 다른 명중 확률 (없으면 모두 p)
   const R = GAME_CONFIG.RETREAT, UV = GAME_CONFIG.AI.UNIT_VALUE;
   const t = unitType(u);
   const victims = [{ unit: target, splash: false, amount: t.fixedDamage != null ? t.fixedDamage : calcDamage(u, target) }];
@@ -501,18 +501,19 @@ function retreatGain(state, ctx, V, u, from, target, p) {
     const o = v.unit;
     if (o.side === u.side || o.hp <= v.amount) continue;   // 아군 오사는 후퇴·제압 없음 · 피해로 격파되면 기존 항목이 셈
     const val = UV[o.type] || 1;
+    const pv = pOfVictim ? pOfVictim(o) : p;
     if (t.indirect && !v.splash && R.SUPPRESS_SOURCES.includes(u.type)) {
-      s += (symKnowsSuppressed(state, u.side, o.id) ? V.resuppressKill : V.suppress) * val * p;
+      s += (symKnowsSuppressed(state, u.side, o.id) ? V.resuppressKill : V.suppress) * val * pv;
       continue;
     }
     const out = symRetreatOutcome(state, ctx, u.side, o, retreatDir(from, o, target, t.indirect && v.splash));
-    if (out.dies) { s += V.retreatKill * val * p; continue; }
+    if (out.dies) { s += V.retreatKill * val * pv; continue; }
     // 거점 수비 유닛을 밀어내 거점이 비면 (그 거점 안에 남는 같은 편이 없을 때)
     const obj = objectiveAt(state, o.r, o.c);
     if (obj && !objectiveCells(obj).some((q) => (q.r !== o.r || q.c !== o.c) && ctx.vis.has(idx(q.r, q.c)) && (getUnitAt(state, q.r, q.c) || {}).side === o.side)
         && !objectiveCells(obj).some((q) => q.r === out.to.r && q.c === out.to.c)) {
       const pts = GAME_CONFIG.OBJECTIVE_POINTS ? GAME_CONFIG.OBJECTIVE_POINTS[obj.id] || 1 : 1;
-      s += V.retreatClear * pts * p;
+      s += V.retreatClear * pts * pv;
     }
   }
   return s;

@@ -1,9 +1,9 @@
 'use strict';
 /* =====================================================================
-   직접 사격 판정 모듈 (규칙 세트별). DOM 없음 · 순수 함수.
+   직접 사격·간접 화력 판정 모듈 (규칙 세트별). DOM 없음 · 순수 함수.
    규칙 세트(GAME_CONFIG.RULESET): 'classic' = 기존 규칙 그대로(이 파일은 아무것도 바꾸지 않음) · 'dice' = 데모 2.
    엔진(명중률 계산·사격 대상·판정), AI, 확인 시트, 시뮬레이션이 모두 이 파일의 같은 함수를 부른다 (표시와 실제 판정이 어긋나지 않게).
-   데모 2 직접 사격 규칙 (간접 화력·후퇴·제압·안개·행동 제한은 그대로):
+   데모 2 직접 사격 규칙 (후퇴·제압·안개·행동 제한은 그대로). 간접 화력(박격포·포병)도 주사위 규칙: diceIndirectArea:
      - 수치는 모두 RULES.DICE_STATS 표 한 곳 (attack·defense·maxRange·bonusDice). classic 의 대인/대기갑 값은 쓰지 않음
      - 대상: 상하좌우 직선, 각 방향에서 가장 가까운 유닛 하나(사이에 유닛이 있으면 막힘, 지형은 시선을 막지 않음), 표의 maxRange(null = 무제한)
      - 필요한 숫자 N = 방어 D + 지형 보너스 + 거리 보정(거리-1)
@@ -24,7 +24,9 @@ const diceRules = () => GAME_CONFIG.DICE_RULES;
 /** 데모 2 수치 표의 한 줄 (없으면 null) */
 const diceStatsOf = (typeKey) => (GAME_CONFIG.DICE_STATS && GAME_CONFIG.DICE_STATS[typeKey]) || null;
 /** 데모 2 에서 직접 사격을 하는 병종인가 (표에 attack 이 있음. 간접 화력·통신은 없음) */
-const isDirectType = (typeKey) => { const s = diceStatsOf(typeKey); return !!s && s.attack != null; };
+const isDirectType = (typeKey) => { const s = diceStatsOf(typeKey); const ty = GAME_CONFIG.UNIT_TYPES[typeKey]; return !!s && s.attack != null && !(ty && ty.indirect); };
+/** 데모 2 에서 주사위 규칙으로 쏘는 간접 화력 병종인가 (박격포·포병: 표에 attack 이 있음) */
+const isIndirectDiceType = (typeKey) => { const s = diceStatsOf(typeKey); const ty = GAME_CONFIG.UNIT_TYPES[typeKey]; return !!s && s.attack != null && !!(ty && ty.indirect); };
 /** 직접 사격 병종의 최대 사거리 (칸, 무제한이면 Infinity) */
 const diceMaxRange = (typeKey) => { const s = diceStatsOf(typeKey); return s && s.maxRange != null ? s.maxRange : Infinity; };
 /** 수치 표 검사: 오류 문장 목록 (비어 있으면 정상). 모든 병종에 행이 있고, 직접 사격 유닛은 attack ≥ 1 */
@@ -37,8 +39,10 @@ function diceStatsErrors() {
     if (!row) { bad(k, 'err.diceStats.missing'); continue; }
     if (!isInt(row.defense, 0)) bad(`${k}.defense`, 'err.diceStats.int');
     const direct = !!T[k].canAttack && !T[k].indirect;
-    if (direct && !isInt(row.attack, 1)) bad(`${k}.attack`, 'err.diceStats.attack');
-    if (!direct && row.attack != null) bad(`${k}.attack`, 'err.diceStats.noAttack');
+    const shoots = !!T[k].canAttack;   // 직접 사격 + 간접 화력 (통신은 못 쏨)
+    if (shoots && !isInt(row.attack, 1)) bad(`${k}.attack`, 'err.diceStats.attack');
+    if (!shoots && row.attack != null) bad(`${k}.attack`, 'err.diceStats.noAttack');
+    if (T[k].indirect && row.maxRange != null) bad(`${k}.maxRange`, 'err.diceStats.noRange');
     if (direct && row.maxRange != null && !isInt(row.maxRange, 1)) bad(`${k}.maxRange`, 'err.diceStats.range');
     if (row.bonusDice != null) {
       const ok = typeof row.bonusDice === 'object' && Object.entries(row.bonusDice).every(([tk, n]) => T[tk] && isInt(n, 1));
@@ -108,6 +112,41 @@ function diceBreakdown({ attacker, defender, terrain, from = null }) {
     dice: { count: A, base: dc.base, bonus: dc.bonus, minApplied: dc.min, need, def: D, terrain: tb, terrainKey: terrain ? terrain.key : null, distance: dist, distBonus: db, oneP: diceOneP(need) },
   };
 }
+/**
+ * (dice) 간접 화력(박격포·포병) 판정. 조준한 칸 aim 에 쏘면, 중심 칸 유닛(있으면)과 포병은 이웃 4칸 유닛이 범위 안.
+ * 주사위는 쏘는 유닛이 한 번만 굴리고 (개수 = max(1, attack - 체력 보정)), 범위 안 유닛은 같은 눈 세트를 각자의 필요한 숫자로 따진다.
+ *   N = 대상 방어 + 그 유닛이 선 칸의 지형 보너스 + (조준 칸까지 거리 - 1) + (조준 칸이 쏘는 진영에게 안 보이면 blindPenalty)
+ * 사거리·쿨다운·대상 칸 방식은 classic 그대로 (이 함수는 사거리를 검사하지 않음).
+ */
+function diceIndirectNeed(defender, terrain, dist, blind) {
+  const def = diceDefense(defender), terr = diceTerrainBonus(terrain), distBonus = diceDistanceBonus(dist), blindBonus = blind ? diceRules().blindPenalty : 0;
+  return { need: def + terr + distBonus + blindBonus, def, terrain: terr, terrainKey: terrain ? terrain.key : null, distBonus, blindBonus };
+}
+/** from = 쏘는 위치 (기본 공격자 위치). 반환 { count, base, penalty, minApplied, dist, distBonus, blind, blindBonus, units:[{ id, unit, center, need, def, terrain, p }] } (중심 → 위·아래·왼쪽·오른쪽 순) */
+function diceIndirectArea(state, attacker, aim, from = null) {
+  const dc = diceCount(attacker, null);
+  const blind = !getVisibleTiles(state, attacker.side).has(idx(aim.r, aim.c));
+  const dist = manhattan(from || attacker, aim);
+  const cells = [{ r: aim.r, c: aim.c, center: true }];
+  if (unitType(attacker).splash !== false) for (const [dr, dc2] of DIRS) cells.push({ r: aim.r + dr, c: aim.c + dc2, center: false });
+  const units = [];
+  for (const cell of cells) {
+    if (!inBounds(cell.r, cell.c)) continue;
+    const o = getUnitAt(state, cell.r, cell.c);
+    if (!o) continue;
+    const n = diceIndirectNeed(o, terrainAt(o.r, o.c), dist, blind);
+    units.push({ id: o.id, unit: o, center: cell.center, ...n, p: diceHitP(dc.count, n.need) });
+  }
+  const bb = blind ? diceRules().blindPenalty : 0;
+  return { count: dc.count, base: dc.base, penalty: dc.penalty, minApplied: dc.min, dist, distBonus: diceDistanceBonus(dist), blind, blindBonus: bb, units };
+}
+
+/** (dice 간접 화력) 가상의 사격이 defender 에게 명중할 확률 0~1 (AI 평가·위험 계산용. attacker/defender 는 { type, hp }, 지형은 defender 가 선 칸) */
+const diceIndirectChance = (attacker, defender, terrain, dist, blind = false) => diceHitP(diceCount(attacker, null).count, diceIndirectNeed(defender, terrain, dist, blind).need);
+
+/** (dice 간접 화력) 범위 안 유닛 중 보는 진영 시야 안에 있는 것만 (안개 규칙: 안 보이는 유닛의 필요한 숫자·확률·결과는 화면·로그에 쓰지 않음). area = hc.dice.area, vis = 시야 Set */
+const diceAreaVisible = (area, vis) => area.filter((x) => vis.has(idx(x.r, x.c)));
+
 /** 이 계산에 dice 규칙을 쓰는가: 규칙 세트가 dice 이고, 직접 사격 병종이 실제 유닛(대상 있음)을 쏠 때 */
 const usesDiceHit = (attacker, defender) => isDiceRules() && !!attacker && !!defender && isDirectType(attacker.type);
 
@@ -135,16 +174,21 @@ function diceTargetsFrom(state, u, from, vis) {
   return out;
 }
 
-/** (dice) 주사위를 굴려 명중 여부 판정. rng 는 게임 주사위 스트림. 반환 { rolls, hit } (rolls = 굴린 순서대로 0~9) */
-function diceRollAll(rng, count, need) {
+/** (dice) 주사위 눈만 굴림 (rolls = 굴린 순서대로 0~9). 간접 화력은 이 한 세트를 범위 안 모두가 씀 */
+function diceRollFaces(rng, count) {
   const rolls = [];
   for (let i = 0; i < count; i++) rolls.push(Math.floor(rng() * diceRules().sides));
+  return rolls;
+}
+/** (dice) 주사위를 굴려 명중 여부 판정. rng 는 게임 주사위 스트림. 반환 { rolls, hit } (rolls = 굴린 순서대로 0~9) */
+function diceRollAll(rng, count, need) {
+  const rolls = diceRollFaces(rng, count);
   return { rolls, hit: rolls.some((f) => diceFaceOk(f, need)) };
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   Object.assign(module.exports, {
-    rulesetOf, setRuleset, isDiceRules, isDirectType, diceStatsOf, diceMaxRange, diceStatsErrors, diceCount, diceDefense, diceTerrainBonus, diceDistanceBonus, diceOneP, diceHitP, diceFaceOk,
+    rulesetOf, setRuleset, isDiceRules, isDirectType, isIndirectDiceType, diceIndirectNeed, diceIndirectArea, diceIndirectChance, diceAreaVisible, diceRollFaces, diceStatsOf, diceMaxRange, diceStatsErrors, diceCount, diceDefense, diceTerrainBonus, diceDistanceBonus, diceOneP, diceHitP, diceFaceOk,
     diceBreakdown, diceTargetsFrom, diceRollAll,
   });
 }

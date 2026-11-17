@@ -1,5 +1,14 @@
 # HANDOFF (2026-11-17) — 데모 2 (주사위 규칙 + 수치 표 + 굴림 연출) (태그 `stable-before-demo2`, `-demo2-stats`, `stable-before-dice-motion`)
 
+## 데모 2: 간접 화력(박격포·포병)도 주사위 규칙 (태그 `stable-before-demo2-indirect`, classic·시드 결과 불변)
+- 규칙: 쏘는 쪽이 `max(1, attack − 체력보정)`개를 **한 번** 굴리고, 범위 안 유닛(포병 중심+이웃 4칸, 박격포 중심 한 칸)이 같은 눈을 각자 `N = 방어 + 선 칸 지형 보너스 + (조준 칸까지 거리 −1) + (조준 칸이 내 시야 밖이면 blindPenalty)`로 따짐. 빗나간 유닛은 피해·후퇴·제압 없음, 중심이 명중해야 제압, 아군 오폭은 피해만. 사거리·쿨다운·대상 칸 방식은 classic 그대로.
+- 데이터: `RULES.DICE_STATS` mortar `{attack:2, defense:4}`, artillery `{attack:3, defense:3}`(maxRange·bonusDice 불가, `diceStatsErrors`가 검사), `RULES.DICE_RULES.blindPenalty: 2`.
+- 코드: `combat.js` `diceIndirectNeed/Area/Chance`, `diceAreaVisible`(화면용 시야 필터), `diceRollFaces`, `isIndirectDiceType`. 엔진 `computeHitChance`(dice.area), `resolveAttack`(이벤트 `diceUnit` 추가, 빗나간 유닛은 hits 에서 제외), AI `aiScoreAttack`(유닛별 확률)·`aiEstimateThreat`·`ai-intel.js` 위험 지도·`retreatGain(pOfVictim)`.
+- 화면(`ui.js`): `diceIndHtml/diceIndHead`(시트·툴팁은 보이는 유닛만, 맹사격은 `안 보이는 칸 (+n)`), 호버 배지 `?`/`–`, `diceUnitTagFx`(착탄 뒤 보이는 유닛 위 명중/빗나감), 로그 `log.diceUnit`(보이는 유닛만)·`res.land`, 규칙 `rules.dice.6`. 포탄은 항상 조준 칸에 떨어짐(`fxEv.hit=true`)이라 안 보이는 유닛 결과가 그림으로 새지 않음. 안 보이는 적의 포격은 주사위 연출 없이 착탄만.
+- 검증: test 244 통과·실패 0(간접 테스트 6개 추가), classic check.js 28건 SAME(아래 최종 보고 참고). 브라우저 PC·390x844: 시트, 결과, 맹사격, 안 보이는 적 포격.
+- 알려진 것: 안 보이는 적의 사격 로그에 굴린 눈은 보임(직접 사격과 같음). AI의 제압·후퇴 평가(`symV2Attack`)는 중심 확률만 씀. 데모 2 피해량은 classic 값. `docs/rules.md` 에는 데모 2 절이 없음.
+
+
 ## 주사위 굴림 연출 (보여 주기만, 엔진·규칙·AI·시뮬레이션 불변)
 - 새 파일 `js/dice-fx.js`(fx.js 다음): 상수 `DICE_FX`(배속 내 0.7·상대 1.6, 정지 0.8초+0.2초 간격, 문구 0.5초 뒤, 0.3초 정지, 0.2초 사라짐, 크기 60/52px 등 한 곳), 순수 함수 `diceFxTimeline/Speed/Faces/ShouldPlay/Size/Place/Palette`(테스트 대상), `diceFx.play/cancel`(캔버스 3D 10면체, reference/dice-demo.html 포팅). 호출은 `ui.js` `playDiceFx`(`playAttack` 안 `ev.rule==='dice'` 분기)와 `clearFx`(cancel)뿐. 소리 `dice_roll`·`dice_land`는 `AUDIO.files` 빈 목록(파일 없으면 조용히).
 - **적용 범위: `dice` 규칙의 직접 사격만.** classic 굴림은 1~10(0~9 아님)이라 지시대로 적용 중지(기존 숫자 연출 유지), 간접 화력·튜토리얼도 classic 판정이라 그대로. 안 보이는 공격·가림 화면에서는 시작 안 함, 공격자가 안 보이면 병종·보너스 문구 생략. 화면·키 입력으로 건너뛰기, 연출 줄이기는 0.4초 결과만. 색은 공격 진영의 시나리오 색(`SIDES[x].color`)에서 파생(없으면 참고 파일의 파랑/빨강).
