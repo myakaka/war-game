@@ -1302,7 +1302,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
     throw new Error(t('err.illegalAttack', { id: attackerId, r: targetPos.r, c: targetPos.c }));
   }
   noteActivation(state, a);
-  const t = unitType(a);
+  const ut = unitType(a);
   const hc = computeHitChance(state, attackerId, targetPos);
   let roll, hit, rolls = null;
   if (hc.dice) {   // 데모 2 직접 사격: 공격력 개수만큼 d10(0~9), 하나라도 0 이거나 N 이상이면 명중 (굴린 눈은 순서대로 기록)
@@ -1315,7 +1315,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   const events = [{
     type: 'diceRoll', attackerId: a.id, side: a.side, unitType: a.type, from: { r: a.r, c: a.c },
     target: { ...targetPos }, chance: hc.chance, raw: hc.raw, sides: hc.sides, need: hc.need, roll, hit,
-    fogged: hc.fogged, movedAttack: hc.movedAttack, indirect: !!t.indirect, parts: hc.parts,
+    fogged: hc.fogged, movedAttack: hc.movedAttack, indirect: !!ut.indirect, parts: hc.parts,
     targetType: hc.targetId ? getUnit(state, hc.targetId).type : null,   // 통계용 (화면에는 표시하지 않음)
   }];
   if (hc.dice) Object.assign(events[0], { rule: 'dice', rolls, diceCount: hc.dice.count, dice: { ...hc.dice } });   // classic 이벤트에는 이 필드들이 없음
@@ -1325,7 +1325,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
     const hits = [];
     const center = getUnitAt(state, targetPos.r, targetPos.c);
     if (center) hits.push({ unit: center, amount: calcDamage(a, center), splash: false });
-    if (t.indirect && t.splash !== false) {   // 포병: 인접 4칸 (적·아군 모두). 박격포는 한 칸만
+    if (ut.indirect && ut.splash !== false) {   // 포병: 인접 4칸 (적·아군 모두). 박격포는 한 칸만
       for (const [dr, dc] of DIRS) {
         const o = getUnitAt(state, targetPos.r + dr, targetPos.c + dc);
         if (o) hits.push({ unit: o, amount: GAME_CONFIG.COMBAT.splashDamage, splash: true });
@@ -1344,10 +1344,10 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
     intelOnSuppress(state, a, rev);   // 내 사격 결과: 시야 안에서 제압한 적을 기억 (ai-intel.js, 모든 시나리오)
     if (GAME_CONFIG.OBJECTIVE_CONTROL === 'presence') events.push(...updateObjectiveControl(state));
   }
-  if (state.aiIntel && t.indirect) intelOnIndirectFire(state, a, targetPos, events);   // 맞은 진영의 간접 사격 단서
+  if (state.aiIntel && ut.indirect) intelOnIndirectFire(state, a, targetPos, events);   // 맞은 진영의 간접 사격 단서
   a.moved = true;   // 공격 후 이동 불가
   a.acted = true;
-  if (GAME_CONFIG.FIRES && t.indirect) a.lastFiredRound = state.round;   // 쿨다운 기준 (fires 가 없으면 기록하지 않음)
+  if (GAME_CONFIG.FIRES && ut.indirect) a.lastFiredRound = state.round;   // 쿨다운 기준 (fires 가 없으면 기록하지 않음)
   updateMemory(state);
   pushVictoryIfAny(state, events);
   return events;
