@@ -4,7 +4,7 @@
 - 새 파일 `js/dice-fx.js`(fx.js 다음): 상수 `DICE_FX`(배속 내 0.7·상대 1.6, 정지 0.8초+0.2초 간격, 문구 0.5초 뒤, 0.3초 정지, 0.2초 사라짐, 크기 60/52px 등 한 곳), 순수 함수 `diceFxTimeline/Speed/Faces/ShouldPlay/Size/Place/Palette`(테스트 대상), `diceFx.play/cancel`(캔버스 3D 10면체, reference/dice-demo.html 포팅). 호출은 `ui.js` `playDiceFx`(`playAttack` 안 `ev.rule==='dice'` 분기)와 `clearFx`(cancel)뿐. 소리 `dice_roll`·`dice_land`는 `AUDIO.files` 빈 목록(파일 없으면 조용히).
 - **적용 범위: `dice` 규칙의 직접 사격만.** classic 굴림은 1~10(0~9 아님)이라 지시대로 적용 중지(기존 숫자 연출 유지), 간접 화력·튜토리얼도 classic 판정이라 그대로. 안 보이는 공격·가림 화면에서는 시작 안 함, 공격자가 안 보이면 병종·보너스 문구 생략. 화면·키 입력으로 건너뛰기, 연출 줄이기는 0.4초 결과만. 색은 공격 진영의 시나리오 색(`SIDES[x].color`)에서 파생(없으면 참고 파일의 파랑/빨강).
 - 검증: test 239 통과·18 건너뜀·실패 0(연출 테스트 9개 추가), layout-check 32 SAME, 엔진 쪽 파일(engine·combat·rules·ai-intel·tutorial) 변경 없음(위 classic check.js 28건 SAME 결과 그대로). 브라우저: PC·390x844·360x640, 내 공격·적 공격·건너뛰기·연출 줄이기·classic 불변.
-- 알려진 것: 엔진 `resolveAttack` 의 불법 공격 오류 문구가 `const t` 때문에 ReferenceError 로 나옴(잠복 버그, 건드리지 않음). 지도 어둡게는 0.45.
+- 해결: 엔진 `resolveAttack` 의 `const t` 가 번역 함수 `t()` 를 가려 불법 공격 오류가 ReferenceError 로 나오던 버그를 `ut` 로 바꿔 고침(커밋 6ecef00, 시드 비교 28건 SAME, 테스트 239 통과). 지도 어둡게는 0.45.
 
 ## 데모 2 규칙 세트
 
