@@ -1207,10 +1207,91 @@
     hud.classList.remove('measuring');   // 그래도 넘치면 현재 턴 칩이 말줄임으로 줄어듦
   }
 
+  /* ---------- 목표 표시줄 / 목표 장면: 시나리오 데이터(goalInfo)만 읽음. 유닛·시야·점유 상태는 읽지 않음 ---------- */
+  const GOAL_KEY = 'chuncheon1950.goalSeen';   // 시나리오별로 목표 장면을 이미 봤는지 (저장이 안 되면 매번 보여 줌)
+  const goalSeen = (id) => { try { const v = JSON.parse(localStorage.getItem(GOAL_KEY) || '{}'); return !!(v && v[id]); } catch (e) { return false; } };
+  const goalMark = (id) => { try { const v = JSON.parse(localStorage.getItem(GOAL_KEY) || '{}') || {}; v[id] = 1; localStorage.setItem(GOAL_KEY, JSON.stringify(v)); } catch (e) { /* 저장 불가 환경 */ } };
+  const goalSide = () => (hotseat() && GAME_CONFIG.SIDES[ui.viewer] ? ui.viewer : PLAYER);
+  const goalData = () => goalInfo(findScenario(GAME_CONFIG.SCENARIO_ID), goalSide());
+  const plainText = (html) => String(html).replace(/<[^>]*>/g, '');
+  /** 표시줄 두 줄: 1줄 = 목표 + 거점 이름, 2줄 = 규칙 화면과 같은 승리 조건 한 줄 */
+  function goalLines() {
+    const g = goalData();
+    return { main: t(g.barKey, { name: { t: g.nameKey } }), sub: plainText(objectiveLineHtml()).trim() };
+  }
+  function renderGoalBar() {
+    const bar = $('#goal-bar');
+    if (!GAME_CONFIG.SCENARIO_ID || ui.screen !== 'game') return;
+    const { main, sub } = goalLines();
+    bar.querySelector('.gb-main').textContent = main;
+    bar.querySelector('.gb-sub').textContent = sub;
+    bar.title = `${main}\n${sub}`;
+    bar.setAttribute('aria-label', `${t('aria.goalBar')}: ${main}. ${sub}`);
+  }
+  /** 목표 장면: 지도 50% 어둡게 + 거점 칸만 노란 테두리·맥박 + 말풍선. 아무 곳이나 한 번 누르면 닫힘 (그동안 다른 입력·확대/이동 잠금) */
+  function showGoalScene(onClose) {
+    if (ui.screen !== 'game' || !goalData().cells.length) { if (onClose) onClose(); return; }
+    ui.goalScene = { onClose };
+    document.body.classList.add('goal-scene');
+    const sh = $('#goal-shield');
+    sh.hidden = false;
+    sh.setAttribute('aria-label', t('aria.goalScene'));
+    sh.focus({ preventScroll: true });
+    renderGoalScene();
+  }
+  function renderGoalScene() {
+    if (!ui.goalScene) return;
+    const g = goalData(), bub = $('#goal-bubble'), wr = $('#board-wrap').getBoundingClientRect();
+    let layer = boardEl.querySelector('.goal-layer');   // tut-layer 와 클래스를 나눔: renderTutMarks 가 이 층을 비우지 않게
+    if (!layer) { layer = document.createElement('div'); layer.className = 'goal-layer'; layer.setAttribute('aria-hidden', 'true'); boardEl.appendChild(layer); }
+    layer.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+    layer.style.gridTemplateRows = `repeat(${N}, 1fr)`;
+    const lit = new Set(g.cells.map(([r, c]) => idx(r, c)));
+    const pos = (r, c) => `grid-row:${r + 1};grid-column:${c + 1}`;
+    let html = '';
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!lit.has(idx(r, c))) html += `<div class="tut-dim" style="${pos(r, c)}"></div>`;
+    layer.innerHTML = html + g.cells.map(([r, c]) => `<div class="tut-pulse" style="${pos(r, c)}"></div>`).join('');
+    bub.querySelector('.tb-main').textContent = t(g.main);
+    bub.querySelector('.tb-sub').textContent = t(g.sub);
+    bub.hidden = false;
+    bub.style.left = '0px'; bub.style.top = '0px';
+    bub.style.maxWidth = Math.floor(wr.width - 16) + 'px';
+    const rects = g.cells.map(([r, c]) => cells[idx(r, c)].el.getBoundingClientRect());
+    const x0 = Math.min(...rects.map((q) => q.left)), y0 = Math.min(...rects.map((q) => q.top));
+    const anchor = { x: x0 - wr.left, y: y0 - wr.top, w: Math.max(...rects.map((q) => q.right)) - x0, h: Math.max(...rects.map((q) => q.bottom)) - y0 };
+    const p = tutorialPlaceBubble({ box: { w: wr.width, h: wr.height }, size: { w: bub.offsetWidth, h: bub.offsetHeight }, anchor, avoid: [] });
+    bub.style.left = Math.round(p.x) + 'px';
+    bub.style.top = Math.round(p.y) + 'px';
+    const tail = bub.querySelector('.tb-tail');
+    tail.style.cssText = '';
+    if (p.tail) {
+      const e = p.tail.edge, o = Math.round(p.tail.pos - 6) + 'px';
+      if (e === 'bottom') { tail.style.bottom = '-6px'; tail.style.left = o; }
+      else if (e === 'top') { tail.style.top = '-6px'; tail.style.left = o; }
+      else if (e === 'left') { tail.style.left = '-6px'; tail.style.top = o; }
+      else { tail.style.right = '-6px'; tail.style.top = o; }
+    }
+  }
+  /** 닫기. silent = 화면이 바뀌어서 닫는 경우 (뒤따르는 시작 동작은 하지 않음) */
+  function closeGoalScene(silent = false) {
+    const sc = ui.goalScene;
+    if (!sc) return;
+    ui.goalScene = null;
+    document.body.classList.remove('goal-scene');
+    $('#goal-shield').hidden = true;
+    $('#goal-bubble').hidden = true;
+    const layer = boardEl.querySelector('.goal-layer');
+    if (layer) layer.remove();
+    if (ui.tut) renderTutUi();
+    if (!silent && sc.onClose) sc.onClose();
+  }
+  $('#goal-shield').addEventListener('click', () => closeGoalScene());
+
   function renderHeader() {
     const st = ui.view;
     const me = ui.viewer;
     const W = ui.wide;
+    renderGoalBar();
     if (ui.screen === 'start' || ui.screen === 'curtain' || !me || !st) {   // 가림막·빈 화면: 게임 정보 없음
       for (const id of ['hud-round', 'hud-turn', 'hud-demo2', 'hud-act', 'hud-goal', 'hud-units', 'hud-reinf']) setChip(id, null);
       $('#hud-objs').innerHTML = '';
@@ -3288,8 +3369,9 @@
     setScreen('game');
     renderLog();
     render();
-    if (ui.state.turn === PLAYER) showBanner(PLAYER, ui.state.round);
-    runAiTurn();
+    const go = () => { if (ui.state.turn === PLAYER) showBanner(PLAYER, ui.state.round); runAiTurn(); };
+    const sid = GAME_CONFIG.SCENARIO_ID;
+    if (ui.practice || !goalSeen(sid)) { if (!ui.practice) goalMark(sid); showGoalScene(go); } else go();   // 목표 장면: 연습 판은 매번, 일반 판은 그 시나리오를 처음 시작할 때만 (2인 대전은 위에서 가림막으로 갔으므로 여기 오지 않음). AI 첫 턴은 닫은 뒤에
   }
 
   /* ---------- 시작 전 배치 (유닛 트레이 → 초록 구역의 칸) ---------- */
@@ -3868,10 +3950,19 @@
     if (F.mortar && scenarioHasType('mortar')) s += `<li>${esc(t('intro.mortar', { range: v('mortar', 'range'), cd: v('mortar', 'cooldown'), dmg: GAME_CONFIG.UNIT_TYPES.mortar.fixedDamage }))}</li>`;
     return s;
   }
+  /** 승리 조건 한 줄 (<li>). 규칙 화면과 목표 표시줄 2줄이 같은 문구를 읽음 */
+  function objectiveLineHtml() {
+    const C = GAME_CONFIG;
+    const when = C.OBJECTIVE_CHECK_AFTER ? { t: 'intro.when.side', p: { side: S(C.OBJECTIVE_CHECK_AFTER) } } : { t: 'intro.when.round' };
+    return roundLimitType() === 'roundLimitPoints'
+    ? `<li>${t('intro.points', { max: C.MAX_ROUNDS, list: C.OBJECTIVES.map((o) => ({ t: 'intro.pointItem', p: { obj: OBS(o.id), n: C.OBJECTIVE_POINTS[o.id] } })) })} ${t(C.SCORE_TIMING === 'roundEnd' ? 'intro.pointsRoundEnd' : 'intro.pointsOwnTurn')}${C.SCORE_TARGET ? ' ' + t('intro.pointsTarget', { n: C.SCORE_TARGET }) : ''}</li>`
+    : roundLimitType() === 'roundLimitScore'
+    ? `<li>${t('intro.objectivesSym', { total: C.OBJECTIVES.length, max: C.MAX_ROUNDS })}</li>`
+    : holdSide() ? `<li>${t('intro.objectives', { when, att: S(holdSide()), n: holdCount() })}</li>` : '';
+  }
   /** 현재 시나리오의 진행·승리 조건 (시나리오 데이터 = 공개 정보). 규칙 화면 1·7번 항목 */
   function victoryLinesHtml() {
     const C = GAME_CONFIG;
-    const when = C.OBJECTIVE_CHECK_AFTER ? { t: 'intro.when.side', p: { side: S(C.OBJECTIVE_CHECK_AFTER) } } : { t: 'intro.when.round' };
     // 배치 구역: 시작 유닛이 있는 진영만. 플레이어 진영이 아니면 '2인 대전의 …'
     const zoneOf = (s) => (C.ZONE_LABEL_KEY ? { t: C.ZONE_LABEL_KEY } : { t: 'intro.zoneRows', p: { rows: C.DEPLOY_ZONES[s].rows.join('~') } });
     const zones = C.ROUND_ORDER.filter((s) => C.DEPLOY_ZONES[s] && C.DEPLOYMENT[s].length)
@@ -3879,11 +3970,7 @@
     const hasHq = C.ROUND_ORDER.some((s) => C.HQ[s]);
     return `${zones.length ? `<li>${t('intro.deploy', { list: zones })}</li>` : ''}
         <li>${t(surviveSide() ? 'intro.round' : 'intro.roundSym', { order: C.ROUND_ORDER.map((s) => t('log.turn', { side: S(s) })).join(' → '), max: C.MAX_ROUNDS })}</li>
-        ${roundLimitType() === 'roundLimitPoints'
-    ? `<li>${t('intro.points', { max: C.MAX_ROUNDS, list: C.OBJECTIVES.map((o) => ({ t: 'intro.pointItem', p: { obj: OBS(o.id), n: C.OBJECTIVE_POINTS[o.id] } })) })} ${t(C.SCORE_TIMING === 'roundEnd' ? 'intro.pointsRoundEnd' : 'intro.pointsOwnTurn')}${C.SCORE_TARGET ? ' ' + t('intro.pointsTarget', { n: C.SCORE_TARGET }) : ''}</li>`
-    : roundLimitType() === 'roundLimitScore'
-    ? `<li>${t('intro.objectivesSym', { total: C.OBJECTIVES.length, max: C.MAX_ROUNDS })}</li>`
-    : holdSide() ? `<li>${t('intro.objectives', { when, att: S(holdSide()), n: holdCount() })}</li>` : ''}
+        ${objectiveLineHtml()}
         ${C.OBJECTIVE_CONTROL === 'presence' ? `<li>${t('intro.presence')}</li>` : ''}
         <li>${t(hasHq ? 'intro.hqLoss' : 'intro.annihilation')}</li>
         ${C.REINFORCEMENTS.length ? `<li>${t('intro.reinf')}</li>` : ''}`;
@@ -3913,7 +4000,7 @@
       case 'zoom':
         return `<ul>${['pc', 'touch', 'tap', 'fit'].map((k) => li(esc(t('rules.zoom.' + k, { px: ZOOM.dragPx, min: ZOOM.minZoom, max: ZOOM.maxZoom })))).join('')}</ul>`;
       case 'goal':
-        return `<div class="hint">${t(C.SYMMETRIC ? 'intro.whoAISym' : 'intro.whoAI', SP())}</div><ul>${li(esc(t('rules.flow')))}${victoryLinesHtml()}</ul>`;
+        { const gl = goalLines(); return `<div class="rules-goal"><b>${esc(gl.main)}</b><div class="hint">${esc(gl.sub)}</div></div><div class="hint">${t(C.SYMMETRIC ? 'intro.whoAISym' : 'intro.whoAI', SP())}</div><ul>${li(esc(t('rules.flow')))}${victoryLinesHtml()}</ul>`; }
       case 'move':
         return `<ul>${introMoveRuleHtml()}${li(t('intro.pass'))}${introActRuleHtml()}${actLimitsOf(ui.act) ? li(esc(t('rules.actShown'))) : ''}</ul>`;
       case 'hit':
@@ -4123,6 +4210,7 @@
     tutMark({ seen: true });
     if (GAME_CONFIG.SCENARIO_ID !== TUTORIAL_ID) applyScenario(TUTORIAL_ID, false);
     loadTutStep(k);
+    if (k === 0) showGoalScene(null);   // 0번 장면: 1단계 앞에 목표 안내 (n/9 에 세지 않음)
   }
   /** 단계 불러오기 (이전·다시 해 보기·자동 다음 단계 모두 여기서 시작 상태로) */
   function loadTutStep(k) {
@@ -4231,7 +4319,7 @@
     $('#tut-retry').textContent = t('btn.tutRetry');
     $('#tut-exit').textContent = t('btn.tutExit');
     const beat = tutorialBeat(T.step, T.log, ui.state), P = tutorialParams(), res = T.result;
-    const hold = ui.busy || overlayShown();   // 연출 중이거나 확인 창이 열려 있으면 말풍선은 잠시 숨김
+    const hold = ui.busy || overlayShown() || !!ui.goalScene;   // 연출 중이거나 확인 창이 열려 있으면 말풍선은 잠시 숨김
     let text = null, sub = null, anchorCell = null, anchorRect = null;
     const wrap = $('#board-wrap'), wr = wrap.getBoundingClientRect();
     const rel = (el) => { const r = el.getBoundingClientRect(); return { x: r.left - wr.left, y: r.top - wr.top, w: r.width, h: r.height }; };
@@ -4427,6 +4515,7 @@
   function setScreen(name) {
     ui.screen = name;
     document.body.dataset.screen = name;
+    if (name !== 'game' && ui.goalScene) closeGoalScene(true);
     if (name === 'curtain' || name === 'start') resetZoom();   // 이전 사람이 보던 위치가 남지 않게
     if (name === 'curtain') { if (boardWrapEl.isConnected) boardWrapEl.remove(); }
     else if (!boardWrapEl.isConnected) $('#map-host').appendChild(boardWrapEl);
@@ -4463,6 +4552,13 @@
       $('#card-full').appendChild($('#card-btns'));
     }
   }
+  /** 목표 표시줄 자리: 좁은 화면 = 지도 아래 한 줄, PC = 오른쪽 패널 맨 위(HUD 바로 아래), 넓은 화면(휴대폰 가로) = 오른쪽 열 맨 위. 지도 크기를 줄이는 것은 좁은 화면뿐 */
+  function placeGoalBar(pc, wide) {
+    const bar = $('#goal-bar'), side = $('#side');
+    if (pc) { if (bar.previousSibling !== $('#hud')) side.insertBefore(bar, $('#hud').nextSibling); }
+    else if (wide) { if (bar.parentNode !== side) side.insertBefore(bar, side.firstChild); }
+    else if (bar.parentNode !== $('#map-col')) $('#map-col').insertBefore(bar, $('#logbar'));
+  }
   const sideWidth = (W) => { const L = DESIGN.layout; return Math.round(Math.min(L.sideMax, Math.max(L.sideMin, W * L.sideVw))); };
   function fitLayout() {
     const L = DESIGN.layout;
@@ -4477,6 +4573,7 @@
     const wide = big || compact;   // compact 는 넓은 화면 배치를 작은 크기로
     const changed = wide !== ui.wide || compact !== ui.compact || pc !== ui.pc;
     if (pc !== ui.pc) placePcDom(pc);
+    placeGoalBar(pc, wide);
     ui.wide = wide;
     ui.compact = compact;
     ui.pc = pc;
@@ -4519,7 +4616,8 @@
       const hudH = $('#hud').offsetHeight, logH = $('#logbar').hidden ? 0 : $('#logbar').offsetHeight + L.narrowGap;
       ui.lastSideH = $('#side').offsetHeight;   // 요약 카드 또는 트레이 (액션 바는 고정)
       availW = W - L.narrowSide;
-      availH = H - hudH - logH - ui.lastSideH - abarH - 3 * L.narrowGap;
+      const goalH = $('#goal-bar').offsetHeight;   // 목표 표시줄 (게임 화면에서만 보임)
+      availH = H - hudH - logH - (goalH ? goalH + L.narrowGap : 0) - ui.lastSideH - abarH - 3 * L.narrowGap;
     }
     let cell = Math.floor((Math.min(availW, availH) - extra) / N);
     // cellMin 미만이면 하단 UI 를 우선 (지도가 더 작아짐). PC 게임 화면은 상한 없이 높이에 맞춤 (칸은 정수 px, 지도 = 칸 × N)
@@ -4536,6 +4634,7 @@
     }
     if (ui.confirm) keepUnitsAboveSheet();
     if (ui.tut) renderTutUi();   // 지도 크기가 바뀌면 말풍선 위치도 다시
+    if (ui.goalScene) renderGoalScene();
   }
   let layoutRaf = 0;
   const onResize = () => { cancelAnimationFrame(layoutRaf); layoutRaf = requestAnimationFrame(() => { hideBalloon(); hideTip(); fitLayout(); }); };
@@ -4992,6 +5091,11 @@
     if (e.pointerType === 'touch' && ui.touchArm >= 0 && !boardEl.contains(tgt)) { ui.touchArm = -1; clearHover(); }
   }, true);
   document.addEventListener('keydown', (e) => {
+    if (ui.goalScene) {   // 목표 장면: Enter·Space·Esc 로 닫기, 그 밖의 키는 잠금
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); closeGoalScene(); }
+      else if (e.key === 'Tab') e.preventDefault();
+      return;
+    }
     if (e.key === 'Tab') { trapFocus(e); return; }
     if (ui.choice) {   // 이동/사격 선택 창: M = 이동, F = 사격, Esc = 취소
       if (e.key === 'Escape') { e.preventDefault(); sfx('ui_cancel'); choiceDo(null); }

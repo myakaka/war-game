@@ -2886,3 +2886,35 @@ test('[주사위연출] 연출은 엔진·AI·시뮬레이션 경로에서 쓰�
   jsonEq(files.dice_roll, []); jsonEq(files.dice_land, []);
   assert.ok(run('AUDIO.loadOrder').includes('dice_roll') && run('AUDIO.loadOrder').includes('dice_land'));
 });
+
+/* ---------------- 목표 표시 (표시줄 + 목표 장면): 시나리오 데이터에서 읽음 ---------------- */
+test('[목표표시] 모든 시나리오: goalInfo 가 거점 칸·이름·문구를 데이터에서 읽고, 문구 키가 ko/en 에 있고 글자 수(22/28자) 안', () => {
+  for (const s of E.SCENARIOS) {
+    jsonEq(E.validateGoalTexts(s), []);
+    const side = s.playerSide, g = E.goalInfo(s, side);
+    assert.ok(g.cells.length > 0, `${s.id} 거점 칸`);
+    for (const lang of ['ko', 'en']) for (const k of [g.nameKey, g.barKey, g.main, g.sub]) assert.ok(k in run('STRINGS')[lang], `${s.id} ${lang} ${k}`);
+  }
+});
+test('[목표표시] 데이터를 바꾸면 표시가 바뀜: 거점 이름·문구·역할·기본 이름', () => {
+  const base = E.SCENARIOS.find((s) => s.id === 'vuhledar');
+  assert.equal(E.goalInfo(base, 'ua').nameKey, base.objectives[0].nameKey, '거점이 하나면 그 이름');
+  assert.equal(E.goalInfo({ ...base, goal: { nameKey: 'obj.SC' } }, 'ua').nameKey, 'obj.SC');
+  assert.equal(E.goalInfo({ ...base, objectives: [...base.objectives, { id: 'X', nameKey: 'obj.T', cells: [[0, 0]] }] }, 'ua').nameKey, 'goal.zone', '거점이 여러 개면 노란 구역');
+  assert.equal(E.goalInfo({ ...base, objectives: [{ id: 'X', cells: [[0, 0]] }] }, 'ua').nameKey, 'goal.zone', '이름이 없으면 노란 구역');
+  assert.equal(E.goalInfo({ ...base, goal: { scene: { def: { main: 'obj.T', sub: 'obj.P' } } } }, 'ua').main, 'obj.T');
+  assert.equal(E.goalInfo({ ...base, goal: { role: 'att' } }, 'ua').role, 'att');
+  assert.equal(E.goalInfo({ ...base, sides: { ua: {}, ru: {} } }, 'ua').role, 'att', '역할이 없으면 공격용');
+});
+test('[목표표시] 역할(공격/방어)에 따라 목표 장면·표시줄 문구가 바뀜', () => {
+  const sc = E.SCENARIOS.find((s) => s.id === 'hostomel');
+  const d = E.goalInfo(sc, 'def'), a = E.goalInfo(sc, 'att');
+  assert.equal(d.role, 'def'); assert.equal(a.role, 'att');
+  assert.notEqual(d.main, a.main); assert.notEqual(d.sub, a.sub); assert.notEqual(d.barKey, a.barKey);
+  // 튜토리얼·연습·대칭 전장은 양쪽 모두 거점을 차지하는 판이라 방어 진영이어도 '차지' 문구
+  for (const id of ['tutorial', 'tutorialPractice', 'symmetric']) assert.equal(E.goalInfo(E.SCENARIOS.find((s) => s.id === id), E.SCENARIOS.find((s) => s.id === id).playerSide).role, 'att', id);
+});
+test('[목표표시] goalInfo 는 게임 상태를 받지 않음 (안 보이는 정보가 섞일 수 없음) + 시뮬레이션 경로에서 쓰이지 않음', () => {
+  assert.equal(E.goalInfo.length, 2);
+  for (const f of ['js/engine.js', 'js/combat.js', 'js/ai-intel.js', 'js/rules.js']) assert.ok(!/goalInfo|goalScene/.test(fs.readFileSync(path.join(ROOT, f), 'utf8')), f);
+});

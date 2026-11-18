@@ -227,6 +227,7 @@ SCENARIOS.push({
   art: TUTORIAL_ART,
   arrivalRadius: 3,
   tutorialSteps: TUTORIAL_STEPS,
+  goal: { role: 'att' },   // 목표 표시 문구: 양쪽 모두 거점을 차지하는 판이라 '차지' 문구 (진영 역할이 방어여도)
 });
 
 // 연습 판: 작은 회전 대칭 지도, 양쪽 4기, 거점 1개(4칸), 5라운드. 일반 규칙과 AI(중립 모드, 쉬움)
@@ -274,6 +275,7 @@ SCENARIOS.push({
   river: null,
   aiConstants: {},
   aiProfiles: ['easy'],
+  goal: { role: 'att' },
   objectiveCheckAfter: null,
   activations: { def: 3, att: 3 },
   fires: TUTORIAL_FIRES,

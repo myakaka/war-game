@@ -117,6 +117,7 @@
 | `placementZones`, `zoneLabelKey` | 직접 배치 구역, 안내 문구 키 |
 | `victory` | 진영별 승리 조건 목록 (`enterHQ`, `annihilation`, `holdObjectives`, `surviveRounds`, `roundLimitScore`, `roundLimitPoints`) |
 | `objectivePoints`, `scoreTiming`, `scoreTarget` | 점수제 (v10): 거점 id별 점수, 점수 시점(`ownTurnEnd`·`roundEnd`), 즉시 승리 점수(`null` = 없음) |
+| `goal` | 목표 표시 선택 필드(화면 전용): `nameKey`(거점 이름 키), `role`('att'/'def', 문구 역할 덮어쓰기), `scene`(역할별 장면 문구 키 `{att,def:{main,sub}}`) |
 | `river`, `aiConstants` | 강 줄기와 도하 AI 상수(없으면 도하 전술이 꺼짐) |
 | `terrainNames`, `overlays`, `arrivalRadius` | 지형 이름 바꾸기, 장식 표식, 예약 투입 탐색 거리 |
 | `activations` | 역할별 한 턴 행동 한도 `{ def, att }` (1 이상의 정수). 없거나 `null`이면 제한 없음. 병력보다 큰 값은 안내만 출력 |

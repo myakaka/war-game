@@ -300,8 +300,53 @@ function validateTutorialSteps(steps) {
   return errs;
 }
 
+/* =====================================================================
+   목표 표시 (표시줄 + 목표 장면). 시나리오 데이터만 읽는 순수 함수 (상태·시야를 읽지 않으므로 안 보이는 정보가 섞이지 않음)
+   시나리오의 선택 필드 goal: { nameKey?: 거점 이름 키(없으면 거점이 하나일 때 그 이름, 아니면 '노란 구역'),
+     role?: 'att'|'def' (문구를 고를 때 진영 역할 대신 쓸 값), scene?: { att?: {main, sub}, def?: {main, sub} } (STRINGS 키) }
+   ===================================================================== */
+const GOAL_DEFAULTS = {
+  zoneKey: 'goal.zone',
+  bar: { att: 'goal.bar.att', def: 'goal.bar.def' },
+  scene: { att: { main: 'goal.scene.att', sub: 'goal.scene.att.s' }, def: { main: 'goal.scene.def', sub: 'goal.scene.def.s' } },
+};
+const GOAL_LIMITS = { main: 22, sub: 28 };   // 목표 장면 말풍선 글자 수 (본문, 보조 한 줄)
+
+/** 이 진영이 보는 목표 정보 { role, nameKey, barKey, main, sub, cells:[[r,c]] }. 역할이 없으면 공격용 */
+function goalInfo(sc, side) {
+  const G = sc.goal || {};
+  const role = G.role || ((sc.sides && sc.sides[side] && sc.sides[side].role) === 'def' ? 'def' : 'att');
+  const objs = sc.objectives || [];
+  const nameKey = G.nameKey || (objs.length === 1 && objs[0].nameKey) || GOAL_DEFAULTS.zoneKey;
+  const text = { ...GOAL_DEFAULTS.scene[role], ...((G.scene && G.scene[role]) || {}) };
+  const cells = objs.flatMap((o) => (o.cells || (o.pos ? [o.pos] : [])).map((p) => [p[0], p[1]]));
+  return { role, nameKey, barKey: GOAL_DEFAULTS.bar[role], main: text.main, sub: text.sub, cells };
+}
+
+/** 목표 문구 검사 → 오류 문자열 목록. 두 역할 × ko/en 모두 키가 있고 본문 ≤ 22자, 보조 ≤ 28자 */
+function validateGoalTexts(sc) {
+  const errs = [], prev = getLang();
+  try {
+    for (const role of ['att', 'def']) {
+      const side = Object.keys(sc.sides || {}).find((s) => sc.sides[s].role === role) || Object.keys(sc.sides || {})[0];
+      const g = goalInfo({ ...sc, goal: { ...(sc.goal || {}), role } }, side);
+      for (const lang of ['ko', 'en']) {
+        for (const [k, max] of [[g.main, GOAL_LIMITS.main], [g.sub, GOAL_LIMITS.sub], [g.barKey, 99], [g.nameKey, 99]]) {
+          if (!(k in STRINGS[lang])) { errs.push(`${sc.id}/${role}/${lang}: ${k} 없음`); continue; }
+          setLang(lang);
+          const len = tutorialLen(t(k, { name: { t: g.nameKey } }));
+          if (len > max) errs.push(`${sc.id}/${role}/${lang}: ${len}자 > ${max}자 (${k})`);
+        }
+      }
+      if (!g.cells.length) errs.push(`${sc.id}: 거점 칸 없음`);
+    }
+  } finally { setLang(prev); }
+  return errs;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   Object.assign(module.exports, {
+    GOAL_DEFAULTS, GOAL_LIMITS, goalInfo, validateGoalTexts,
     TUTORIAL_ID, PRACTICE_ID, TUT_LIMITS, tutorialSteps, tutorialState, tutorialAllows, tutorialRecord, tutorialProgress,
     tutorialTarget, tutorialEndTurn, tutorialParams, tutorialCurrent, tutorialBeat, tutorialBeats, tutorialCellMatch,
     tutorialGoalDone, tutorialResult, validateTutorialSteps, tutorialLen, tutorialPlaceBubble,

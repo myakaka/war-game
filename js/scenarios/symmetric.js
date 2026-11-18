@@ -100,6 +100,7 @@ SCENARIOS.push({
   },
   // 점수제 (v10): 점유한 거점의 점수가 쌓임. 측면 두 거점은 같은 값이어야 함 (대칭 검사)
   objectivePoints: { SL: 1, SC: 2, SR: 1 },
+  goal: { role: 'att' },                 // 목표 표시 문구: 양쪽 모두 거점을 차지하는 판 ('차지' 문구)
   scoreTiming: 'ownTurnEnd',             // 'ownTurnEnd' 자기 턴을 끝낼 때 자기 점유만 · 'roundEnd' 라운드 끝에 양쪽 동시
   scoreTarget: null,                     // 한쪽 총점이 이 값에 닿으면 즉시 승리 (null = 사용 안 함)
   // 양쪽 같은 형식. 거점으로 중간에 끝나지 않음. roundLimitPoints: 마지막 라운드가 끝나면 총점 → 남은 총 체력 → 무승부

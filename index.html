@@ -52,10 +52,12 @@
             <button id="zoom-fit" class="zoom-fit" data-i18n-aria="aria.zoomFit" data-i18n-title="aria.zoomFit">&#x2922;</button>
           </div>
           <div id="tut-bubble" class="tut-bubble" role="status" aria-live="polite" hidden><span class="tb-main"></span><span class="tb-sub"></span><button type="button" class="tb-next" hidden></button><i class="tb-tail" aria-hidden="true"></i></div>
+          <div id="goal-bubble" class="tut-bubble goal-bubble" role="status" aria-live="polite" hidden><span class="tb-main"></span><span class="tb-sub"></span><i class="tb-tail" aria-hidden="true"></i></div>
           <div id="banner" class="turn-banner" aria-hidden="true"></div>
           <div id="dice"></div>
         </div>
       </div>
+      <div id="goal-bar" class="goal-bar" role="note"><i class="gb-mark" aria-hidden="true"></i><div class="gb-txt"><b class="gb-main"></b><span class="gb-sub"></span></div></div>
       <button id="logbar" class="logbar" aria-controls="drawer" aria-expanded="false">
         <span class="tx" id="logbar-text"></span><span class="chip red sm" id="logbar-new" hidden></span><span class="lb-ind" id="logbar-ind" aria-hidden="true"></span>
       </button>
@@ -141,6 +143,7 @@
 <div id="tooltip"></div>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="goal-shield" class="goal-shield" role="button" tabindex="0" hidden></div>
 <div id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 
 <!-- 실행 순서가 중요: 문구 → 규칙 데이터 → AI 설정 → 시나리오(새 시나리오는 여기에 한 줄 추가) → 엔진 → 리치 지도 그림 → 화면 -->

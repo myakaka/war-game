@@ -918,3 +918,24 @@ button.is-off, button[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed;
   .draft-row .stepper { grid-column: 2 / 4; grid-row: 2; justify-self: end; }
   .draft-actions > .primary { margin-left: 0; flex: 1 1 100%; }
 }
+
+/* ===== 목표 표시줄 (지도 아래 한 줄, PC는 오른쪽 패널 맨 위) + 목표 장면 ===== */
+.goal-bar { display: none; align-items: stretch; gap: 8px; flex: 0 0 auto; box-sizing: border-box; width: 0; min-width: 100%; height: var(--goal-h, 46px); padding: 0 10px 0 0;
+  border-radius: 6px; background: var(--panel); border: 1px solid var(--line); overflow: hidden; }
+body[data-screen="game"] .goal-bar { display: flex; }
+.goal-bar .gb-mark { flex: 0 0 auto; width: 5px; background: #ffd54f; }
+.goal-bar .gb-txt { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1 1 auto; line-height: 1.25; }
+.goal-bar .gb-main, .goal-bar .gb-sub { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: keep-all; }
+.goal-bar .gb-main { font-size: 14px; font-weight: 800; color: #ffe082; }
+.goal-bar .gb-sub { font-size: 11.5px; color: var(--muted); }
+/* 낮은 화면(360x640 등): 지도가 너무 작아지지 않게 한 줄만 (승리 조건 줄은 생략, 규칙 화면에 있음) */
+@media (max-height: 700px) { #app:not(.pc) .goal-bar { --goal-h: 30px; } #app:not(.pc) .goal-bar .gb-sub { display: none; } #app:not(.pc) .goal-bar .gb-txt { justify-content: center; } }
+#side > .goal-bar { width: auto; min-width: 0; }
+#app.pc .goal-bar { border-radius: var(--radius); }
+.goal-shield { position: fixed; inset: 0; z-index: 90; background: transparent; cursor: pointer; outline: none; }
+.goal-shield[hidden] { display: none; }
+.goal-layer { position: absolute; inset: 0; display: grid; pointer-events: none; z-index: 11; }
+.goal-layer .tut-dim { background: rgba(0, 0, 0, 0.5); }
+body.goal-scene .tut-layer { visibility: hidden; }
+.goal-bubble { z-index: 13; pointer-events: none; }
+.goal-bubble .tb-main { font-weight: 800; }

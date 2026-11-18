@@ -1,4 +1,14 @@
-# HANDOFF (2026-11-17) — 데모 2 (주사위 규칙 + 수치 표 + 굴림 연출) (태그 `stable-before-demo2`, `-demo2-stats`, `stable-before-dice-motion`)
+# HANDOFF (2026-11-18) — 목표 표시: 항상 보이는 목표 표시줄 + 목표 장면 (태그 `stable-before-goal-display`, 화면만 변경)
+
+## 끝난 것: 목표 표시줄과 목표 장면 (규칙·수치·엔진·AI 불변)
+- 표시줄(`#goal-bar`): 노란 막대 + 1줄 `목표: {거점 이름} 점령|방어` + 2줄 규칙 화면과 같은 승리 조건 한 줄(`objectiveLineHtml()`을 규칙 화면과 공유). 자리: 좁은 화면 = 지도 아래(지도 높이에서 뺌), PC = 오른쪽 패널 HUD 바로 아래, 휴대폰 가로 = 오른쪽 열 맨 위(지도 크기 불변) — `placeGoalBar`. 높이 700px 미만 좁은 화면은 30px 한 줄(2줄 생략)로 360x640 지도를 323→292px(−10%)에 그침. 게임 화면(`data-screen="game"`)에서만 보임(가림막·배치 중 숨김).
+- 목표 장면(`showGoalScene/renderGoalScene/closeGoalScene`, `ui.goalScene`): 지도 50% 어둡게 + 거점 칸 노란 테두리·맥박(`.goal-layer`, 클래스를 `tut-layer`와 나눔: `renderTutMarks`가 비움) + 말풍선(`#goal-bubble`) + 전체 화면 투명 방패(`#goal-shield`: 클릭·Enter·Space·Esc로 닫기, 그동안 다른 입력·줌 잠금). 튜토리얼 1단계 앞(`startTutorial(0)`, n/9에 안 셈), 연습 판 시작마다, 일반 AI 판은 시나리오별 첫 시작 때만(`localStorage chuncheon1950.goalSeen`, 저장 불가면 매번). 2인 대전은 가림막 경로라 안 나옴. AI 첫 턴은 장면을 닫은 뒤 시작.
+- 데이터(`js/tutorial.js`, 순수 함수): `goalInfo(sc, side)`, `validateGoalTexts`, `GOAL_DEFAULTS`·`GOAL_LIMITS`(22/28자). 시나리오 선택 필드 `goal: { nameKey?, role?, scene?: { att?, def?: {main, sub} } }`. 튜토리얼·연습·대칭 전장은 `goal.role: 'att'`(양쪽이 거점을 차지하는 판). 거점이 여럿이면 이름은 `노란 구역`. 문구 `goal.*`·`aria.goal*`(ko/en).
+- 확정: beats에 넣지 않고 별도 0번 장면(beat는 goal·target·허용 입력이 필요해 검사·진행 로직에 얽힘). 표시줄은 유닛·시야·점유 상태를 읽지 않음(점유 수 표시 안 함).
+- 알려진 것: 이어하기 기능이 없어 해당 분기 없음. 표시줄 2줄(승리 조건)은 문장이 길어 말줄임(전체는 `title`·규칙 화면). 영어 문구 길이는 테스트가 검사.
+- 검증: 아래 최종 보고 참고.
+
+# (이전) HANDOFF (2026-11-17) — 데모 2 (주사위 규칙 + 수치 표 + 굴림 연출) (태그 `stable-before-demo2`, `-demo2-stats`, `stable-before-dice-motion`)
 
 ## 데모 2: 간접 화력(박격포·포병)도 주사위 규칙 (태그 `stable-before-demo2-indirect`, classic·시드 결과 불변)
 - 규칙: 쏘는 쪽이 `max(1, attack − 체력보정)`개를 **한 번** 굴리고, 범위 안 유닛(포병 중심+이웃 4칸, 박격포 중심 한 칸)이 같은 눈을 각자 `N = 방어 + 선 칸 지형 보너스 + (조준 칸까지 거리 −1) + (조준 칸이 내 시야 밖이면 blindPenalty)`로 따짐. 빗나간 유닛은 피해·후퇴·제압 없음, 중심이 명중해야 제압, 아군 오폭은 피해만. 사거리·쿨다운·대상 칸 방식은 classic 그대로.
