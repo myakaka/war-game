@@ -92,9 +92,8 @@ SCENARIOS.push({
     },
     unitSet: 'hostomel',                                  // 박격포 그림(assets/units/hostomel/mortar.png)이 있으면 그것, 없으면 포병 그림 70%
     // 진영별 그림 (이 시나리오만): 러시아군 = assets/units/ru/, 우크라이나군 정찰 = assets/units/ua/recon.png. 나머지는 위 unitSet.
-    // ru/infantry.png 는 투명 배경이 없어(RGB) 연결하지 않음 → 보병은 기존 그림. 투명 PNG 가 오면 types 에 'infantry' 를 넣고 unitScale 로 약간 키움 (예: infantry: 1.15)
     unitSides: {
-      ru: { dir: 'ru', types: ['armor', 'antitank', 'artillery', 'mortar', 'recon', 'signal'], unitScale: {} },
+      ru: { dir: 'ru', types: ['infantry', 'armor', 'antitank', 'artillery', 'mortar', 'recon', 'signal'], unitScale: { infantry: 1.15 } },
       ua: { dir: 'ua', types: ['recon'], unitScale: {} },
     },
     impactMarks: { mortar: ['assets/vuhledar/scorch-impact.webp'], artillery: ['assets/vuhledar/crater.webp', 'assets/vuhledar/scorch-impact.webp'] },   // 포격 자국(보기용): 박격포=작게, 포병=크게. 없으면 기능 꺼짐

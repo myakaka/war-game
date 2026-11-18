@@ -9,6 +9,7 @@ from PIL import Image
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'units')
 RU, UA = os.path.join(ROOT, 'ru'), os.path.join(ROOT, 'ua')
 TOL_S, TOL_V, MAXCHG, LONG_PX = 0.03, 0.05, 0.20, 512
+MAXCHG_OF = {"artillery.png": 0.30}   # 파일별 한도 예외 (요청으로 포병만 30%)
 
 def hsv(rgb):
     mx, mn = rgb.max(-1), rgb.min(-1)
@@ -71,11 +72,12 @@ def main():
         tS = min(max(s, S0 - TOL_S + 0.004), S0 + TOL_S - 0.004) if abs(s - S0) > TOL_S else s
         tV = min(max(v, V0 - TOL_V + 0.004), V0 + TOL_V - 0.004) if abs(v - V0) > TOL_V else v
         ks, kv = tS / s, tV / v
+        MAX = MAXCHG_OF.get(f, MAXCHG)
         note = '그대로'
         cur = a
         if (ks, kv) != (1, 1):
-            if abs(ks - 1) > MAXCHG or abs(kv - 1) > MAXCHG:
-                note = f'보정 안 함: 필요한 변화 S {ks-1:+.0%}, V {kv-1:+.0%} (한계 ±20%)'
+            if abs(ks - 1) > MAX or abs(kv - 1) > MAX:
+                note = f'보정 안 함: 필요한 변화 S {ks-1:+.0%}, V {kv-1:+.0%} (한계 ±{MAX:.0%})'
             else:
                 cur = adjust(a, ks, kv)
                 for _ in range(4):   # 밝기 클리핑 등으로 어긋난 만큼 다시 맞춤
@@ -84,7 +86,7 @@ def main():
                     k2v = tV / v2 if abs(v2 - tV) > 0.002 else 1
                     if (k2s, k2v) == (1, 1): break
                     ks, kv = ks * k2s, kv * k2v
-                    if abs(ks - 1) > MAXCHG or abs(kv - 1) > MAXCHG: break
+                    if abs(ks - 1) > MAX or abs(kv - 1) > MAX: break
                     cur = adjust(a, ks, kv)
                 note = f'보정: S {ks-1:+.1%}, V {kv-1:+.1%}'
         s2, v2 = measure(cur)

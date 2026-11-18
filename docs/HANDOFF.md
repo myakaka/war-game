@@ -2,10 +2,10 @@
 
 ## 끝난 것
 - 연결: 시나리오 `art.unitSides: { 진영: { dir, types, unitScale } }` (우글레다르만). `rich-map.artSources`가 `진영:병종` 키로 `assets/units/<dir>/<파일>.png`를 (optional) 불러오고, `richUnitParts`가 있으면 그 그림(긴 변 기준 크기, `unitScale` 기본 1)을, 없으면 기존 `unitSet` 그림을 쓴다. 다른 시나리오는 `unitSides`가 없어 경로 불변.
-- 연결한 그림: ru = armor·antitank·artillery·mortar·recon·comms(통신), ua = recon. `ru/infantry.png`는 투명 배경이 없는 RGB라 연결하지 않음(보병은 기존 그림). 투명 PNG를 받으면 types에 'infantry' 추가 + `unitScale.infantry` 1.15.
+- 연결한 그림: ru = infantry(unitScale 1.15)·armor·antitank·artillery·mortar·recon·comms(통신) 7종, ua = recon. (후속: 투명 PNG 보병 교체, 포병만 보정 한도 30%)
 - 도구(게임이 불러오지 않음, Python+Pillow+numpy): `tools/art-tone.py`(H·S·V 측정), `tools/art-tone-fix.py`(ru/_orig → ru/ 보정 + 투명 여백 자르고 긴 변 512px), `tools/art-sheet.py`(tools/out/ru-sheet.png, ru-vs-ua.png).
-- 보정 결과: 기준 중앙값 S 0.222, V 0.411. antitank S−5%·V−16%, armor V+3%, mortar S−3%, recon V−3%, comms 그대로, artillery는 S 0.343이라 −28% 필요(한계 ±20% 초과)로 보정 안 함. 색상·알파 불변.
-- 알려진 것: `ua/_old/recon.png`는 이동이 아니라 복사(기존 정찰 그림은 hostomel 세트라 다른 시나리오가 씀). 우글레다르 기본 배치에는 ru 포병·ua 정찰이 없어 판에서는 안 보임.
+- 보정 결과(7장 모두 실제 값, 기준 중앙값 S 0.222, V 0.411): antitank S−5%·V−16%, armor V+3%, mortar S−3%, recon V−3%, infantry V−16%, artillery S−28%(포병만 한도 30%, `MAXCHG_OF`), comms 그대로. 색상·알파 불변.
+- 알려진 것: `ua/_old/recon.png`는 이동이 아니라 복사(기존 정찰 그림은 hostomel 세트라 다른 시나리오가 씀). 우글레다르 기본 배치에는 ru 포병·ua 정찰이 없어 판에서는 안 보임. 보병 원본(투명 PNG)은 ru/_orig/infantry.png.
 
 # HANDOFF (2026-11-18) — 목표 표시: 항상 보이는 목표 표시줄 + 목표 장면 (태그 `stable-before-goal-display`, 화면만 변경)
 
