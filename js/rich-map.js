@@ -430,6 +430,12 @@ const RICH_MAP = (() => {
       if (v && v.src && !seen.has(v.src)) { seen.add(v.src); out.push({ kind: 'decor', key: v.src, src: v.src }); }
     }
     for (const [type, file] of Object.entries(unitFiles)) out.push({ kind: 'unit', key: type, src: `assets/units/${art.unitSet}/${file}.png` });
+    // 진영별 병종 그림 (art.unitSides: { 진영 id: { dir, types: [병종] } }). 없거나 못 불러오면 기본 그림 세트로 (optional)
+    for (const [side, U] of Object.entries(art.unitSides || {})) {
+      for (const type of U.types || []) {
+        out.push({ kind: 'unit', key: side + ':' + type, src: 'assets/units/' + U.dir + '/' + (unitFiles[type] || type) + '.png', optional: true });
+      }
+    }
     return out;
   }
 

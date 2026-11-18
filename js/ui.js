@@ -563,8 +563,8 @@
         res();
       };
       im.onerror = () => {
-        const U = it.kind === 'unit' && DESIGN.rich.units[it.key];
-        if (U && U.optional) { res(); return; }   // 선택 그림 (박격포): 없으면 대체 그림 사용
+        const U = it.kind === 'unit' && (it.optional || DESIGN.rich.units[it.key]);
+        if (U && (U === true || U.optional)) { res(); return; }   // 선택 그림 (박격포): 없으면 대체 그림 사용
         rej(new Error(it.src));
       };
       im.src = it.src;
@@ -651,8 +651,12 @@
   function richUnitParts(side, type, opts = {}) {
     const D = DESIGN.side[ROLE(side)], RU = DESIGN.rich;
     let U = RU.units[type] || RU.units.infantry;
-    let im = richImg().unit[type];
-    if (!im && U.fallback && richImg().unit[U.fallback]) {   // 전용 그림이 없음 → 대체 병종 그림을 줄여서
+    const SU = (scenArt() || {}).unitSides, sideIm = richImg().unit[`${side}:${type}`];
+    let im = sideIm || richImg().unit[type];
+    if (sideIm) {   // 진영 전용 그림: 긴 변 기준으로 (여백을 잘라 둔 그림). 병종별 unitScale(기본 1)
+      const sc = ((SU && SU[side] && SU[side].unitScale) || {})[type] || 1;
+      U = { ...U, by: sideIm.w >= sideIm.h ? 'w' : 'h', size: U.size * sc };
+    } else if (!im && U.fallback && richImg().unit[U.fallback]) {   // 전용 그림이 없음 → 대체 병종 그림을 줄여서
       const F = RU.units[U.fallback];
       im = richImg().unit[U.fallback];
       U = { ...F, size: F.size * U.fallbackScale, ring: U.ring };

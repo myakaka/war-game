@@ -91,6 +91,12 @@ SCENARIOS.push({
       city: 'assets/vuhledar/ruined-town.webp',            // 파괴된 마을: 이 시나리오의 마을 칸 바닥에만 (호스토멜·춘천은 기존 질감)
     },
     unitSet: 'hostomel',                                  // 박격포 그림(assets/units/hostomel/mortar.png)이 있으면 그것, 없으면 포병 그림 70%
+    // 진영별 그림 (이 시나리오만): 러시아군 = assets/units/ru/, 우크라이나군 정찰 = assets/units/ua/recon.png. 나머지는 위 unitSet.
+    // ru/infantry.png 는 투명 배경이 없어(RGB) 연결하지 않음 → 보병은 기존 그림. 투명 PNG 가 오면 types 에 'infantry' 를 넣고 unitScale 로 약간 키움 (예: infantry: 1.15)
+    unitSides: {
+      ru: { dir: 'ru', types: ['armor', 'antitank', 'artillery', 'mortar', 'recon', 'signal'], unitScale: {} },
+      ua: { dir: 'ua', types: ['recon'], unitScale: {} },
+    },
     impactMarks: { mortar: ['assets/vuhledar/scorch-impact.webp'], artillery: ['assets/vuhledar/crater.webp', 'assets/vuhledar/scorch-impact.webp'] },   // 포격 자국(보기용): 박격포=작게, 포병=크게. 없으면 기능 꺼짐
     dryField: { src: 'assets/vuhledar/dry-field.webp', share: 0.3 },   // 평지 칸 바닥에 노이즈 마스크로 섞는 마른 밭 (평지의 30% 안팎)
     fields: [                                             // 밀밭: 평지 칸 두 구역 (가장자리는 흐리고 불규칙). 칸은 계속 평지
