@@ -6,7 +6,7 @@
 const STRINGS = {
   ko: {
     // 게임 전체 제목·부제 (임시 값. 이름을 정하면 여기만 바꾸면 됨: 메인 메뉴, 탭 제목, 설명 메타가 같이 바뀜)
-    'gameTitle': '격자 전략', 'gameSubtitle': '턴제 격자 전략 게임',
+    'gameTitle': '사수', 'gameSubtitle': '턴제 격자 전략 게임',
     'lang.label': '언어',
 
     'side.north': '북한군', 'side.south': '국군',
@@ -544,7 +544,7 @@ const STRINGS = {
   },
 
   en: {
-    'gameTitle': 'Grid Strategy', 'gameSubtitle': 'Turn-based grid strategy',
+    'gameTitle': 'Hold the Line', 'gameSubtitle': 'Turn-based grid strategy',
     'lang.label': 'Language',
 
     'side.north': 'NK', 'side.south': 'ROK',
