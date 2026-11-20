@@ -17,6 +17,7 @@ const TUTORIAL_ART = {
     paddy: 'assets/terrain/wetland.jpg', city: 'assets/terrain/urban.jpg',
   },
   unitSet: 'hostomel',
+  unitSides: { enemy: { dir: 'ru', types: ['infantry', 'armor', 'antitank', 'artillery', 'mortar', 'recon', 'signal'], unitScale: { infantry: 1.15 } } },   // 러시아군 그림 세트
   overlays: [],
 };
 

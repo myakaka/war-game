@@ -88,6 +88,7 @@ SCENARIOS.push({
     },
     terrainOffset: { city: [1.45, 2.2] },    // 도심 그림 시작 위치 (칸): 거울 대칭축(x 8.95·14.15, y 8.2·13.4)이 마을 경계 밖에 오게
     unitSet: 'hostomel',                       // assets/units/<unitSet>/<병종 그림>.png
+    unitSides: { att: { dir: 'ru', types: ['infantry', 'armor', 'antitank', 'artillery', 'mortar', 'recon', 'signal'], unitScale: { infantry: 1.15 } } },   // 러시아군 그림 세트 (assets/units/ru/)
     overlays: [
       { type: 'runway', src: 'assets/overlays/hostomel/runway-strip.jpg' },   // 위치는 위 overlays 의 runway 표식
       { type: 'patch', src: 'assets/overlays/hostomel/airfield-patch.jpg', rows: [6, 8], cols: [2, 3], pad: 0.1 },

@@ -117,6 +117,7 @@ SCENARIOS.push({
     },
     terrainOffset: { city: [4.8, 4.8] },     // 도심 그림 시작 위치 (칸): 중앙 마을에서 거울 대칭축이 칸 중앙에 오지 않게 (호스토멜과 다른 값)
     unitSet: 'hostomel',
+    unitSides: { ru: { dir: 'ru', types: ['infantry', 'armor', 'antitank', 'artillery', 'mortar', 'recon', 'signal'], unitScale: { infantry: 1.15 } } },   // 러시아군 그림 세트 (assets/units/ru/)
     overlays: [],
   },
   arrivalRadius: 3,
