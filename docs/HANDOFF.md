@@ -2,13 +2,13 @@
 
 ## 끝난 것
 - `art.unitSides`로 `assets/units/ru/` 7종(보병 unitScale 1.15·기갑·대전차·포병·박격포·정찰·통신)을 연결: 호스토멜 `att`, 대칭 전장 `ru`, 튜토리얼·연습 판 `enemy`(두 hidden 시나리오가 공유하는 `art` 객체). 우글레다르는 이미 적용. **춘천은 제외**(그림 테마 없음).
-- 우크라이나(방어) 쪽은 기본 `unitSet: 'hostomel'` 그림 그대로. `ua/`에는 정찰 1장뿐이고 우글레다르만 씀.
+- 우크라이나(방어) 쪽은 기본 `unitSet: 'hostomel'` 그림(방어군용 세트, 이미 제대로 표시됨) 그대로. `ua/`에는 우글레다르 전용 정찰 1장뿐.
 - 코드 변경 없음, 시나리오 파일 3개에 설정 한 줄씩(`hostomel.js`, `symmetric.js`, `tutorial.js`). 규칙·수치·AI 불변이라 시드 비교는 건너뜀.
 - 검증: `node tools/test.js` 종료 코드 0(건너뜀 18, 취소 0), 호스토멜·대칭 전장 화면에서 러시아군 그림이 나오는 것을 사용자가 직접 확인. 푸시 완료(origin/master).
 - 정리: `tools/out/`(`art-sheet.py` 확인용 이미지 2장)은 삭제함. 필요하면 `python tools/art-sheet.py`로 다시 만든다.
 
 ## 알려진 것 / 다음에 볼 곳
-- 우크라이나군 보병·기갑 등 전용 그림 없음. `assets/units/ua/`에 PNG를 넣고 `unitSides.ua.types`에 추가하면 연결됨.
+- 우크라이나군 그림은 `hostomel` 세트로 충분함. 시나리오별로 다르게 하고 싶으면 `assets/units/ua/`에 PNG를 넣고 `unitSides.ua.types`에 추가하면 연결됨.
 - 튜토리얼의 적은 특정 국적이 아닌데 러시아군 그림을 씀(사용자 지시 "전체 맵 적용"에 따라 포함). 어색하면 `tutorial.js`의 `unitSides` 한 줄만 빼면 됨.
 - 이전 미결: dice 규칙 AI 사격선 이동·피해량, 없는 소리 5개·BGM, 이어하기, 게임 이름, 우글레다르 균형.
 
