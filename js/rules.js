@@ -6,18 +6,22 @@
    ===================================================================== */
 const RULES = {
   MAX_HP: 4,
-  RULES_VERSION: 12,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로) · 11: 대칭 전장 후퇴·제압 (시나리오 retreat: 적에게 피해를 받으면 뒤로 1칸 후퇴, 막히면 격파, 간접 화력 정중앙은 제압. retreat 가 없는 시나리오는 v10 그대로) · 12: 후퇴와 제압을 모든 시나리오의 기본 규칙으로 (시나리오 retreat 블록 삭제, 중앙 상수 RULES.RETREAT. 이전 규칙은 남기지 않음)
+  RULES_VERSION: 13,                         // 1: 이동 또는 공격 / d100 · 2: 이동 후 공격 + d10 · 3: 도심 보정 -15 → -20 · 4: 시나리오 구조 (규칙 수치 변화 없음) · 5: 호스토멜 공격군 거점 3 → 2 · 6: 행동 제한 (시나리오 activations) · 7: 간접 화력 1단계 (시나리오 fires: 안개 속 사격 여부, 박격포, 포병 사거리·쿨다운. fires 가 없는 시나리오는 v6 그대로) · 8: 대칭 시나리오용 규칙 (여러 칸 거점 cells, 점유 방식 objectiveControl 'presence', 승리 조건 roundLimitScore·무승부, firstMover, secondMoverBonus, symmetric 검사. 춘천·호스토멜 동작은 v7 그대로) · 9: 대칭 전장 거점 2개 즉시 승리 제거 (14라운드 종료 시 거점 수 판정만) · 10: 대칭 전장 점수제 (objectivePoints·scoreTiming·scoreTarget, 승리 조건 roundLimitPoints. 춘천·호스토멜 동작은 그대로) · 11: 대칭 전장 후퇴·제압 (시나리오 retreat: 적에게 피해를 받으면 뒤로 1칸 후퇴, 막히면 격파, 간접 화력 정중앙은 제압. retreat 가 없는 시나리오는 v10 그대로) · 12: 후퇴와 제압을 모든 시나리오의 기본 규칙으로 (시나리오 retreat 블록 삭제, 중앙 상수 RULES.RETREAT. 이전 규칙은 남기지 않음) · 13: 통신 유닛을 정찰 방식으로 (통신 +20 명중 보너스 제거, 통신이 그 턴의 행동을 써서 반경 안 한 지점의 3x3 칸을 자기 턴이 끝날 때까지만 시야로 봄. RULES.SCOUT)
   RETREAT: {                                // 후퇴·제압 (v12, 모든 시나리오 공통). 사람이 조정하기 쉽게 수치는 여기 한 곳
     STEPS: 1,                               // 후퇴 칸 수
     SUPPRESS_TURNS: 1,                      // 제압 지속 (제압된 유닛의 자기 턴 수)
     SUPPRESS_SOURCES: ['mortar', 'artillery'],   // 정중앙 직격이 제압을 일으키는 간접 화력 병종
+  },
+  SCOUT: {                                  // 통신 정찰 (v13): 통신 유닛이 그 턴의 행동을 써서, 자기 위치에서 이 거리 안의 한 지점을 중심으로 (2r+1)x(2r+1) 칸을 자기 턴이 끝날 때까지 시야로 봄
+    range: 6,                               // 정찰 지점을 고를 수 있는 맨해튼 거리
+    radius: 1,                              // 1 = 3x3
   },
   RULESET: 'classic',                       // 규칙 세트 (판 시작 때 setRuleset 이 고정): 'classic' = 지금 규칙 · 'dice' = 데모 2 (직접 사격만 주사위 개수 방식, js/combat.js). rulesVersion 은 classic 규칙의 버전
   DICE_RULES: {                             // 데모 2('dice') 직접 사격 공통 수치 (js/combat.js)
     sides: 10,                              // 주사위 면 수: 0 ~ 면 수-1 (0 은 항상 성공)
     terrainDivisor: 10,                     // 지형 방어 보너스 = -(지형 명중 보정 %) / 이 값 (예: 숲 -10% → +1, 도심 -20% → +2, 강 +20% → -2)
     distanceStep: 1,                        // 거리 보정: 거리가 한 칸 늘 때마다 필요한 숫자 +이 값 (인접은 0)
-    commsEffect: null,                      // 통신 유닛의 새 효과 자리 (아직 미정 = 효과 없음)
+    commsEffect: 'scout',                   // 통신 유닛의 효과: 'scout' = 정찰 (RULES.SCOUT, classic 과 같음). 명중 보너스 없음
     blindPenalty: 2,                        // 간접 화력이 시야 밖 칸을 조준(맹사격)할 때 범위 안 모든 유닛의 필요한 숫자에 더하는 값
   },
   // 데모 2('dice') 병종 수치 표. 이 표만 고치면 확인 시트·판정·AI·규칙 화면이 같이 바뀐다 (classic 은 UNIT_TYPES 의 값을 그대로 씀).
@@ -50,7 +54,7 @@ const RULES = {
     maxHit: 95,
     minHitD10: 10,           // d10 모드 (10% 단위 반올림 뒤 적용)
     maxHitD10: 90,
-    signalBonus: 20,         // 아군 통신 유닛 반경 안의 공격 유닛 명중률 보너스 (중복 없음)
+    signalBonus: 0,          // (v13부터 0 = 없음) 예전: 아군 통신 유닛 반경 안의 공격 유닛 명중률 +20. 통신은 정찰(SCOUT)로 대체됨
     signalRange: 2,          // 통신 유닛으로부터의 맨해튼 거리 (공격자 위치 기준)
     fogPenalty: -50,         // 대상 칸이 공격 측 시야 밖
     splashDamage: 1,         // 포격 명중 시 인접 4칸 고정 피해
@@ -65,7 +69,7 @@ const UNIT_TYPES = {
   armor:     { move: 4, vision: 3, atkSoft: 6, atkArmor: 6, def: 4, rangeMin: 1, rangeMax: 1, canAttack: true, isArmor: true, nameKey: 'unit.armor', symbol: 'armor' },
   artillery: { move: 1, vision: 1, atkSoft: 5, atkArmor: 3, def: 1, rangeMin: 2, rangeMax: 3, canAttack: true, indirect: true, nameKey: 'unit.artillery', symbol: 'artillery' },
   recon:     { move: 5, vision: 5, atkSoft: 1, atkArmor: 0, def: 1, rangeMin: 1, rangeMax: 1, canAttack: true, nameKey: 'unit.recon', symbol: 'recon' },
-  signal:    { move: 2, vision: 3, atkSoft: 0, atkArmor: 0, def: 1, rangeMin: 0, rangeMax: 0, canAttack: false, isSignal: true, nameKey: 'unit.signal', symbol: 'signal' },
+  signal:    { move: 2, vision: 3, atkSoft: 0, atkArmor: 0, def: 1, rangeMin: 0, rangeMax: 0, canAttack: false, isSignal: true, canScout: true, nameKey: 'unit.signal', symbol: 'signal' },
   antitank:  { move: 2, vision: 2, atkSoft: 1, atkArmor: 6, def: 2, rangeMin: 1, rangeMax: 1, canAttack: true, nameKey: 'unit.antitank', symbol: 'antitank' },
   // 박격포: 간접 사격이지만 한 칸만 (splash: false), 이동 후 사격 가능 (moveFire), 명중 시 고정 피해 (fixedDamage). 이동·공격·방어는 보병과 같게 시작
   mortar:    { move: 2, vision: 2, atkSoft: 3, atkArmor: 1, def: 3, rangeMin: 2, rangeMax: 4, canAttack: true, indirect: true, splash: false, moveFire: true, fixedDamage: 1, nameKey: 'unit.mortar', symbol: 'mortar' },

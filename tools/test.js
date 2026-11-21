@@ -2918,3 +2918,52 @@ test('[목표표시] goalInfo 는 게임 상태를 받지 않음 (안 보이는 
   assert.equal(E.goalInfo.length, 2);
   for (const f of ['js/engine.js', 'js/combat.js', 'js/ai-intel.js', 'js/rules.js']) assert.ok(!/goalInfo|goalScene/.test(fs.readFileSync(path.join(ROOT, f), 'utf8')), f);
 });
+
+/* ---------------- 통신 정찰 (rulesVersion 13) ---------------- */
+const unitOf = (st, id) => st.units.find((x) => x.id === id);
+test('[정찰] 통신이 지점을 고르면 3x3 칸이 시야로 취급되고, 보이는 적은 시야 밖 감점 없이 대상이 됨', () => {
+  const { r, c } = plainRun();
+  const st = diceBoard([['S1', 0, 'signal', r, c], ['S2', 0, 'infantry', r, c + 1], ['N1', 1, 'infantry', r, c + 5]], 'classic');
+  const me = C().ROUND_ORDER[0], foe = C().ROUND_ORDER[1];
+  const key = (rr, cc) => rr * C().MAP.length + cc;
+  assert.equal(E.getVisibleTiles(st, me).has(key(r, c + 5)), false, '정찰 전에는 안 보임');
+  assert.equal(E.computeHitChance(st, 'S2', { r, c: c + 5 }).fogged, true);
+  assert.ok(E.canUnitScout(st, unitOf(st, 'S1')));
+  const ev = E.scoutArea(st, 'S1', { r, c: c + 5 });
+  assert.equal(ev.length, 1); assert.equal(ev[0].type, 'scout'); assert.equal(ev[0].tiles.length, 9);
+  const vis = E.getVisibleTiles(st, me);
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) assert.ok(vis.has(key(r + dr, c + 5 + dc)), `3x3 ${dr},${dc}`);
+  assert.equal(E.computeHitChance(st, 'S2', { r, c: c + 5 }).fogged, false, '정찰한 칸은 시야 안');
+  assert.equal(E.getVisibleTiles(st, foe).has(key(r, c + 5)), true, '상대 시야는 상대 유닛이 있는 곳이라 그대로(자기 유닛 칸)');
+  assert.equal(E.getScoutTiles(st, foe).size, 0, '상대 진영에는 정찰 칸이 없음');
+  assert.ok(st.memory[me]['N1'], '정찰로 본 적은 목격 기억에 남음');
+  const u = unitOf(st, 'S1');
+  assert.equal(u.acted, true); assert.equal(E.canUnitScout(st, u), false, '정찰하면 행동이 끝남');
+  assert.throws(() => E.scoutArea(st, 'S1', { r, c: c + 5 }));
+});
+test('[정찰] 거리 제한, 이동 뒤 정찰, 자기 턴이 끝나면 사라짐, 행동 제한 1회 소모', () => {
+  const { r, c } = plainRun();
+  const st = diceBoard([['S1', 0, 'signal', r, c], ['S2', 0, 'infantry', r, c + 1], ['N1', 1, 'infantry', r, c + 6]], 'classic');
+  const R = C().SCOUT.range;
+  assert.throws(() => E.scoutArea(st, 'S1', { r, c: c + R + 1 }), /./, '거리 밖');
+  assert.throws(() => E.scoutArea(st, 'S2', { r, c: c + 1 }), /./, '통신이 아닌 유닛은 못 함');
+  assert.equal(E.getScoutTargets(st, 'S1').every((p) => Math.abs(p.r - r) + Math.abs(p.c - c) <= R), true);
+  assert.equal(E.getScoutTargets(st, 'S2').length, 0);
+  const dest = E.getReachableTiles(st, 'S1')[0];
+  if (dest) { E.moveUnit(st, 'S1', dest); assert.ok(E.canUnitScout(st, unitOf(st, 'S1')), '이동 뒤에도 정찰 가능'); }
+  const used = st.act ? st.act.used : null;
+  E.scoutArea(st, 'S1', { r, c: c + 3 });
+  if (st.act) assert.equal(st.act.used, used === null ? 1 : used, '이동으로 이미 행동을 시작했다면 추가로 쓰지 않음');
+  assert.ok(st.scout && st.scout.side === C().ROUND_ORDER[0]);
+  E.endTurn(st);
+  assert.equal(st.scout, undefined, '턴이 끝나면 사라짐');
+  assert.equal(E.getScoutTiles(st, C().ROUND_ORDER[0]).size, 0);
+});
+test('[정찰] 통신 명중 보너스(+20)는 없어짐, 규칙 버전 13', () => {
+  assert.ok(C().RULES_VERSION >= 13);
+  assert.equal(C().COMBAT.signalBonus, 0);
+  const { r, c } = plainRun();
+  const st = diceBoard([['S1', 0, 'signal', r, c], ['S2', 0, 'infantry', r, c + 1], ['N1', 1, 'infantry', r, c + 2]], 'classic');
+  const h = E.computeHitChance(st, 'S2', { r, c: c + 2 });
+  assert.ok(!h.parts.some((p) => p.key === 'signal'), '통신 항목 없음');
+});

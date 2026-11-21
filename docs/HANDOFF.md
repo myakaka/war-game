@@ -1,4 +1,19 @@
-# HANDOFF (2026-11-21) — 러시아군 그림 세트를 춘천 외 전 시나리오에 적용 (커밋 900082f, 화면·그림만 변경)
+# HANDOFF (2026-11-21, 뒤) — 통신 정찰 (rulesVersion 13, 태그 `stable-before-comms-scout`, 미커밋)
+
+## 끝난 것
+- 규칙: 통신 +20 명중 보너스 제거(`COMBAT.signalBonus: 0`). 통신이 그 턴의 행동(행동 제한 1회)을 써서 자기 위치에서 6칸 안의 한 지점을 고르면 그 3×3 칸이 **자기 턴이 끝날 때까지** 시야. 이동 뒤 정찰 가능, 하면 그 유닛 행동 끝. classic·dice 공통. 수치는 `RULES.SCOUT {range: 6, radius: 1}`, `UNIT_TYPES.signal.canScout`, dice `commsEffect: 'scout'`.
+- 엔진(`engine.js`): `scoutArea`·`canUnitScout`·`getScoutTargets`·`getScoutTiles`·`scoutTilesAround`. `state.scout = {side, tiles}`는 정찰했을 때만 생기고 `endTurn`에서 지움. `getVisibleTiles`가 합산하므로 사격 대상·감점·박격포 보이는 적·목격 기억이 따로 안 바뀜. 이벤트 `scout`는 자기 진영 로그에만 나옴(상대는 정찰 사실도 모름).
+- 화면(`ui.js`): `#btn-scout`(통신 선택 때만), 범위 점선·3×3 미리보기·정찰 칸 표시(`DESIGN.hl.scout/scoutZone`), `playerScout`, 터치 첫 탭 미리보기·둘째 탭 확정, `Esc`는 정찰 선택만 취소. 옛 +20 반경·배지·설정 토글·카드 줄은 보너스 0이면 숨김. 문구 `btn.scout`·`intro.scout`·`log.scout` 등 ko/en.
+- 확정(요청 추천값): 거리 6, 이동 뒤 정찰 가능, 정찰 칸은 진짜 시야, +20 제거, 쿨다운 없음(행동 1회가 대가), **AI는 정찰을 쓰지 않음**(AI 통신은 이동만).
+- 검증: test 251 통과·실패 0(정찰 3개 추가), `check.js --signal20`(+20 되살림) 28건 모두 SAME = 엔진 변경은 +20 제거 말고 결과를 안 바꿈, layout-check 32 SAME, 헤드리스 PC·390x844 확인. 새 기준선 `tools/baseline.json`(28건, rulesVersion 13) 저장 완료. `check.js --signal20`은 v13 이전 기준선 비교용이라 이제 쓸 수 없음.
+- 문서: `docs/rules.md` v13(통신 정찰 항목, 명중률 식, dice 통신 줄).
+
+## 알려진 것 / 다음에 볼 곳
+- AI가 정찰을 안 써서 AI 쪽 통신은 쓸모가 적음(AI가 쓰게 할지는 요청 시). 균형(거리 6·쿨다운 없음)은 직접 플레이로 판단.
+- `signalRange`·`inSignalRange` AI 가중치는 그대로 남아 AI가 통신 근처에 모이는 동작은 유지됨(AI 가중치 동결 원칙).
+- 튜토리얼에는 통신이 없어 정찰 단계 없음. 정찰 소리는 `ui_click` 재사용.
+
+# (이전) HANDOFF (2026-11-21) — 러시아군 그림 세트를 춘천 외 전 시나리오에 적용 (커밋 900082f, 화면·그림만 변경)
 
 ## 끝난 것
 - `art.unitSides`로 `assets/units/ru/` 7종(보병 unitScale 1.15·기갑·대전차·포병·박격포·정찰·통신)을 연결: 호스토멜 `att`, 대칭 전장 `ru`, 튜토리얼·연습 판 `enemy`(두 hidden 시나리오가 공유하는 `art` 객체). 우글레다르는 이미 적용. **춘천은 제외**(그림 테마 없음).

@@ -879,6 +879,7 @@ function endTurn(state) {
   const order = GAME_CONFIG.ROUND_ORDER;
   const pos = order.indexOf(state.turn);
   const roundEnd = pos === order.length - 1;
+  if (state.scout) delete state.scout;   // 통신 정찰은 자기 턴이 끝나면 사라짐
   for (const u of state.units) if (u.side === state.turn && u.suppressed > 0 && --u.suppressed <= 0) delete u.suppressed;   // 제압: 제압된 유닛의 자기 턴이 끝나면 해제
   const checkSide = GAME_CONFIG.OBJECTIVE_CHECK_AFTER || order[order.length - 1];
   if (roundEnd) recordObjectiveTimeline(state);
@@ -1016,7 +1017,7 @@ function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAt
     parts.push({ key: 'atkDiff', p: { atk, def }, value: (atk - def) * C.perPoint });
   }
   if (terrain.hitMod) parts.push({ key: 'terrain', p: { terrain: terrain.key }, value: terrain.hitMod });
-  if (signal) parts.push({ key: 'signal', value: C.signalBonus });
+  if (signal && C.signalBonus) parts.push({ key: 'signal', value: C.signalBonus });   // v13: 기본 0 = 없음
   if (fogged) parts.push({ key: 'fog', value: C.fogPenalty });
   if (movedAttack && GAME_CONFIG.ENABLE_MOVE_ATTACK) parts.push({ key: 'moved', value: GAME_CONFIG.MOVE_ATTACK_PENALTY });
   if (indirectPenalty) parts.push({ key: 'indirect', value: -indirectPenalty });   // fires.<병종>.indirectPenalty (0 이면 항목 없음)
@@ -1074,7 +1075,52 @@ function getVisibleTiles(state, side) {
       }
     }
   }
+  if (state.scout && state.scout.side === side) for (const i of state.scout.tiles) vis.add(i);   // 통신 정찰 (자기 턴이 끝날 때까지)
   return vis;
+}
+
+/* ---------- 통신 정찰 (규칙 v13, RULES.SCOUT) ----------
+ * 통신 유닛이 그 턴의 행동(행동 제한 1회)을 써서 자기 위치에서 range 안의 한 지점을 고르면, 그 지점 중심 3x3 칸이
+ * 자기 턴이 끝날 때까지 시야로 취급된다(보이는 적은 사격 대상이 되고 시야 밖 감점이 없다). 이동한 뒤에는 할 수 있고, 하고 나면 그 유닛의 행동이 끝난다.
+ * state.scout = { side, tiles: [칸 인덱스] } 는 정찰했을 때만 생기고 endTurn 에서 지운다. 상대에게는 정찰했다는 사실도 보이지 않는다(이벤트는 자기 진영만 재생).
+ */
+function scoutTilesAround(center, radius = GAME_CONFIG.SCOUT.radius) {
+  const out = [];
+  for (let dr = -radius; dr <= radius; dr++) for (let dc = -radius; dc <= radius; dc++) {
+    const r = center.r + dr, c = center.c + dc;
+    if (inBounds(r, c)) out.push(idx(r, c));
+  }
+  return out;
+}
+function canUnitScout(state, u) {
+  if (!u || u.side !== state.turn || u.acted || state.winner) return false;
+  if (!unitType(u).canScout || activationBlocked(state, u) || u.suppressed > 0) return false;
+  return true;
+}
+/** 정찰 지점으로 고를 수 있는 칸 (자기 위치에서 SCOUT.range 안, 보이는지와 무관) */
+function getScoutTargets(state, unitId) {
+  const u = getUnit(state, unitId);
+  if (!canUnitScout(state, u)) return [];
+  const R = GAME_CONFIG.SCOUT.range, out = [];
+  for (let r = u.r - R; r <= u.r + R; r++) for (let c = u.c - R; c <= u.c + R; c++) {
+    if (inBounds(r, c) && manhattan(u, { r, c }) <= R) out.push({ r, c });
+  }
+  return out;
+}
+/** 이 진영이 지금 정찰로 보고 있는 칸 (칸 인덱스 Set, 없으면 빈 Set) */
+function getScoutTiles(state, side) { return new Set(state.scout && state.scout.side === side ? state.scout.tiles : []); }
+function scoutArea(state, unitId, center) {
+  const u = getUnit(state, unitId);
+  if (!canUnitScout(state, u) || !center || !inBounds(center.r, center.c) || manhattan(u, center) > GAME_CONFIG.SCOUT.range) {
+    throw new Error(t('err.illegalScout', { id: unitId }));
+  }
+  noteActivation(state, u);
+  u.moved = true; u.acted = true;
+  const tiles = scoutTilesAround(center);
+  const sc = state.scout && state.scout.side === u.side ? state.scout : (state.scout = { side: u.side, tiles: [] });
+  for (const i of tiles) if (!sc.tiles.includes(i)) sc.tiles.push(i);
+  updateMemory(state);
+  return [{ type: 'scout', unitId: u.id, side: u.side, unitType: u.type, center: { r: center.r, c: center.c }, tiles: tiles.slice() }];
 }
 
 /** 각 진영이 목격한 적 유닛의 마지막 위치를 기록 */
@@ -3251,7 +3297,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GAME_CONFIG, RULES, UNIT_TYPES, TERRAIN_TYPES, AI_CONFIG, SCENARIOS, loadScenario, validateScenario, listScenarios,
     createInitialState, startTurn, endTurn, getReachableTiles, getAttackableTiles, computeHitChance,
-    resolveAttack, moveUnit, finishUnit, getVisibleTiles, checkVictory, aiTakeTurn, simulateGames,
+    resolveAttack, moveUnit, finishUnit, getVisibleTiles, canUnitScout, getScoutTargets, getScoutTiles, scoutArea, scoutTilesAround, checkVictory, aiTakeTurn, simulateGames,
     setDraft, restoreDraft, draftError, draftDataErrors, draftBlock, draftCost, draftCount, draftDefaultComp, draftAiComp, draftAutoPlace, draftTypeList, publicSetup, createSeededRng, cloneState,
     buildGameRecord, summarizeGameRecords, aiUpdatePlan, resolveProfile, listTacticProfiles, compareTacticProfiles,
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,

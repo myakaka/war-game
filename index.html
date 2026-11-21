@@ -70,6 +70,7 @@
           <div class="pane-head"><span class="pane-title" data-i18n="panel.unit"></span><button class="x-btn" id="card-close" data-i18n-aria="aria.close">×</button></div>
           <div id="unit-info"></div>
           <div class="card-btns" id="card-btns">
+            <button id="btn-scout" data-i18n="btn.scout" hidden></button>
             <button id="btn-wait" data-i18n="btn.wait"></button>
             <button id="btn-deselect" data-i18n="btn.deselect"></button>
           </div>
@@ -104,7 +105,7 @@
         <div class="pop-body">
           <div class="set-row"><span class="set-lbl tx" id="speed-label"></span>
             <div class="seg" id="speed-seg" role="group"><button data-speed="slow" data-i18n="speed.slow"></button><button data-speed="normal" class="active" data-i18n="speed.normal"></button><button data-speed="fast" data-i18n="speed.fast"></button></div></div>
-          <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.signalToggle" data-i18n-title="tip.signalToggle"></span>
+          <div class="set-row" hidden><span class="set-lbl tx" data-i18n="lbl.signalToggle" data-i18n-title="tip.signalToggle"></span>
             <div class="seg" id="seg-signal" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>
           <div class="set-row"><span class="set-lbl tx" data-i18n="lbl.reduceMotion" data-i18n-title="tip.reduceMotion"></span>
             <div class="seg" id="seg-reduce" role="group"><button data-v="1" data-i18n="opt.on"></button><button data-v="0" data-i18n="opt.off"></button></div></div>

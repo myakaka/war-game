@@ -7,6 +7,7 @@
  *   node tools/check.js --only vuhledar[,id]   그 시나리오만 돌림 (시나리오 데이터만 바꿨을 때. 엔진·규칙·AI 를 바꿨으면 전체)
  *                                 --save 와 함께 쓰면 그 시나리오 항목만 기준선에 갈아 끼우고 나머지는 그대로 둠
  *   node tools/check.js --legacy     행동 제한을 끄고(ENABLE_ACTIVATION_LIMIT=false) v5 기준선(tools/baseline-v5.json)과 비교
+ *   node tools/check.js --signal20   통신 명중 +20(v12 규칙)을 되살려 v13 이전 기준선과 비교 (v13 엔진 변경이 +20 제거 말고는 결과를 안 바꿨는지 확인용. 기준선을 v13 으로 저장한 뒤에는 쓸 수 없음)
  *
  * 조합: 공격 측 프로필 전부 × 방어 보통, 방어 측 쉬움·어려움 × 공격 보통 (시나리오마다).
  * 턴 추적: 보통 대 보통 20판, 매 행동 후와 턴 종료 후 상태의 SHA-1.
@@ -29,6 +30,7 @@ const BASELINE = path.join(__dirname, LEGACY ? 'baseline-v5.json' : 'baseline.js
 
 const { E, run } = loadEngine({ quiet: true });
 if (LEGACY) E.GAME_CONFIG.ENABLE_ACTIVATION_LIMIT = false;
+if (args.includes('--signal20')) E.GAME_CONFIG.COMBAT.signalBonus = 20;
 
 function combos() {
   const att = Object.keys(E.GAME_CONFIG.AI.TACTIC_PROFILES);

@@ -48,6 +48,8 @@
       done: { fill: '#5b6472', r: 6, opacity: 0.5 },
       badge: { bg: '#111827', line: '#F9FAFB', lineW: 1.2, w: 48, h: 21, font: 13 },
       sigBadge: { w: 26, h: 13, font: 9.5 },
+      scout: { fill: 'rgba(20,160,170,0.08)', line: '#12A0AA', w: 1.6, dash: '4 3' },      // 통신 정찰: 고를 수 있는 범위
+      scoutZone: { fill: 'rgba(20,160,170,0.26)', line: '#0E7C86', w: 2.6 },                 // 정찰 지점 미리보기와 이번 턴 정찰 칸
     },
 
     /* 연출 (ms). 실제 시간 = 값 × 속도 배율 */
@@ -140,6 +142,7 @@
     state: null, view: null, selectedId: null, busy: false, speed: 'normal', difficulty: 'normal',
     actingId: null, gameId: 0, moveSet: new Set(), atkSet: new Set(), hoverIdx: -1, inspectId: null,
     moveAtkSet: new Set(), moveLeftAt: new Map(), dualSet: new Set(), choice: null,
+    scoutMode: false, scoutUnit: null, scoutAt: null, scoutSet: new Set(),   // 통신 정찰: 지점 고르는 중 / 그 유닛 / 터치 첫 탭 칸 { i } / 고를 수 있는 칸
     note: null,            // { id, reason: {k,p} }: 이동 뒤 공격할 수 없어 행동이 끝난 유닛의 사유 (패널 표시용)
     mode: 'ai',            // 'ai' | 'hotseat'
     viewer: PLAYER,        // 화면 시점: 진영 / null(가림막·빈 화면) / 'all'(종료 후 전체 공개)
@@ -492,6 +495,10 @@
     const Z = DESIGN.hl.signal;
     return side === 'own' || ROLE(side) === 'def' ? { fill: Z.fill, line: Z.line, w: Z.w, dash: Z.dash } : { fill: Z.att, line: Z.attLine, w: Z.w, dash: Z.dash };
   };
+  const scoutRangeStyle = () => { const Z = DESIGN.hl.scout; return { fill: Z.fill, line: Z.line, w: Z.w, dash: Z.dash }; };
+  const scoutZoneStyle = () => { const Z = DESIGN.hl.scoutZone; return { fill: Z.fill, line: Z.line, w: Z.w }; };
+  /** 정찰 지점 미리보기: 그 칸 중심 3x3 (지도 밖은 잘림) */
+  const scoutPreviewSvg = (p) => regionSvg(new Set(scoutTilesAround(p)), scoutZoneStyle());
   /** 리치 테마의 칸 표시: 칸마다 얇은 윤곽 + 영역 바깥 경계 (평소에는 격자선이 없으므로 이때만 칸 모양이 보임) */
   function richCells(set, o) {
     if (!set || !set.size) return '';
@@ -1023,7 +1030,7 @@
   }
   /** 화면에 그릴 통신 유닛: 시점 진영의 통신만 ('all' 이면 양쪽). 토글이 꺼져 있으면 선택한 통신만 */
   function shownSignals(st, me, sel) {
-    if (!me || isDiceRules()) return [];   // 데모 2: 통신 효과 없음 → 반경 표시도 없음
+    if (!me || isDiceRules() || !GAME_CONFIG.COMBAT.signalBonus) return [];   // 데모 2·v13: 통신 명중 보너스 없음 → 반경 표시도 없음
     if (sel && GAME_CONFIG.UNIT_TYPES[sel.type].isSignal && !ui.showSignal) return [sel];
     if (!ui.showSignal) return [];
     return st.units.filter((u) => GAME_CONFIG.UNIT_TYPES[u.type].isSignal && (me === 'all' || u.side === me));
@@ -1073,6 +1080,8 @@
     let under = hatchDefs('hl-hatch'), over = objGroupSvg(st);
     const zones = signalZoneSets(st, shownSignals(st, me, sel));
     for (const side of GAME_CONFIG.ROUND_ORDER) under += regionSvg(zones[side], signalStyle(side));
+    if (me && me !== 'all') under += regionSvg(getScoutTiles(st, me), scoutZoneStyle());   // 이번 턴 통신 정찰 칸 (내 진영 것만)
+    if (ui.scoutMode && sel) under += regionSvg(ui.scoutSet, scoutRangeStyle());
     if (deployTargetsSet) under += rich.on ? richCells(deployTargetsSet, DESIGN.rich.move) : regionSvg(deployTargetsSet, moveStyle());
     if (sel && rich.on) {   // 리치: 평소 격자선 없음. 선택 시 이동 칸(흰 12% + 칸 윤곽)과 공격 대상 칸(붉은 윤곽)만
       const ty = GAME_CONFIG.UNIT_TYPES[sel.type], M2 = DESIGN.rich.move, T2 = DESIGN.rich.target;
@@ -1080,7 +1089,7 @@
       under += regionSvg(ui.moveAtkSet, moveAtkStyle('hl-hatch'));
       if (ty.indirect) under += fireRegionSvg(st, me) + dualRegionSvg();
       if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += `<rect x="${cellX(p) + 1.3}" y="${cellY(p) + 1.3}" width="${CS - 2.6}" height="${CS - 2.6}" fill="none" stroke="${T2.line}" stroke-width="${T2.w}" vector-effect="non-scaling-stroke"/>`; }
-      if (ty.isSignal && sel.side === me) {
+      if (ty.isSignal && sel.side === me && GAME_CONFIG.COMBAT.signalBonus) {
         const R = GAME_CONFIG.COMBAT.signalRange, B = DESIGN.hl.sigBadge;
         for (const a of st.units) {
           if (a.side !== me || a.id === sel.id || !GAME_CONFIG.UNIT_TYPES[a.type].canAttack || manhattan(a, sel) > R) continue;
@@ -1094,7 +1103,7 @@
       if (ty.indirect) under += fireRegionSvg(st, me) + dualRegionSvg();
       if (!deployTargetsSet) for (const i of attackTargets(st, sel, me)) { const p = posOf(i); over += targetRing(unitCx(p), unitCy(p)); }
       // 통신 선택: 보너스를 받는 아군 공격 유닛 위에 +20 배지 (아군 통신만)
-      if (ty.isSignal && sel.side === me) {
+      if (ty.isSignal && sel.side === me && GAME_CONFIG.COMBAT.signalBonus) {
         const R = GAME_CONFIG.COMBAT.signalRange, B = DESIGN.hl.sigBadge;
         for (const a of st.units) {
           if (a.side !== me || a.id === sel.id || !GAME_CONFIG.UNIT_TYPES[a.type].canAttack || manhattan(a, sel) > R) continue;
@@ -1126,12 +1135,16 @@
     const vis = visOf(st, me);
     const playerTurn = playerCanAct();
     const sel = playerTurn && ui.selectedId ? getUnit(st, ui.selectedId) : null;
+    ui.scoutSet = new Set();
+    if (ui.scoutMode && !(sel && ui.scoutUnit === sel.id && !ui.tut && canUnitScout(st, sel))) { ui.scoutMode = false; ui.scoutAt = null; }   // 선택이 바뀌거나 정찰할 수 없게 되면 정찰 선택 모드 끝
+    const scoutOn = ui.scoutMode;
+    if (scoutOn) for (const q of getScoutTargets(st, sel.id)) ui.scoutSet.add(idx(q.r, q.c));
     ui.moveSet = new Set();
     ui.atkSet = new Set();
     ui.dualSet = new Set();      // 이동도 사격도 되는 칸 (박격포)
     ui.moveAtkSet = new Set();   // 이동 후에도 공격 가능한 칸 (남은 이동력 >= 공격 비용, 강 진입 칸은 남은 이동력 0 이라 제외됨)
     ui.moveLeftAt = new Map();   // 칸 → 도착 시 남은 이동력 (자기 진영이 아는 정보만으로 계산됨)
-    if (sel) {
+    if (sel && !scoutOn) {
       const selT = GAME_CONFIG.UNIT_TYPES[sel.type];
       const showMoveAtk = GAME_CONFIG.ENABLE_MOVE_ATTACK && selT.canAttack && !(selT.indirect && !selT.moveFire) && !onCooldown(st, sel);
       for (const tile of getReachableTiles(st, sel.id)) {
@@ -1166,6 +1179,7 @@
     }
     renderHighlights(st, me, sel);
     clearHover();
+    if (ui.scoutMode && ui.scoutAt && ui.scoutSet.has(ui.scoutAt.i)) hlHover.innerHTML = scoutPreviewSvg(posOf(ui.scoutAt.i));
     if (ui.touchArm >= 0 && sel && (ui.atkSet.has(ui.touchArm) || ui.dualSet.has(ui.touchArm))) renderHover(ui.touchArm); else ui.touchArm = -1;
     renderHeader();
     renderPanel();
@@ -1449,7 +1463,7 @@
   /** 통신 상자: 'on' | 'off' | 'na' (기존 hasSignalSupport 사용, 아군 정보만) */
   function signalState(u) {
     const ty = GAME_CONFIG.UNIT_TYPES[u.type];
-    if (ty.isSignal || !ty.canAttack) return 'na';
+    if (ty.isSignal || !ty.canAttack || !GAME_CONFIG.COMBAT.signalBonus) return 'na';
     return hasSignalSupport(ui.view, u) ? 'on' : 'off';
   }
 
@@ -1475,7 +1489,7 @@
     const actLine = actCardText(u);
     if (actLine) h += `<div class="uc-row"><span class="uc-lbl">${esc(t('card.actLbl'))}</span><span class="tx">${esc(actLine)}</span></div>`;
     h += `<div class="box tx" title="${esc(t('ter.hitMod'))} ${ter.hitMod}%">${esc(t('card.terrain', { terrain: TR(ter.key), def: defModText(ter), cost: ter.moveCost }))}</div>`;
-    if (u.side === me && !isDiceRules()) {   // 데모 2: 통신 보너스 줄 없음
+    if (u.side === me && !isDiceRules() && GAME_CONFIG.COMBAT.signalBonus) {   // 데모 2·v13: 통신 보너스 줄 없음
       const sg = signalState(u), n = GAME_CONFIG.COMBAT.signalBonus;
       h += `<div class="box tx ${sg === 'on' ? 'on' : ''}">${esc(t(sg === 'on' ? 'card.sigOn' : sg === 'off' ? 'card.sigOff' : 'card.sigNA', { n }))}</div>`;
     }
@@ -1520,7 +1534,7 @@
       if (mv.cost != null) bits.push(t('card.cost', { n: mv.cost }));
       bits.push(terName(ter));
       const sg = signalState(u);
-      if (sg !== 'na' && !isDiceRules()) bits.push(t(sg === 'on' ? 'card.sumSigOn' : 'card.sumSigOff', { n: GAME_CONFIG.COMBAT.signalBonus }));
+      if (sg !== 'na' && !isDiceRules() && GAME_CONFIG.COMBAT.signalBonus) bits.push(t(sg === 'on' ? 'card.sumSigOn' : 'card.sumSigOff', { n: GAME_CONFIG.COMBAT.signalBonus }));
       if (!u.acted && activationBlocked(ui.view, u)) bits.unshift(t('card.actSpent'));
       if (u.suppressed > 0) bits.unshift(t('card.suppressed'));
     } else bits.push(P(u), terName(ter));
@@ -1544,6 +1558,14 @@
     $('#card-sum').disabled = !u;
     $('#card-sum').setAttribute('aria-label', u ? t('aria.expandCard', { who: whoName(u.side, u.type) }) : t('panel.unit'));
     if (!u && ui.pop === 'card') closePop(false);
+    const scoutBtn = $('#btn-scout');
+    const canScoutType = !!(playerTurn && sel && !ui.tut && GAME_CONFIG.UNIT_TYPES[sel.type].canScout);
+    scoutBtn.hidden = !canScoutType;
+    scoutBtn.disabled = !(canScoutType && canUnitScout(ui.view, sel));
+    scoutBtn.classList.toggle('on', !!ui.scoutMode);
+    scoutBtn.setAttribute('aria-pressed', String(!!ui.scoutMode));
+    scoutBtn.textContent = t(ui.scoutMode ? 'btn.scoutOn' : 'btn.scout');
+    scoutBtn.title = t('tip.scout', { n: GAME_CONFIG.SCOUT.range });
     $('#btn-wait').disabled = !(playerTurn && sel && !sel.acted);
     $('#btn-deselect').disabled = !(playerTurn && sel);
     renderControls();
@@ -1681,6 +1703,7 @@
     switch (ev.type) {
       case 'move': case 'retreat': return [ev.from, ev.to];
       case 'suppressed': return [ev.pos];
+      case 'scout': return [ev.center];
       case 'ambush': return [ev.at];
       case 'diceRoll': return [ev.target];
       case 'diceUnit': return [ev.pos];
@@ -1746,6 +1769,7 @@
   function describeFull(ev) {
     switch (ev.type) {
       case 'move': return M('log.move', { who: WHO(ev.side, ev.unitType), from: P(ev.from), to: P(ev.to) }, ev.side);
+      case 'scout': return M('log.scout', { who: WHO(ev.side, ev.unitType), pos: P(ev.center) }, ev.side);
       case 'ambush': return M('log.ambushFull', { who: WHO(ev.side, ev.unitType), enemy: S(enemyOf(ev.side)), blocker: U(ev.blockerType), at: P(ev.at) }, ev.side);
       case 'diceRoll': return M('log.attackFull', { who: WHO(ev.side, ev.unitType), from: P(ev.from), target: P(ev.target), verb: VERB(ev), dice: diceLog(ev), res: RES(ev) }, ev.side);
       case 'diceUnit': return M('log.diceUnitFull', { who: WHO(ev.side, ev.unitType), pos: P(ev.pos), res: { t: ev.hit ? 'res.hit' : 'res.miss' } }, ev.side);
@@ -1775,6 +1799,8 @@
         if (seen(ev.to)) return M('log.enemyMove', { unit: U(ev.unitType), to: P(ev.to) }, ev.side);
         if (seen(ev.from)) return M('log.enemyVanish', { unit: U(ev.unitType) }, ev.side);
         return null;
+      case 'scout':   // 정찰은 내 진영 것만 (상대에게는 정찰했다는 사실도 보이지 않음)
+        return mine ? M('log.scout', { who: WHO(ev.side, ev.unitType), pos: P(ev.center) }, ev.side) : null;
       case 'ambush':
         if (mine) return M('log.ambushMine', { who: WHO(ev.side, ev.unitType), blocker: U(ev.blockerType), at: P(ev.at) }, 'bad');
         if (seen(ev.at)) return M('log.ambushSeen', { unit: U(ev.unitType), blocker: U(ev.blockerType), at: P(ev.at) }, ev.side);
@@ -2391,6 +2417,12 @@
       if (act && !tutOk(act)) { tutBlocked(); return; }
     }
 
+    if (sel && ui.scoutMode && ui.scoutSet.has(i)) {
+      // 통신 정찰 지점: 터치는 첫 탭 = 3x3 미리보기, 같은 칸 두 번째 탭 = 정찰 확정. 마우스는 한 번에 확정
+      if (touch && !(ui.scoutAt && ui.scoutAt.i === i)) { ui.scoutAt = { i }; clearHover(); hlHover.innerHTML = scoutPreviewSvg(p); announce(t('live.scoutPreview')); return; }
+      playerScout(sel.id, p);
+      return;
+    }
     if (sel && ui.atkSet.has(i)) {
       // 터치: 첫 탭 = 명중률 배지(포병은 착탄 미리보기 포함), 같은 대상 두 번째 탭 = 공격 확인창
       if (touch && armed !== i) { ui.touchArm = i; clearHover(); renderHover(i); return; }
@@ -2461,6 +2493,25 @@
     logEvents(events);
     if (ui.tut) tutRecord({ kind: 'move', unit: id, at: { r: dest.r, c: dest.c } }, events);
     if (st.winner) { render(); showResult(); return; }
+    render();
+  }
+
+  /** 통신 정찰: 지점을 확정 (엔진 scoutArea). 이번 턴 동안 그 칸들이 시야로 보임 */
+  function playerScout(id, center) {
+    const st = ui.state;
+    const before = cloneState(st);
+    const events = scoutArea(st, id, center);   // 상태는 여기서 확정
+    annotate(events, hotseat() ? visMapOf(before, st) : visMapOf(st));
+    ui.turnEvents.push(...events);
+    ui.scoutMode = false; ui.scoutAt = null; ui.scoutUnit = null;
+    ui.selectedId = null;
+    hideTip(); clearHover();
+    ui.view = st;
+    logEvents(events);
+    const area = new Set(scoutTilesAround(center));
+    const found = st.units.filter((e) => e.side !== st.turn && area.has(idx(e.r, e.c))).length;   // 방금 시야에 들어온 칸의 적 수 (내 시야 안이므로 알아도 됨)
+    announce(t(found ? 'live.scoutFound' : 'live.scoutNone', { n: found }));
+    sfx('ui_click');
     render();
   }
 
@@ -2589,7 +2640,8 @@
         html += item(sw(mini(plainBg + regionSvg(one, artyStyle()))), t('legend.hl.arty'));
         html += item(sw(mini(plainBg + `<rect x="1.2" y="1.2" width="37.6" height="37.6" fill="${H.impact.centerFill}" stroke="${H.impact.line}" stroke-width="${H.impact.centerW}"/>`)), t('legend.hl.impact'));
         html += item(sw(mini(plainBg + ffWarning(0, 0))), t('legend.hl.ff'));
-        html += item(sw(mini(plainBg + regionSvg(one, signalStyle('own')) + pillBadge(20, 20, `+${GAME_CONFIG.COMBAT.signalBonus}`, H.sigBadge, H.signal.badge, '#fff'))), t('legend.hl.signal', { n: GAME_CONFIG.COMBAT.signalBonus }));
+        if (GAME_CONFIG.COMBAT.signalBonus) html += item(sw(mini(plainBg + regionSvg(one, signalStyle('own')) + pillBadge(20, 20, `+${GAME_CONFIG.COMBAT.signalBonus}`, H.sigBadge, H.signal.badge, '#fff'))), t('legend.hl.signal', { n: GAME_CONFIG.COMBAT.signalBonus }));
+        if (scenarioHasType('signal')) html += item(sw(mini(plainBg + regionSvg(one, scoutZoneStyle()))), t('legend.hl.scout'));
         html += item(sw(mini(plainBg + bare(unitSvg(DEF(), 'infantry', { noHp: true, done: true })))), t('legend.hl.done'));
         if (actLimitsOf(ui.act)) {
           html += item(sw(mini(plainBg + bare(unitSvg(DEF(), 'infantry', { noHp: true }))), 'act-spent'), t('legend.hl.actSpent'));
@@ -2647,6 +2699,7 @@
     const p = posOf(i);
     const me = ui.viewer;
     clearHover();
+    if (ui.scoutMode && ui.scoutSet.has(i) && playerCanAct()) { hlHover.innerHTML = scoutPreviewSvg(p); return; }   // 정찰 지점 3x3 미리보기
     if (!playerCanAct() || !ui.selectedId || !(ui.atkSet.has(i) || ui.dualSet.has(i))) {
       if (st && !ui.busy && me) {
         let pre = '';
@@ -3505,7 +3558,7 @@
     if (active) {
       const Z = DESIGN.deployZone;
       let under = regionSvg(deployZoneSet(side), { fill: Z.fill, line: Z.line, w: Z.w, dash: Z.dash });
-      const sigs = ui.showSignal ? st.units.filter((u) => u.side === side && ui.deploy.placed.has(u.id) && GAME_CONFIG.UNIT_TYPES[u.type].isSignal) : [];
+      const sigs = ui.showSignal && GAME_CONFIG.COMBAT.signalBonus ? st.units.filter((u) => u.side === side && ui.deploy.placed.has(u.id) && GAME_CONFIG.UNIT_TYPES[u.type].isSignal) : [];
       under += regionSvg(signalZoneSets(st, sigs)[side], signalStyle(side));
       under += regionSvg(targets, moveStyle());
       hlUnder.innerHTML = under;
@@ -3656,7 +3709,7 @@
     const C = GAME_CONFIG, CB = C.COMBAT;
     const mv = C.ENABLE_MOVE_ATTACK ? t('intro.hit.mv', { n: Math.abs(C.MOVE_ATTACK_PENALTY) }) : '';
     const dice = diceSides() === 10 ? t('intro.hit.d10', { min: CB.minHitD10, max: CB.maxHitD10 }) : t('intro.hit.d100', { min: CB.minHit, max: CB.maxHit });
-    return `<li>${t('intro.hit', { base: CB.baseHit, per: CB.perPoint, fog: Math.abs(CB.fogPenalty), mv, dice, range: CB.signalRange, bonus: CB.signalBonus })}</li>`;
+    return `<li>${t('intro.hit', { base: CB.baseHit, per: CB.perPoint, fog: Math.abs(CB.fogPenalty), mv, dice })}</li><li>${t('intro.scout', { range: C.SCOUT.range })}</li>`;
   }
   const langButtonsHtml = () => `<div class="seg" role="group" aria-label="${esc(t('lang.label'))}">${['ko', 'en'].map((l) => `<button data-lang="${l}" lang="${l}" class="${getLang() === l ? 'active' : ''}" aria-pressed="${getLang() === l}">${l.toUpperCase()}</button>`).join('')}</div>`;
 
@@ -3772,7 +3825,7 @@
       <div class="set-list">
         ${row(t('speed.fx'), null, seg('ms-speed', [['slow', t('speed.slow')], ['normal', t('speed.normal')], ['fast', t('speed.fast')]], ui.speed))}
         ${row(t('lbl.reduceMotion'), t('tip.reduceMotion'), seg('ms-reduce', OO, onOff(ui.reduceMotion)))}
-        ${row(t('lbl.signalToggle'), t('tip.signalToggle'), seg('ms-signal', OO, onOff(ui.showSignal)))}
+        ${GAME_CONFIG.COMBAT.signalBonus ? row(t('lbl.signalToggle'), t('tip.signalToggle'), seg('ms-signal', OO, onOff(ui.showSignal))) : ''}
         ${row(t('lbl.music'), null, seg('ms-music', OO, onOff(audio.settings().musicOn)))}
         <div class="set-row aud-row"><input type="range" id="ms-rng-music" min="0" max="100" step="5" aria-label="${esc(t('aria.musicVol'))}"></div>
         ${row(t('lbl.sfx'), null, seg('ms-sfx', OO, onOff(audio.settings().sfxOn)))}
@@ -5014,6 +5067,16 @@
 
   /* ---------- 바인딩 ---------- */
   $('#btn-end-turn').onclick = onEndTurn;
+  $('#btn-scout').onclick = () => {
+    if (!playerCanAct() || !ui.selectedId || ui.tut) return;
+    const u = getUnit(ui.state, ui.selectedId);
+    if (!canUnitScout(ui.state, u)) return;
+    ui.scoutMode = !ui.scoutMode;
+    ui.scoutUnit = u.id; ui.scoutAt = null;
+    hideTip(); clearHover(); closePop(false);
+    render();
+    if (ui.scoutMode) announce(t('live.scoutPick', { n: GAME_CONFIG.SCOUT.range }));
+  };
   $('#btn-wait').onclick = () => {
     if (!playerCanAct() || !ui.selectedId) return;
     if (ui.tut) { tutBlocked(); return; }   // 튜토리얼: 행동 끝내기는 단계 입력이 아님
@@ -5129,6 +5192,7 @@
     if (e.key === 'Escape') {
       if (ui.pop) { e.preventDefault(); closePop(); return; }
       if (ui.drawerOpen) { e.preventDefault(); setDrawer(false, true); return; }
+      if (ui.scoutMode) { e.preventDefault(); sfx('ui_cancel'); ui.scoutMode = false; ui.scoutAt = null; render(); return; }   // 정찰 지점 선택만 취소 (유닛 선택은 유지)
       if (!ui.busy) { ui.selectedId = null; ui.inspectId = null; ui.touchArm = -1; hideTip(); if (ui.state) render(); }
     }
   });
