@@ -3368,14 +3368,125 @@
     draw();
   }
 
+  /* ---------- 관리자 편성 (난이도 직접 조절: 양쪽 병종·수량·도착 라운드). 시나리오별로 이 브라우저에 저장 ----------
+   * AI 대전에서만 씀 (2인 대전은 상대 구성이 보이므로 막음). 화면은 시작 화면의 설정이고, 게임 중에는 상대 구성이 어디에도 나오지 않음. */
+  const forcesKey = () => 'forces:' + GAME_CONFIG.SCENARIO_ID;
+  function loadForces() {
+    try { const v = JSON.parse(localStorage.getItem(forcesKey()) || 'null'); return v && !forcesError(v) ? v : null; } catch (e) { return null; }
+  }
+  function saveForces(f) {
+    try { if (f) localStorage.setItem(forcesKey(), JSON.stringify(f)); else localStorage.removeItem(forcesKey()); } catch (e) { /* 저장 불가 환경 */ }
+  }
+  /** 두 편성이 같은가 (같은 라운드·병종은 합쳐서, 수 0 은 무시, 순서 무시) */
+  function sameForces(a, b) {
+    const key = (f) => GAME_CONFIG.ROUND_ORDER.map((s) => {
+      const m = {};
+      for (const r of (f && f[s]) || []) if (r.count > 0) m[r.round + ':' + r.type] = (m[r.round + ':' + r.type] || 0) + r.count;
+      return Object.keys(m).sort().map((k) => k + '=' + m[k]).join(',');
+    }).join('|');
+    return key(a) === key(b);
+  }
+  function showAdminScreen() {
+    const C = GAME_CONFIG, def = forcesDefault();
+    const cur = JSON.parse(JSON.stringify(loadForces() || def));
+    for (const s of C.ROUND_ORDER) if (!cur[s]) cur[s] = [];
+    const types = Object.keys(C.UNIT_TYPES), L = FORCES_LIMIT;
+    const uname = (k) => t(C.UNIT_TYPES[k].nameKey), sname = (s) => t(sideNameKey(s));
+    const leave = () => { ui.draftBack = null; hideOverlay(); showIntro(true); };
+    ui.draftBack = leave;
+    const merge = (side) => {
+      const out = [];
+      for (const r of cur[side]) { const m = out.find((x) => x.round === r.round && x.type === r.type); if (m) m.count = Math.min(L.perRow, m.count + r.count); else out.push(r); }
+      cur[side] = out.filter((r) => r.count > 0);
+    };
+    const total = (side) => cur[side].reduce((n, r) => n + r.count, 0);
+    const roundText = (n) => (n === 0 ? t('admin.round0') : t('admin.roundN', { n }));
+    const draw = (focus = null) => {
+      const keep = [...document.querySelectorAll('.admin-list')].map((e) => e.scrollTop);
+      const cols = C.ROUND_ORDER.map((side) => {
+        const rows = cur[side].map((r, i) => ({ r, i })).sort((a, b) => a.r.round - b.r.round || types.indexOf(a.r.type) - types.indexOf(b.r.type));
+        const n = total(side);
+        const rowsHtml = rows.map(({ r, i }) => {
+          const nm = uname(r.type), lastOne = n <= 1 && r.count <= 1;
+          return `<div class="draft-row admin-row" role="group" aria-label="${esc(nm + ' · ' + roundText(r.round))}">
+            ${symHtml(side, r.type)}
+            <div class="draft-info"><div class="draft-name"><span class="tx">${esc(nm)}</span></div></div>
+            <div class="admin-ctl"><span class="admin-lbl">${esc(t('admin.roundLbl'))}</span><div class="stepper">
+              <button type="button" data-s="${side}" data-i="${i}" data-rd="-1" aria-label="${esc(t('admin.roundDec', { unit: nm }))}"${r.round <= 0 ? ' aria-disabled="true" class="is-off"' : ''}>−</button>
+              <output class="draft-n admin-round" aria-live="polite">${esc(roundText(r.round))}</output>
+              <button type="button" data-s="${side}" data-i="${i}" data-rd="1" aria-label="${esc(t('admin.roundInc', { unit: nm }))}"${r.round >= C.MAX_ROUNDS ? ' aria-disabled="true" class="is-off"' : ''}>+</button></div></div>
+            <div class="admin-ctl"><span class="admin-lbl">${esc(t('admin.countLbl'))}</span><div class="stepper">
+              <button type="button" data-s="${side}" data-i="${i}" data-ct="-1" aria-label="${esc(t('admin.countDec', { unit: nm }))}"${lastOne ? ' aria-disabled="true" class="is-off"' : ''}>−</button>
+              <output class="draft-n" aria-live="polite">${r.count}</output>
+              <button type="button" data-s="${side}" data-i="${i}" data-ct="1" aria-label="${esc(t('admin.countInc', { unit: nm }))}"${r.count >= L.perRow || n >= L.perSide ? ' aria-disabled="true" class="is-off"' : ''}>+</button></div></div>
+          </div>`;
+        }).join('');
+        const opts = types.map((k) => `<option value="${k}">${esc(uname(k))}</option>`).join('');
+        return `<section class="admin-col" aria-label="${esc(sname(side))}">
+          <div class="admin-col-head"><h3 style="color:${nameColor(side)}">${esc(sname(side))}</h3><span class="chip"><span class="tx">${esc(t('admin.total', { n }))}</span></span></div>
+          <div class="draft-list admin-list" tabindex="-1">${rowsHtml || `<div class="hint">${esc(t('admin.empty'))}</div>`}</div>
+          <div class="admin-add"><select data-addtype="${side}" aria-label="${esc(t('admin.type'))}">${opts}</select>
+            <button type="button" data-add="${side}"${n >= L.perSide ? ' aria-disabled="true" class="is-off"' : ''}><span class="tx">${esc(t('admin.addRow'))}</span></button></div>
+        </section>`;
+      }).join('');
+      showOverlay(`<div class="draft-card">
+        <div class="draft-head"><h2 class="draft-title">${esc(t('admin.title'))}</h2><button class="link" id="admin-back">${esc(t('admin.back'))}</button></div>
+        <div class="hint">${esc(t('admin.sub'))} ${esc(t('admin.fogNote'))}</div>
+        <div class="admin-body">${cols}</div>
+        <div class="draft-actions"><button type="button" id="admin-reset"><span class="tx">${esc(t('admin.reset'))}</span></button>
+          <button type="button" class="primary" id="admin-ok"><span class="tx">${esc(t('admin.apply'))}</span></button></div>
+      </div>`, () => draw(), 'draft');
+      const modal = $('#modal');
+      modal.querySelectorAll('.admin-list').forEach((e, k) => { e.scrollTop = keep[k] || 0; });
+      const sel = (b) => ({ side: b.dataset.s, row: cur[b.dataset.s][+b.dataset.i] });
+      modal.querySelectorAll('[data-rd]').forEach((b) => {
+        b.onclick = () => {
+          const { side, row } = sel(b), nr = row.round + +b.dataset.rd;
+          if (nr < 0 || nr > C.MAX_ROUNDS) return;
+          row.round = nr; merge(side); draw();
+        };
+      });
+      modal.querySelectorAll('[data-ct]').forEach((b) => {
+        b.onclick = () => {
+          const { side, row } = sel(b), d = +b.dataset.ct;
+          if (d > 0 ? row.count >= L.perRow || total(side) >= L.perSide : total(side) <= 1) return;
+          row.count += d; merge(side); draw(`[data-s="${side}"][data-i="${b.dataset.i}"][data-ct="${b.dataset.ct}"]`);
+        };
+      });
+      modal.querySelectorAll('[data-add]').forEach((b) => {
+        b.onclick = () => {
+          const side = b.dataset.add;
+          if (total(side) >= L.perSide) return;
+          const type = modal.querySelector(`[data-addtype="${side}"]`).value;
+          cur[side].push({ round: cur[side].some((r) => r.round === 0) ? 0 : 1, type, count: 1 });
+          merge(side); draw(`[data-add="${side}"]`);
+        };
+      });
+      $('#admin-reset').onclick = () => { for (const s of C.ROUND_ORDER) cur[s] = JSON.parse(JSON.stringify(def[s])); draw('#admin-reset'); };
+      $('#admin-back').onclick = leave;
+      $('#admin-ok').onclick = () => {
+        if (sameForces(cur, def)) { saveForces(null); leave(); return; }
+        try { setForces(cur); } catch (err) { console.error(err); setForces(null); return; }   // 시작 병력을 놓을 자리가 없으면 저장하지 않음
+        setForces(null);
+        saveForces(cur);
+        leave();
+      };
+      const fo = focus && modal.querySelector(focus);
+      (fo || modal.querySelector('#admin-ok')).focus({ preventScroll: true });
+    };
+    draw();
+  }
+
   /* ---------- 시작 / 결과 ---------- */
   /** 새 게임: 직접 배치를 고르면 배치 단계 (AI 모드는 국군만, 2인 모드는 라운드 순서대로 양쪽), 아니면 기본 배치로 바로 시작 */
   function newGame() {
     ui.gameId++;
     setRuleset(ui.demo2 ? 'dice' : 'classic');   // 규칙 세트는 판을 시작할 때 고정 (게임 도중 바꾸지 않음)
+    const admin = hotseat() ? null : loadForces();   // 관리자 편성 (AI 대전만). 있으면 직접 편성보다 우선
     if (GAME_CONFIG.DRAFT) {   // 직접 편성: 고른 편성을 시작 부대로 (기본 편성이면 기본 배치로 되돌림)
-      try { setDraft(ui.draftComps || null); } catch (err) { console.error(err); ui.draftComps = null; setDraft(null); }
+      try { setDraft(admin ? null : ui.draftComps || null); } catch (err) { console.error(err); ui.draftComps = null; setDraft(null); }
     }
+    try { setForces(admin); } catch (err) { console.error(err); setForces(null); }
     ui.state = createInitialState();   // 기본 배치에서 출발
     ui.view = ui.state;
     ui.selectedId = null;
@@ -3911,14 +4022,16 @@
   }
 
   /** 새 게임: 시나리오 카드 → 카드를 누르면 시작 설정(모드·난이도·배치 옵션)과 시작 버튼. 고르는 값과 기본값은 예전 시작 화면과 같음 */
-  function showIntro() {
+  function showIntro(reopen = false) {
     if (ui.screen !== 'start') setScreen('start');
     render();
     const sel = { mode: ui.mode, diff: resolveProfile(ui.difficulty).id, open: false, draft: 'default' };   // 편성은 열 때마다 기본
+    if (reopen) sel.open = true;   // 관리자 화면에서 돌아올 때는 시작 설정을 연 채로
     const draw = (focusSel = null, fade = false) => {
       const hs = sel.mode === 'hotseat';
       sel.diff = fitDifficulty(sel.diff);   // 시나리오를 바꾸면 그 시나리오 목록 안으로
       const prof = resolveProfile(sel.diff);
+      const forcesSaved = hs ? null : loadForces();   // 관리자 편성 (AI 대전만)
       const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID);
       const name = t(sc.nameKey);
       const sub = t((hs ? 'start.subHotseat' : 'start.sub') + (GAME_CONFIG.SYMMETRIC ? 'Sym' : ''), { place: { t: sc.subKey }, max: GAME_CONFIG.MAX_ROUNDS, ...SP() });
@@ -3934,10 +4047,11 @@
         ${hs ? '' : `<div><div class="sec-lbl">${esc(t('lbl.aiDifficulty'))}</div><div class="diff-grid${listTacticProfiles().length === 3 ? ' n3' : ''}" role="group" aria-label="${esc(t('lbl.aiDifficulty'))}">`
           + listTacticProfiles().map((p) => `<button data-diff="${esc(p.id)}" aria-pressed="${p.id === prof.id}" title="${esc(p.name)}"><span class="tx">${esc(p.name)}</span></button>`).join('')
           + `</div><div class="desc-box" id="intro-diff-desc">${esc(prof.description)}</div></div>`}
-        ${GAME_CONFIG.DRAFT ? `<div><div class="sec-lbl">${esc(t('draft.label'))}</div><div class="diff-grid" role="group" aria-label="${esc(t('draft.label'))}">`
+        ${GAME_CONFIG.DRAFT && !forcesSaved ? `<div><div class="sec-lbl">${esc(t('draft.label'))}</div><div class="diff-grid" role="group" aria-label="${esc(t('draft.label'))}">`
           + ['default', 'custom'].map((k) => `<button data-draft="${k}" aria-pressed="${sel.draft === k}"><span class="tx">${esc(t('draft.' + k))}</span></button>`).join('') + '</div></div>' : ''}
         <div class="opt-list">${GAME_CONFIG.ROUND_ORDER.some((x) => GAME_CONFIG.DEPLOY_ZONES[x] && GAME_CONFIG.DEPLOYMENT[x].length) ? `<label class="opt"><input type="checkbox" id="opt-deploy"${ui.manualDeploy ? ' checked' : ''}><span class="tx">${esc(t('start.optDeploy'))}</span></label>` : ''}
           ${hs ? `<label class="opt"><input type="checkbox" id="opt-curtain"${ui.useCurtain ? ' checked' : ''}><span class="tx">${esc(t('start.optCurtain'))}</span></label>` : ''}</div>
+        ${hs ? '' : `<div class="admin-line"><button type="button" id="btn-admin"><span class="tx">${esc(t('admin.btn'))}</span></button>${forcesSaved ? `<span class="chip orange sm"><span class="tx">${esc(t('admin.active'))}</span></span><button type="button" class="link" id="admin-clear">${esc(t('admin.clear'))}</button>` : ''}</div>`}
         <button class="primary btn-go" id="btn-start"><span class="tx">${esc(t('btn.startScen', { name }))}</span></button>
       </section>`;
       showOverlay(`<div class="start-card scen-page${fade ? ' menu-fade' : ''}${sel.open ? ' sheet-open' : ''}">
@@ -3970,6 +4084,8 @@
       modal.querySelectorAll('[data-draft]').forEach((b) => { b.onclick = () => { sel.draft = b.dataset.draft; draw(`[data-draft="${sel.draft}"]`); }; });
       if ($('#opt-deploy')) $('#opt-deploy').onchange = (e) => { ui.manualDeploy = e.target.checked; savePref(OPT_DEPLOY_KEY, ui.manualDeploy); };   // 배치 구역이 없는 시나리오(고정 배치)는 항목 없음
       if ($('#opt-curtain')) $('#opt-curtain').onchange = (e) => { ui.useCurtain = e.target.checked; savePref(OPT_CURTAIN_KEY, ui.useCurtain); };
+      if ($('#btn-admin')) $('#btn-admin').onclick = showAdminScreen;
+      if ($('#admin-clear')) $('#admin-clear').onclick = () => { saveForces(null); draw('#btn-admin'); };
       $('#btn-menu-back').onclick = () => showMenu('#menu-new');
       if ($('#sheet-close')) $('#sheet-close').onclick = () => { sel.open = false; draw(`[data-scen="${GAME_CONFIG.SCENARIO_ID}"]`); };
       if ($('#btn-start')) $('#btn-start').onclick = () => {
@@ -3978,12 +4094,13 @@
         $('#difficulty-select').value = ui.difficulty;
         $('#difficulty-select').title = resolveProfile(ui.difficulty).description;
         ui.draftComps = null;
-        if (GAME_CONFIG.DRAFT && sel.draft === 'custom') startDraft(); else newGame();
+        if (GAME_CONFIG.DRAFT && sel.draft === 'custom' && !forcesSaved) startDraft(); else newGame();
       };
       const fo = focusSel && modal.querySelector(focusSel);
       (fo || modal.querySelector(`[data-scen="${GAME_CONFIG.SCENARIO_ID}"]`) || $('#btn-menu-back')).focus({ preventScroll: !!sel.open && !focusSel });
     };
     draw(null, true);
+    if (reopen) { const sh = $('#modal').querySelector('.start-sheet'); if (sh && sh.scrollIntoView) sh.scrollIntoView({ block: 'nearest' }); }
   }
 
   /** 규칙 보기 (시작 화면의 보조 링크) */

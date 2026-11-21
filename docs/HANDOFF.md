@@ -1,3 +1,17 @@
+# HANDOFF (2026-11-22) — 관리자 편성 (미커밋)
+
+## 끝난 것
+- 시작 화면 설정 시트의 '관리자' 버튼(AI 대전만) → 양쪽 진영의 (도착 라운드, 병종, 수량)을 직접 편집. 시작 병력과 증원 전부, 시나리오별 `localStorage`(`forces:<id>`) 저장, '기본값으로'·'해제'.
+- 엔진: `setForces/forcesDefault/forcesError`(engine.js, 직접 편성 블록 아래), `FORCES_LIMIT`(진영 40·줄 20), `publicReinforcements`(ai-intel.js 한 줄). 화면: `showAdminScreen`(ui.js, 'draft' 오버레이 재사용), `.admin-*` css, 문구 `admin.*`/`forcesErr.*`.
+- 결정: 규칙 변경이 아니라 시작 옵션이라 rulesVersion 13 유지. 2인 대전은 상대 구성이 보여서 막음. 직접 편성(draft)과 같이 쓰면 관리자 편성 우선. AI는 편성한 값을 모름(기본값만).
+- 새 유닛 자동 배치는 진영 중심에서 가장 가까운 빈 칸(구역 안, 거점 칸 제외), 증원 칸은 같은 진영 기존 도착 칸 재사용.
+- 검증: test.js 255 통과(관리자 4건 추가), 브라우저 확인(호스토멜 편집→저장→시작: 방어 8+7, 공격 0+16), 모바일 390px 넘침 없음. 시드 비교 28건 모두 SAME.
+
+## 알려진 문제 / 다음
+- 편성을 키우면 균형 판단은 직접 플레이로. 새 병종이 그 진영 그림 세트에 없으면 기호로 대체되는지 확인 못 함.
+- 편성 시험은 `E.setForces(forces)` 후 `simulateGames`로 가능(아직 check.js 옵션 없음).
+
+---
 # HANDOFF (2026-11-21, 뒤) — 통신 정찰 (rulesVersion 13, 태그 `stable-before-comms-scout`, 미커밋)
 
 ## 끝난 것

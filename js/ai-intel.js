@@ -70,7 +70,7 @@ function intelEnemyCount(state, side, type) {
   const enemy = enemyOf(side);
   const C = GAME_CONFIG;
   let n = publicSetup(enemy).filter((d) => d.type === type).length
-    + C.REINFORCEMENTS.filter((g) => g.side === enemy && g.type === type).reduce((k, g) => k + g.count, 0);
+    + publicReinforcements().filter((g) => g.side === enemy && g.type === type).reduce((k, g) => k + g.count, 0);
   const dead = (state.intel && state.intel[side] && state.intel[side].destroyed) || {};
   const mem = state.memory[side];
   for (const id of Object.keys(dead)) {

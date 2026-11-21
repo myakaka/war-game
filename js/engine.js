@@ -363,6 +363,9 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.DRAFT_ACTIVE = false;
   C.DRAFT_COMPS = null;
   C.REINFORCEMENTS = norm.filter((d) => d.round >= 1);
+  C.REINFORCEMENTS_BASE = C.REINFORCEMENTS;   // 관리자 편성(setForces)이 바꾸기 전의 기본 증원
+  C.FORCES_ACTIVE = false;
+  C.FORCES = null;
   C.DEPLOY_ZONES = {};
   for (const side of C.ROUND_ORDER) {
     const z = s.placementZones && s.placementZones[side];
@@ -482,7 +485,9 @@ const draftCostIn = (D, comp) => Object.keys(comp).reduce((n, k) => n + (comp[k]
 const draftCost = (comp) => draftCostIn(GAME_CONFIG.DRAFT, comp);
 const draftCount = (comp) => draftTypeList().reduce((n, k) => n + (comp[k] || 0), 0);
 /** 이 진영의 상대가 알 수 있는 시작 배치 (공개 정보). 직접 편성 판에서는 없음 */
-const publicSetup = (side) => (GAME_CONFIG.DRAFT_ACTIVE ? [] : GAME_CONFIG.DEPLOYMENT[side]);
+const publicSetup = (side) => (GAME_CONFIG.DRAFT_ACTIVE || GAME_CONFIG.FORCES_ACTIVE ? [] : GAME_CONFIG.DEPLOYMENT[side]);
+/** 상대가 알 수 있는 증원 일정 (공개 정보). 관리자 편성 판에서는 시나리오 기본값 (편성한 값은 AI 가 모름) */
+const publicReinforcements = () => (GAME_CONFIG.FORCES_ACTIVE ? GAME_CONFIG.REINFORCEMENTS_BASE : GAME_CONFIG.REINFORCEMENTS);
 /** 기본 편성 (시나리오 기본 배치의 병종별 수) */
 function draftDefaultComp() {
   const C = GAME_CONFIG, comp = {};
@@ -617,6 +622,125 @@ function setDraft(comps) {
 /** 저장된 판을 이어할 때: 판에 기록된 편성을 다시 적용 (기록이 없는 예전 저장은 기본 편성) */
 function restoreDraft(saved) {
   return setDraft(saved && saved.draft && saved.draft.mode === 'custom' ? saved.draft.comps : null);
+}
+
+/* ---------- 관리자 편성 (난이도 직접 조절용, 모든 시나리오) ----------
+ * forces = { 진영: [{ round, type, count }] } — round 0 = 시작 병력, 1 이상 = 그 라운드에 도착하는 증원.
+ * setForces 는 호출할 때마다 기본 배치(DEPLOYMENT_BASE, REINFORCEMENTS_BASE)에서 다시 만든다. setForces(null) = 기본으로 복귀.
+ * 시작 병력: 기본 배치에 있던 병종은 그 칸을 그대로 쓰고, 늘어난 유닛은 진영 중심에서 가까운 빈 칸 (배치 구역이 있으면 그 안)에 자동 배치.
+ * 증원: 같은 진영·병종·라운드의 기본 도착 칸을 쓰고, 없으면 같은 진영의 가장 가까운 라운드 도착 칸 (그것도 없으면 구역 뒷줄/진영 기준점).
+ * 규칙·전투·AI 판단은 그대로. AI 는 편성한 값을 모름 (publicSetup/publicReinforcements 가 기본값만 돌려줌). 쓰지 않으면 이 블록은 실행되지 않음. */
+const FORCES_LIMIT = { perSide: 40, perRow: 20 };
+function forcesError(forces) {
+  const C = GAME_CONFIG;
+  if (!forces || typeof forces !== 'object') return { k: 'forcesErr.data' };
+  for (const side of C.ROUND_ORDER) {
+    const rows = forces[side];
+    if (rows == null) continue;
+    if (!Array.isArray(rows)) return { k: 'forcesErr.data' };
+    let total = 0;
+    for (const r of rows) {
+      if (!r || !C.UNIT_TYPES[r.type]) return { k: 'forcesErr.type', p: { type: r && r.type } };
+      if (!Number.isInteger(r.round) || r.round < 0 || r.round > C.MAX_ROUNDS) return { k: 'forcesErr.round', p: { n: r.round } };
+      if (!Number.isInteger(r.count) || r.count < 0 || r.count > FORCES_LIMIT.perRow) return { k: 'forcesErr.count', p: { n: r.count } };
+      total += r.count;
+    }
+    if (total < 1) return { k: 'forcesErr.empty', p: { side: { t: sideNameKey(side) } } };
+    if (total > FORCES_LIMIT.perSide) return { k: 'forcesErr.max', p: { side: { t: sideNameKey(side) }, n: FORCES_LIMIT.perSide } };
+  }
+  return null;
+}
+/** 진영의 기본 편성 (forces 형식): 시작 병종별 수 + 증원 항목 */
+function forcesDefault() {
+  const C = GAME_CONFIG, out = {};
+  for (const side of C.ROUND_ORDER) {
+    const rows = [], at = (round, type) => rows.find((r) => r.round === round && r.type === type);
+    for (const d of C.DEPLOYMENT_BASE[side]) { const r = at(0, d.type); if (r) r.count++; else rows.push({ round: 0, type: d.type, count: 1 }); }
+    for (const g of C.REINFORCEMENTS_BASE) if (g.side === side) { const r = at(g.round, g.type); if (r) r.count += g.count; else rows.push({ round: g.round, type: g.type, count: g.count }); }
+    out[side] = rows;
+  }
+  return out;
+}
+function setForces(forces) {
+  const C = GAME_CONFIG;
+  if (!forces) { if (!C.DRAFT_ACTIVE) C.DEPLOYMENT = C.DEPLOYMENT_BASE; C.REINFORCEMENTS = C.REINFORCEMENTS_BASE; C.FORCES_ACTIVE = false; C.FORCES = null; return false; }
+  const err = forcesError(forces);
+  if (err) throw new Error(t(err.k, err.p));
+  const objCells = new Set();
+  for (const o of C.OBJECTIVES) for (const p of o.cells || [{ r: o.r, c: o.c }]) objCells.add(idx(p.r, p.c));
+  const taken = new Set();
+  for (const s of C.ROUND_ORDER) for (const d of C.DEPLOYMENT_BASE[s]) taken.add(idx(d.r, d.c));   // 다른 진영 기본 칸과 겹치지 않게
+  const nextDep = {}, nextReinf = [];
+  for (const side of C.ROUND_ORDER) {
+    const rows = (forces[side] || []).filter((r) => r.count > 0);
+    const base = C.DEPLOYMENT_BASE[side], baseReinf = C.REINFORCEMENTS_BASE.filter((g) => g.side === side);
+    // 같은 (라운드, 병종) 은 합침
+    const merged = [];
+    for (const r of rows) { const m = merged.find((x) => x.round === r.round && x.type === r.type); if (m) m.count += r.count; else merged.push({ ...r }); }
+    // 시작 병력
+    const dep = [], mine = new Set();
+    const seed = (() => {
+      const pts = base.length ? base : (baseReinf[0] && baseReinf[0].cells[0] ? [baseReinf[0].cells[0]] : [sideAnchor(side)]);
+      return { r: Math.round(pts.reduce((n, p) => n + p.r, 0) / pts.length), c: Math.round(pts.reduce((n, p) => n + p.c, 0) / pts.length) };
+    })();
+    const placeNear = (type) => {
+      let best = null, bestKey = null;
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        const k = idx(r, c);
+        if (taken.has(k) || mine.has(k) || objCells.has(k)) continue;
+        if (C.DEPLOY_ZONES[side] ? !canDeployAt(side, type, r, c) : (terrainAt(r, c).impassableFor || []).includes(type) || C.ROUND_ORDER.some((s) => C.HQ[s] && C.HQ[s].r === r && C.HQ[s].c === c)) continue;
+        const key = [Math.abs(r - seed.r) + Math.abs(c - seed.c), r, c];
+        if (!bestKey || lexLess(key, bestKey)) { best = { r, c }; bestKey = key; }
+      }
+      return best;
+    };
+    const startRows = merged.filter((r) => r.round === 0);
+    for (const d of base) {   // 기본 칸을 쓰는 유닛 (병종별로 기본 수까지)
+      const row = startRows.find((r) => r.type === d.type);
+      if (!row || (row.used || 0) >= row.count) continue;
+      row.used = (row.used || 0) + 1;
+      dep.push({ type: d.type, r: d.r, c: d.c });
+      mine.add(idx(d.r, d.c));
+    }
+    for (const row of startRows) {
+      for (let i = row.used || 0; i < row.count; i++) {
+        const p = placeNear(row.type);
+        if (!p) throw new Error(t('forcesErr.noRoom', { side: { t: sideNameKey(side) } }));
+        dep.push({ type: row.type, r: p.r, c: p.c });
+        mine.add(idx(p.r, p.c));
+      }
+    }
+    // 병종 순서 (UNIT_TYPES) 대로, 같은 병종은 기본 칸 먼저: 유닛 id 가 병종 순으로 매겨짐 (기본 배치와 같은 방식)
+    const order = Object.keys(C.UNIT_TYPES);
+    dep.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+    nextDep[side] = dep;
+    for (const p of mine) taken.add(p);
+    // 증원
+    const rearCells = () => {
+      const z = C.DEPLOY_ZONES[side];
+      if (z) {
+        const front = (z.rows[0] + z.rows[1]) / 2 < (N - 1) / 2, row = front ? z.rows[0] : z.rows[1], cells = [];
+        for (let c = z.cols ? z.cols[0] : 0; c <= (z.cols ? z.cols[1] : N - 1); c++) cells.push({ r: row, c });
+        return cells;
+      }
+      const a = sideAnchor(side);
+      return [{ r: a.r, c: a.c }];
+    };
+    for (const row of merged.filter((r) => r.round >= 1)) {
+      const same = baseReinf.find((g) => g.round === row.round && g.type === row.type)
+        || baseReinf.find((g) => g.round === row.round)
+        || baseReinf.slice().sort((a, b) => Math.abs(a.round - row.round) - Math.abs(b.round - row.round) || a.round - b.round)[0];
+      const cells = same ? same.cells.map((p) => ({ ...p })) : rearCells();
+      nextReinf.push({ round: row.round, side, type: row.type, count: row.count, cells });
+    }
+  }
+  nextReinf.sort((a, b) => C.ROUND_ORDER.indexOf(a.side) - C.ROUND_ORDER.indexOf(b.side) || a.round - b.round);
+  C.DEPLOYMENT = nextDep;
+  C.REINFORCEMENTS = nextReinf;
+  C.FORCES_ACTIVE = true;
+  C.FORCES = JSON.parse(JSON.stringify(forces));
+  validateConfig();
+  return true;
 }
 
 /* =========================== 3. 상태 =========================== */
@@ -3298,7 +3422,7 @@ if (typeof module !== 'undefined' && module.exports) {
     GAME_CONFIG, RULES, UNIT_TYPES, TERRAIN_TYPES, AI_CONFIG, SCENARIOS, loadScenario, validateScenario, listScenarios,
     createInitialState, startTurn, endTurn, getReachableTiles, getAttackableTiles, computeHitChance,
     resolveAttack, moveUnit, finishUnit, getVisibleTiles, canUnitScout, getScoutTargets, getScoutTiles, scoutArea, scoutTilesAround, checkVictory, aiTakeTurn, simulateGames,
-    setDraft, restoreDraft, draftError, draftDataErrors, draftBlock, draftCost, draftCount, draftDefaultComp, draftAiComp, draftAutoPlace, draftTypeList, publicSetup, createSeededRng, cloneState,
+    setForces, forcesError, forcesDefault, publicReinforcements, setDraft, restoreDraft, draftError, draftDataErrors, draftBlock, draftCost, draftCount, draftDefaultComp, draftAiComp, draftAutoPlace, draftTypeList, publicSetup, createSeededRng, cloneState,
     buildGameRecord, summarizeGameRecords, aiUpdatePlan, resolveProfile, listTacticProfiles, compareTacticProfiles,
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,
     diagnoseActivations, activationStatus, activationLimits, hasActivated, activationBlocked, scenarioNotes, sideTotalUnits,

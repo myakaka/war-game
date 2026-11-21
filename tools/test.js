@@ -2967,3 +2967,63 @@ test('[정찰] 통신 명중 보너스(+20)는 없어짐, 규칙 버전 13', () 
   const h = E.computeHitChance(st, 'S2', { r, c: c + 2 });
   assert.ok(!h.parts.some((p) => p.key === 'signal'), '통신 항목 없음');
 });
+
+/* ---------------- 관리자 편성 (setForces) ---------------- */
+test('[관리자] 편성 없음/기본 편성은 기본 배치와 같음, 모든 시나리오에서 병종·수량·증원을 바꿔도 시작됨', () => {
+  for (const id of SCEN_IDS) {
+    E.loadScenario(id);
+    const base = JSON.stringify(E.createInitialState().units) + JSON.stringify(E.createInitialState().pending);
+    assert.equal(E.setForces(E.forcesDefault()), true);
+    assert.equal(JSON.stringify(E.createInitialState().units.map((u) => ({ s: u.side, t: u.type, r: u.r, c: u.c })).sort((a, b) => (a.s + a.t + a.r + a.c < b.s + b.t + b.r + b.c ? -1 : 1))),
+      JSON.stringify(JSON.parse(base.slice(0, base.indexOf(']') + 1)).map((u) => ({ s: u.side, t: u.type, r: u.r, c: u.c })).sort((a, b) => (a.s + a.t + a.r + a.c < b.s + b.t + b.r + b.c ? -1 : 1))), id + ': 기본 편성 = 기본 배치');
+    E.setForces(null);
+    assert.equal(JSON.stringify(E.createInitialState().units) + JSON.stringify(E.createInitialState().pending), base, id + ': 해제하면 완전히 원래대로');
+    // 크게 바꾸기: 양쪽 시작 병력에 보병 3기 추가 + 정찰병 + 3라운드 증원 기갑 2기
+    const f = E.forcesDefault();
+    for (const s of C().ROUND_ORDER) { f[s].push({ round: 0, type: 'infantry', count: 3 }, { round: 0, type: 'recon', count: 1 }, { round: 3, type: 'armor', count: 2 }); }
+    E.setForces(f);
+    const st = E.createInitialState();
+    for (const s of C().ROUND_ORDER) {
+      const want = f[s].reduce((n, r) => n + r.count, 0);
+      assert.equal(st.units.filter((u) => u.side === s).length + st.pending.filter((p) => p.side === s).length, want, id + ' ' + s + ': 총 병력 수');
+    }
+    assert.equal(new Set(st.units.map((u) => u.r + ',' + u.c)).size, st.units.length, id + ': 시작 칸 겹침 없음');
+    E.setForces(null);
+  }
+});
+test('[관리자] 오류: 병력 0, 한도 초과, 모르는 병종, 잘못된 라운드', () => {
+  E.loadScenario(SCEN_IDS[0]);
+  const f = E.forcesDefault(), s0 = C().ROUND_ORDER[0];
+  assert.equal(E.forcesError(f), null);
+  assert.ok(E.forcesError({ ...f, [s0]: [] }));
+  assert.ok(E.forcesError({ ...f, [s0]: [{ round: 0, type: 'ufo', count: 1 }] }));
+  assert.ok(E.forcesError({ ...f, [s0]: [{ round: 99, type: 'infantry', count: 1 }] }));
+  assert.ok(E.forcesError({ ...f, [s0]: [{ round: 0, type: 'infantry', count: 999 }] }));
+  assert.throws(() => E.setForces({ ...f, [s0]: [] }));
+});
+test('[관리자] 안개: 편성한 판은 공개 배치·공개 증원이 기본값, 상대 편성이 달라도 내 AI 행동이 같음', () => {
+  loadSym();
+  const f0 = E.forcesDefault();
+  const acts = (ruRows) => {
+    E.setForces({ ...f0, ru: ruRows });
+    assert.equal(E.publicSetup('ru').length, 0);
+    assert.equal(E.publicReinforcements(), C().REINFORCEMENTS_BASE);
+    const st = E.createInitialState();
+    st.turn = 'ua'; E.startTurn(st);
+    const { rng, diceRng } = seeded(31337);
+    return JSON.stringify(E.aiTakeTurn(st, 'ua', rng, 'normal', { recordSnapshots: false, diceRng }));
+  };
+  const a = acts([{ round: 0, type: 'infantry', count: 2 }, { round: 0, type: 'artillery', count: 1 }]);
+  const b = acts([{ round: 0, type: 'armor', count: 5 }, { round: 4, type: 'mortar', count: 4 }]);
+  assert.equal(a, b);
+  E.setForces(null);
+  assert.equal(E.publicSetup('ru').length, C().DEPLOYMENT.ru.length);
+});
+test('[관리자] 직접 편성(draft)과 같이 써도 해제하면 기본/편성 배치가 그대로', () => {
+  loadSym();
+  E.setDraft({ ua: { infantry: 13 }, ru: { infantry: 3, recon: 1 } });
+  const before = JSON.stringify(C().DEPLOYMENT);
+  E.setForces(null);
+  assert.equal(JSON.stringify(C().DEPLOYMENT), before, 'setForces(null) 은 편성 배치를 건드리지 않음');
+  E.setDraft(null);
+});

@@ -921,6 +921,28 @@ button.is-off, button[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed;
   .draft-actions > .primary { margin-left: 0; flex: 1 1 100%; }
 }
 
+/* 관리자 편성 (draft 화면 재사용) */
+#overlay.draft .modal:has(.admin-body) { max-width: 1040px; }
+.admin-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.admin-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.admin-col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.admin-col-head h3 { margin: 0; font-size: 17px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.admin-row { grid-template-columns: 30px minmax(0, 1fr) auto auto; }
+.admin-ctl { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.admin-lbl { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.admin-round { min-width: 64px; padding: 0 4px; font-size: 14px; white-space: nowrap; }
+.admin-add { display: flex; gap: 8px; }
+.admin-add select { flex: 1 1 auto; min-width: 0; min-height: 44px; }
+.admin-add button { min-height: 44px; white-space: nowrap; word-break: keep-all; }
+.admin-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.admin-line > button:not(.link) { min-height: 44px; white-space: nowrap; word-break: keep-all; }
+@media (max-width: 900px) {
+  .admin-body { grid-template-columns: 1fr; }
+  .admin-row { grid-template-columns: 30px minmax(0, 1fr); row-gap: 4px; }
+  .admin-row .admin-ctl { flex-direction: row; align-items: center; gap: 8px; grid-column: 2; }
+  .admin-row .admin-lbl { min-width: 32px; }
+}
+
 /* ===== 목표 표시줄 (지도 아래 한 줄, PC는 오른쪽 패널 맨 위) + 목표 장면 ===== */
 .goal-bar { display: none; align-items: stretch; gap: 8px; flex: 0 0 auto; box-sizing: border-box; width: 0; min-width: 100%; height: var(--goal-h, 46px); padding: 0 10px 0 0;
   border-radius: 6px; background: var(--panel); border: 1px solid var(--line); overflow: hidden; }
