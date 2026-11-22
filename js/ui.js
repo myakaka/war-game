@@ -3481,7 +3481,7 @@
   /** 새 게임: 직접 배치를 고르면 배치 단계 (AI 모드는 국군만, 2인 모드는 라운드 순서대로 양쪽), 아니면 기본 배치로 바로 시작 */
   function newGame() {
     ui.gameId++;
-    setRuleset(ui.demo2 ? 'dice' : 'classic');   // 규칙 세트는 판을 시작할 때 고정 (게임 도중 바꾸지 않음)
+    setRuleset(GAME_CONFIG.SCENARIO_RULESET || (ui.demo2 ? 'dice' : 'classic'));   // 규칙 세트는 판을 시작할 때 고정 (게임 도중 바꾸지 않음). 시나리오가 고정한 규칙 세트가 우선
     const admin = hotseat() ? null : loadForces();   // 관리자 편성 (AI 대전만). 있으면 직접 편성보다 우선
     if (GAME_CONFIG.DRAFT) {   // 직접 편성: 고른 편성을 시작 부대로 (기본 편성이면 기본 배치로 되돌림)
       try { setDraft(admin ? null : ui.draftComps || null); } catch (err) { console.error(err); ui.draftComps = null; setDraft(null); }
@@ -4128,7 +4128,9 @@
   function objectiveLineHtml() {
     const C = GAME_CONFIG;
     const when = C.OBJECTIVE_CHECK_AFTER ? { t: 'intro.when.side', p: { side: S(C.OBJECTIVE_CHECK_AFTER) } } : { t: 'intro.when.round' };
-    return roundLimitType() === 'roundLimitPoints'
+    return roundLimitType() === 'roundLimitAttrition'
+    ? `<li>${t('intro.attrition', { max: C.MAX_ROUNDS })}</li>`
+    : roundLimitType() === 'roundLimitPoints'
     ? `<li>${t('intro.points', { max: C.MAX_ROUNDS, list: C.OBJECTIVES.map((o) => ({ t: 'intro.pointItem', p: { obj: OBS(o.id), n: C.OBJECTIVE_POINTS[o.id] } })) })} ${t(C.SCORE_TIMING === 'roundEnd' ? 'intro.pointsRoundEnd' : 'intro.pointsOwnTurn')}${C.SCORE_TARGET ? ' ' + t('intro.pointsTarget', { n: C.SCORE_TARGET }) : ''}</li>`
     : roundLimitType() === 'roundLimitScore'
     ? `<li>${t('intro.objectivesSym', { total: C.OBJECTIVES.length, max: C.MAX_ROUNDS })}</li>`
@@ -4614,7 +4616,7 @@
     const title = draw ? t('result.titleDraw') : hs ? t('result.titleWin', { side: S(st.winner) }) : t(win ? 'result.titleWin' : 'result.titleLose', { side: S(PLAYER) });
     const cls = draw ? 'draw' : hs ? ROLE(st.winner) : (win ? 'win' : 'lose');
     const reason = draw && st.winReason === 'annihilation' ? t('result.r.drawAnnihilation')
-      : t('result.r.' + st.winReason + (st.score && ['limitHp', 'limitDraw'].includes(st.winReason) ? 'Points' : ''), { winner: S(st.winner), loser: S(enemyOf(st.winner)), n: reasonParams(st.winReason).n, target: GAME_CONFIG.SCORE_TARGET })
+      : t('result.r.' + st.winReason + (['limitHp', 'limitDraw'].includes(st.winReason) ? (st.score ? 'Points' : roundLimitType() === 'roundLimitAttrition' ? 'Units' : '') : ''), { winner: S(st.winner), loser: S(enemyOf(st.winner)), n: reasonParams(st.winReason).n, target: GAME_CONFIG.SCORE_TARGET })
         + (st.score ? ' (' + t('result.finalScore', { a: S(PLAYER), b: S(AI_SIDE), sa: st.score[PLAYER], sb: st.score[AI_SIDE] }) + ')' : '');
     const rec = buildGameRecord(st, ui.difficulty, hs ? 'hotseat' : 'ai');   // 손실 수는 기록과 같은 계산
     // 전장에 나온 유닛 수 (시작 배치 + 이미 도착한 증원). 도착하지 않은 증원은 세지 않음

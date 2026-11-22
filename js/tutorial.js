@@ -320,7 +320,7 @@ function goalInfo(sc, side) {
   const nameKey = G.nameKey || (objs.length === 1 && objs[0].nameKey) || GOAL_DEFAULTS.zoneKey;
   const text = { ...GOAL_DEFAULTS.scene[role], ...((G.scene && G.scene[role]) || {}) };
   const cells = objs.flatMap((o) => (o.cells || (o.pos ? [o.pos] : [])).map((p) => [p[0], p[1]]));
-  return { role, nameKey, barKey: GOAL_DEFAULTS.bar[role], main: text.main, sub: text.sub, cells };
+  return { role, nameKey, barKey: G.barKey || GOAL_DEFAULTS.bar[role], main: text.main, sub: text.sub, cells };
 }
 
 /** 목표 문구 검사 → 오류 문자열 목록. 두 역할 × ko/en 모두 키가 있고 본문 ≤ 22자, 보조 ≤ 28자 */
@@ -338,7 +338,7 @@ function validateGoalTexts(sc) {
           if (len > max) errs.push(`${sc.id}/${role}/${lang}: ${len}자 > ${max}자 (${k})`);
         }
       }
-      if (!g.cells.length) errs.push(`${sc.id}: 거점 칸 없음`);
+      if (!g.cells.length && !(sc.goal && sc.goal.barKey)) errs.push(`${sc.id}: 거점 칸 없음`);   // 거점이 없는 판은 goal.barKey 로 표시줄 문구를 직접 지정
     }
   } finally { setLang(prev); }
   return errs;

@@ -61,7 +61,7 @@ const holdSide = () => GAME_CONFIG.ROUND_ORDER.find((s) => victoryCond(s, 'holdO
 /** 거점 승리에 필요한 거점 수 (조건이 없으면 null) */
 const holdCount = () => { const s = holdSide(); return s ? victoryCond(s, 'holdObjectives').count : null; };
 /** 양쪽이 같은 라운드 제한 판정을 가질 때 그 종류 ('roundLimitPoints' 총점 · 'roundLimitScore' 거점 수), 없으면 null. 무승부가 생기는 시나리오 */
-const roundLimitType = () => ['roundLimitPoints', 'roundLimitScore'].find((k) => GAME_CONFIG.ROUND_ORDER.every((s) => victoryCond(s, k))) || null;
+const roundLimitType = () => ['roundLimitPoints', 'roundLimitScore', 'roundLimitAttrition'].find((k) => GAME_CONFIG.ROUND_ORDER.every((s) => victoryCond(s, k))) || null;
 /** 라운드를 버티면 이기는 진영 (없으면 null) */
 const surviveSide = () => GAME_CONFIG.ROUND_ORDER.find((s) => victoryCond(s, 'surviveRounds')) || null;
 /** 지형 이름 문자열 키 (시나리오가 이름만 바꾼 경우 반영) */
@@ -200,7 +200,7 @@ function validateScenario(s) {
       if (r < z.rows[0] || r > z.rows[1] || (z.cols && (c < z.cols[0] || c > z.cols[1]))) E('scenErr.defaultOutside', { side, r, c });
     }
   }
-  const TYPES = ['enterHQ', 'annihilation', 'holdObjectives', 'surviveRounds', 'roundLimitScore', 'roundLimitPoints'];
+  const TYPES = ['enterHQ', 'annihilation', 'holdObjectives', 'surviveRounds', 'roundLimitScore', 'roundLimitPoints', 'roundLimitAttrition'];
   // 점수제 (objectivePoints): 거점 id → 0 이상의 정수, 모든 거점에 값. scoreTiming 'ownTurnEnd'|'roundEnd', scoreTarget null|1 이상의 정수
   if (s.objectivePoints != null) {
     const P = s.objectivePoints, ids = (s.objectives || []).map((o) => o.id);
@@ -239,6 +239,7 @@ function validateScenario(s) {
       }
     }
   }
+  if (s.ruleset != null && !['classic', 'dice'].includes(s.ruleset)) E('scenErr.ruleset', { v: String(s.ruleset) });
   if (s.symmetric) for (const m of symmetryErrors(s)) E('scenErr.symmetry', { what: m });
   if (s.draft != null) for (const m of draftDataErrors(s)) E('scenErr.draft', { what: m });
   return errs;
@@ -351,6 +352,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.AI_MODE = s.aiProfile === 'symmetric' ? 'symmetric' : null;   // symmetric: 역할과 무관한 중립 AI
   C.SECOND_MOVER_BONUS = Number.isInteger(s.secondMoverBonus) && s.secondMoverBonus > 0 ? s.secondMoverBonus : 0;
   C.SYMMETRIC = !!s.symmetric;
+  C.SCENARIO_RULESET = s.ruleset === 'dice' ? 'dice' : null;   // 시나리오가 규칙 세트를 고정하면 'dice' (데모 2 수치). 없으면 메뉴에서 고른 규칙 세트
   // 점수제 (시나리오 objectivePoints 가 있을 때만): 점유한 거점의 점수가 쌓임. 다른 시나리오는 null → 상태·결과 변화 없음
   C.OBJECTIVE_POINTS = s.objectivePoints ? { ...s.objectivePoints } : null;
   C.SCORE_TIMING = s.scoreTiming === 'roundEnd' ? 'roundEnd' : 'ownTurnEnd';
@@ -1581,7 +1583,7 @@ function checkVictory(state, opts = {}) {
       if (v && state.objectives.filter((o) => o.owner === s).length >= v.count) return { winner: s, reason: 'objectives' };
     }
   }
-  if (checkLimit && scored && state.round >= C.MAX_ROUNDS) return roundLimitType() === 'roundLimitPoints' ? pointsLimitResult(state) : roundLimitResult(state);
+  if (checkLimit && scored && state.round >= C.MAX_ROUNDS) return limitResultNow(state);
   if (checkLimit) {
     for (const s of C.ROUND_ORDER) {
       const v = victoryCond(s, 'surviveRounds');
@@ -1600,6 +1602,11 @@ function roundLimitResult(state) {
   const objs = (s) => state.objectives.filter((o) => o.owner === s).length;
   return limitCompare(state, objs, 'limitObjectives');
 }
+/** 라운드 제한 판정 (roundLimitAttrition, 소모전): 남은 병력(도착 대기 포함)이 많은 쪽 → 남은 총 체력(= 입은 피해가 적은 쪽) → 무승부. reason: limitUnits / limitHp / limitDraw */
+function attritionLimitResult(state) {
+  const n = (s) => state.units.filter((u) => u.side === s).length + (state.pending || []).filter((p) => p.side === s).length;
+  return limitCompare(state, n, 'limitUnits');
+}
 /** 라운드 제한 판정 (roundLimitPoints): 총점이 많은 쪽 → 남은 총 체력 → 무승부. reason: limitPoints / limitHp / limitDraw */
 function pointsLimitResult(state) {
   return limitCompare(state, (s) => state.score[s], 'limitPoints');
@@ -1615,7 +1622,7 @@ function limitCompare(state, key, reason) {
 /** 지금 끝난다면의 라운드 제한 판정 (진단: 막판 역전 비율) */
 function limitResultNow(state) {
   const k = roundLimitType();
-  return k === 'roundLimitPoints' ? pointsLimitResult(state) : k === 'roundLimitScore' ? roundLimitResult(state) : null;
+  return k === 'roundLimitPoints' ? pointsLimitResult(state) : k === 'roundLimitScore' ? roundLimitResult(state) : k === 'roundLimitAttrition' ? attritionLimitResult(state) : null;
 }
 
 function pushVictoryIfAny(state, events) {
@@ -2646,6 +2653,11 @@ const SIM_CROSS_TYPES = ['infantry', 'armor'];   // 도하 지표를 셀 병종 
  *   detail: 진영별 첫 거점 소유 라운드, 평균 손실, 증원 도착 수를 res.detail 에 추가
  */
 function simulateGames(n = 100, opts = {}) {
+  if (opts.ruleset === undefined) {   // 규칙 세트를 고정한 시나리오는 그 규칙 세트로 (다른 시나리오는 지금 규칙 세트 그대로)
+    const sc = opts.scenario ? SCENARIOS.find((x) => x.id === opts.scenario) : null;
+    const fixed = sc ? sc.ruleset : GAME_CONFIG.SCENARIO_RULESET;
+    if (fixed === 'dice' || fixed === 'classic') opts = { ...opts, ruleset: fixed };
+  }
   if (opts.ruleset && opts.ruleset !== rulesetOf()) {   // 규칙 세트 지정 ('dice' = 데모 2). 지정하지 않으면 지금 규칙 세트 (classic) 그대로
     const prevSet = rulesetOf();
     setRuleset(opts.ruleset);
@@ -3427,7 +3439,7 @@ if (typeof module !== 'undefined' && module.exports) {
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,
     diagnoseActivations, activationStatus, activationLimits, hasActivated, activationBlocked, scenarioNotes, sideTotalUnits,
     diagnoseSymmetric, diagnoseSymmetricAI, SYMMETRIC_COMBOS, symmetryErrors, updateObjectiveControl, objectiveCells, roundLimitResult, objectiveAt,
-    roundLimitType, heldPoints, awardPoints, pointsLimitResult, limitResultNow, scoreTargetResult, diagnoseScoring, SCORING_COMBOS,
+    roundLimitType, attritionLimitResult, heldPoints, awardPoints, pointsLimitResult, limitResultNow, scoreTargetResult, diagnoseScoring, SCORING_COMBOS,
     diagnoseFires, FIRE_COMBOS, firesOf, fireRange, fireCooldown, onCooldown, cooldownTurnsLeft, blindFireAllowed,
     retreatDir, retreatTarget, canUnitMove, canUnitAttack, upgradeSavedState,
   };

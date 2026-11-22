@@ -1,3 +1,22 @@
+# HANDOFF (2026-11-22, 뒤) — 소형 전장 `skirmish` + 소모전 판정 (미커밋)
+
+## 끝난 것
+- 배경: "읽을 수 있는 수를 벗어났다"는 플레이 느낌 → 칸과 병력을 줄인 새 시나리오부터 시험(기존 시나리오는 그대로).
+- `js/scenarios/skirmish.js` (+ index.html script 한 줄): 10×10, 180도 대칭, 12라운드, ru(위) 선공, 양쪽 5기(보병 2·정찰 2·박격포 1), 거점·증원 없음, 행동 한도 5/5, 대칭 AI(`aiProfile: 'symmetric'`), ru 그림 세트 재사용.
+- 새 승리 조건 `roundLimitAttrition`(engine.js `attritionLimitResult`): 12라운드 종료 시 남은 병력 → 입은 피해(남은 총 체력) → 무승부. `roundLimitType`·`limitResultNow`·`validateScenario` TYPES에 연결.
+- 표시: `goal.barKey`(tutorial.js `goalInfo`)로 거점 없는 시나리오의 표시줄 문구 지정, 목표 장면은 없음. 문구 `scen.skirmish.*`, `goal.bar.attrition`, `intro.attrition`, `result.r.limit{Units,HpUnits,DrawUnits}`, `reason.limitUnits` (ui.js 결과 문구 접미사 `Units`).
+- 결정: rulesVersion 13 유지(새 승리 조건 종류만 추가). 사거리·이동 수치는 그대로(지도가 작아 상대적으로 넓게 닿음). AI 가중치 변경 없음. 거점이 없어도 대칭 AI가 12라운드 내내 교전함(40판 시뮬레이션: 오류 0, 평균 생존 ru 3.1·ua 3.6, 무승부 4판).
+- 규칙 세트 고정: 시나리오 필드 `ruleset: 'dice'`(→ `C.SCENARIO_RULESET`)로 이 시나리오는 항상 데모 2 수치(보병 사거리 4, 정찰 3 등). ui.js `newGame`이 우선 적용, `simulateGames`도 그 규칙으로 돌고 끝나면 되돌림. 40판: ru 22 : ua 18, 전멸 11판(클래식일 때 ru 30 : ua 60보다 균형).
+- 검증: test.js 269 통과, 브라우저 확인(HUD '데모 2' 표시), 시드 비교 기존 28건 모두 SAME + 소형 전장 7건 새 기준선 저장(35건, 주사위 규칙 기준), layout-check 32 SAME.
+
+## 알려진 문제 / 다음 (사용자가 다음에 이어서 정할 것)
+- **정찰 시야**: 주사위 수치표(`DICE_STATS`)에는 시야가 없어 정찰 시야 5(지도 절반)가 그대로. 이 시나리오만 줄일지(시나리오별 수치 덮어쓰기 칸을 새로 만들어야 함, 제안 시야 3) 정하기.
+- **엄폐물 지도**: 도시 대신 엄폐물. 쉬운 방법 = 도시 규칙(명중 -20)은 두고 `terrainNames`로 이름만 '엄폐물'로 바꾸기(그림은 새 이미지 또는 도시 그림 임시). 개수·배치(제안: 진영 앞 2개씩 + 중앙 1개) 미정.
+- 밸런스는 직접 플레이로 판단(CLAUDE.md).
+- 정찰(통신)·대전차·기갑·포병은 이 시나리오에 없음. 병력 구성은 관리자 편성으로 바꿔 볼 수 있음.
+- 더 줄이는 실험(칸 8×8, 병력 4기 등)은 같은 파일을 복사해 시험.
+
+---
 # HANDOFF (2026-11-22) — 관리자 편성 (미커밋)
 
 ## 끝난 것

@@ -2892,7 +2892,7 @@ test('[목표표시] 모든 시나리오: goalInfo 가 거점 칸·이름·문�
   for (const s of E.SCENARIOS) {
     jsonEq(E.validateGoalTexts(s), []);
     const side = s.playerSide, g = E.goalInfo(s, side);
-    assert.ok(g.cells.length > 0, `${s.id} 거점 칸`);
+    assert.ok(g.cells.length > 0 || (s.goal && s.goal.barKey && !s.objectives.length), `${s.id} 거점 칸 (거점이 없는 판은 goal.barKey 필요)`);
     for (const lang of ['ko', 'en']) for (const k of [g.nameKey, g.barKey, g.main, g.sub]) assert.ok(k in run('STRINGS')[lang], `${s.id} ${lang} ${k}`);
   }
 });
@@ -3026,4 +3026,39 @@ test('[관리자] 직접 편성(draft)과 같이 써도 해제하면 기본/편�
   E.setForces(null);
   assert.equal(JSON.stringify(C().DEPLOYMENT), before, 'setForces(null) 은 편성 배치를 건드리지 않음');
   E.setDraft(null);
+});
+
+/* ---------------- 소모전 판정 (roundLimitAttrition, 소형 전장) ---------------- */
+test('[소형 전장] 12라운드 종료: 남은 병력 → 입은 피해(남은 총 체력) → 무승부, 거점 없이도 판정', () => {
+  E.loadScenario('skirmish');
+  assert.equal(C().MAP.length, 10);
+  assert.equal(C().OBJECTIVES.length, 0);
+  assert.equal(E.roundLimitType(), 'roundLimitAttrition');
+  const st = E.createInitialState();
+  st.round = C().MAX_ROUNDS;
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'draw', reason: 'limitDraw' }, '같은 병력·같은 체력 = 무승부');
+  const ru = st.units.filter((u) => u.side === 'ru');
+  ru[0].hp = Math.max(1, ru[0].hp - 1);
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ua', reason: 'limitHp' }, '병력이 같으면 피해가 적은 쪽');
+  st.units.splice(st.units.indexOf(ru[1]), 1);
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ua', reason: 'limitUnits' }, '병력이 많은 쪽');
+  const ua = st.units.filter((u) => u.side === 'ua');
+  st.units.splice(st.units.indexOf(ua[0]), 1);
+  st.units.splice(st.units.indexOf(ua[1]), 1);
+  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ru', reason: 'limitUnits' }, '병력이 적은 쪽이 지고, 체력은 보지 않음');
+  st.round = 1;
+  assert.equal(E.checkVictory(st, { roundLimit: true }), null, '12라운드 전에는 끝나지 않음');
+  E.loadScenario(SCEN_IDS[0]);
+});
+test('[소형 전장] 시나리오가 주사위 규칙 세트를 고정: simulateGames 는 그 규칙으로 돌고 끝나면 되돌림, 다른 시나리오는 영향 없음', () => {
+  E.loadScenario('skirmish');
+  assert.equal(C().SCENARIO_RULESET, 'dice');
+  E.setRuleset('classic');
+  const a = E.simulateGames(2, { seed: 7 });
+  assert.equal(E.rulesetOf(), 'classic', '끝나면 원래 규칙 세트');
+  const b = E.simulateGames(2, { seed: 7, ruleset: 'classic' });
+  assert.notEqual(JSON.stringify(a.combat && a.combat.attacksByType), JSON.stringify(b.combat && b.combat.attacksByType), '고정 시나리오는 주사위 규칙으로 돌았음');
+  E.loadScenario(SCEN_IDS[0]);
+  assert.equal(C().SCENARIO_RULESET, null);
+  assert.ok(E.validateScenario({ ...E.SCENARIOS.find((s) => s.id === 'skirmish'), ruleset: 'x' }).length > 0, '알 수 없는 ruleset 은 오류');
 });
