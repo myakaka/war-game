@@ -3158,3 +3158,54 @@ test('[소형 전장] 시나리오가 주사위 규칙 세트를 고정: simulat
   assert.equal(C().SCENARIO_RULESET, null);
   assert.ok(E.validateScenario({ ...E.SCENARIOS.find((s) => s.id === 'skirmish'), ruleset: 'x' }).length > 0, '알 수 없는 ruleset 은 오류');
 });
+
+/* ---------------- 맵 만들기 (js/custom-map.js: 내 맵 → 시나리오) ---------------- */
+const cmStore = () => { const o = {}; return () => ({ getItem: (k) => (k in o ? o[k] : null), setItem: (k, v) => { o[k] = String(v); } }); };
+test('[맵 만들기] 소형 전장 틀로 만든 내 맵은 시나리오 검사를 통과하고, 플레이 상태가 만들어짐', () => {
+  const rec = E.sanitizeCustomMap(E.customMapFromTemplate());
+  rec.id = 'my_testmap1'; rec.name = 'T';
+  jsonEq(E.customMapProblems(rec), []);
+  const s = E.buildCustomScenario(rec);
+  assert.deepEqual([...E.validateScenario(s)], []);
+  assert.equal(s.custom, true); assert.equal(s.symmetric, false);
+  assert.equal(s.deployments.length, rec.units.ua.length + rec.units.ru.length);
+  assert.deepEqual([...E.registerCustomMap(rec)], [], '등록 성공');
+  assert.ok(E.SCENARIOS.some((x) => x.id === 'my_testmap1'));
+  assert.equal(run('STRINGS').ko['scen.custom.my_testmap1.name'], 'T');
+  const st = fresh('my_testmap1');
+  assert.equal(st.units.length, rec.units.ua.length + rec.units.ru.length);
+  assert.equal(C().CONCEALMENT && C().CONCEALMENT.reconRadius, 2, '소형 전장의 은폐 규칙을 물려받음');
+  E.unregisterCustomMap('my_testmap1');
+  assert.ok(!E.SCENARIOS.some((x) => x.id === 'my_testmap1'));
+  E.loadScenario(SCEN_IDS[0]);
+});
+test('[맵 만들기] 입력 정리: 구역 밖·겹침·초과 유닛과 잘못된 지형 글자는 버리고, 쓸 수 없는 입력은 null', () => {
+  assert.equal(E.sanitizeCustomMap(null), null);
+  assert.equal(E.sanitizeCustomMap({ map: ['.'] }), null);
+  const map = Array.from({ length: 10 }, () => '.........Z');
+  const units = { ua: [{ type: 'infantry', r: 8, c: 1 }, { type: 'infantry', r: 8, c: 1 }, { type: 'recon', r: 2, c: 2 }, { type: 'tank', r: 8, c: 3 }], ru: Array.from({ length: 9 }, (_, i) => ({ type: 'mortar', r: i % 3, c: i })) };
+  const rec = E.sanitizeCustomMap({ map, units, name: '  <b>긴이름'.repeat(8) });
+  assert.equal(rec.map[0][9], '.', '모르는 지형 글자는 평지');
+  assert.equal(rec.units.ua.length, 1, '겹침·구역 밖·모르는 병종 제외');
+  assert.equal(rec.units.ru.length, E.CUSTOM_MAP.MAX_UNITS, '한 진영 최대 유닛 수');
+  assert.ok(rec.name.length <= 20 && !/[<>]/.test(rec.name));
+  const empty = E.sanitizeCustomMap({ map, units: { ua: [], ru: [] } });
+  assert.equal(E.customMapProblems(empty).length, 2, '유닛이 없는 진영은 저장 불가');
+});
+test('[맵 만들기] 저장소 읽기·쓰기와 파일 내보내기·가져오기', () => {
+  const store = cmStore();
+  const a = E.sanitizeCustomMap(E.customMapFromTemplate()); a.id = 'my_aaaa1111'; a.name = 'A';
+  assert.equal(E.writeCustomMaps(store, [a, { broken: true }]), true);
+  const back = E.readCustomMaps(store);
+  assert.equal(back.length, 1, '깨진 항목은 버림'); assert.equal(back[0].id, 'my_aaaa1111');
+  assert.equal(E.readCustomMaps(() => { throw new Error('x'); }).length, 0, '저장소를 못 읽으면 빈 목록');
+  assert.equal(E.writeCustomMaps(() => { throw new Error('x'); }, [a]), false);
+  const f = E.parseCustomMapFile(E.customMapToFile(a));
+  assert.equal(f.id, null, '가져온 맵은 새 id 를 받음'); assert.equal(f.name, 'A'); jsonEq(f.map, a.map);
+  assert.equal(E.parseCustomMapFile('not json'), null);
+  assert.equal(E.parseCustomMapFile('{"app":"other"}'), null);
+  assert.equal(E.parseCustomMapFile('x'.repeat(30000)), null, '너무 큰 파일은 거부');
+  E.registerSavedCustomMaps(store);
+  assert.ok(E.SCENARIOS.some((x) => x.id === 'my_aaaa1111'));
+  E.unregisterCustomMap('my_aaaa1111');
+});

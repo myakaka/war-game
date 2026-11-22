@@ -755,13 +755,14 @@
     return null;
   }
   /** concealed: 은폐 표현 / 아니면 노출 표현. 해당 없으면 LOOK0 (visual.units 가 없으면 아무것도 안 바꿈) */
-  function richUnitLook(u, concealed = !u.exposed) {
+  function richUnitLook(u) {
     const V = ((scenArt() || {}).visual || {}).units, kind = coverKindOf(u);
     if (!V || !kind) return LOOK0;
-    if (!concealed) return { ...LOOK0, ring: true };
+    const ring = !!u.exposed;   // 노출은 위치가 드러난 것일 뿐이라 은폐 때의 그림은 그대로, 붉은 테두리만 추가
     const scale = { trench: V.scaleInTrench, crater: V.scaleInCrater, bush: V.scaleInBush, sandbag: V.scaleInSandbag }[kind] ?? 1;
     const dark = kind === 'trench' || kind === 'crater' ? (V.darkenInTrench ?? 1) : 1;
     const L = { ...LOOK0, scale, dark };
+    if (ring) L.ring = true;
     if (kind === 'trench') {
       L.fade = V.fadeBottomTrench ?? 0;
       if (soldierLayout(u)) { L.scale = 1; L.fade = 0; return L; }   // 군인 낱장 모드: 크기·자리는 낱장 배치가 정함 (통짜 보정은 건너뜀)
@@ -785,7 +786,7 @@
   /** 참호 안 군인 낱장 배치: 은폐 중인 유닛(양쪽 진영 모두)이고 낱장 그림이 있으면 { list:[{img,x,y}], k, ringScale }, 아니면 null (통짜 그림) */
   function soldierLayout(u) {
     const V = ((scenArt() || {}).visual || {}).units;
-    if (!V || !V.soldierSlots || !rich.on || u.exposed || coverKindOf(u) !== 'trench') return null;
+    if (!V || !V.soldierSlots || !rich.on || coverKindOf(u) !== 'trench') return null;
     const side = richImg().unit[`soldier:${u.side}:${u.type}:0`] ? `${u.side}:${u.type}` : u.type, imgs = [0, 1, 2].map((i) => richImg().unit[`soldier:${side}:${i}`]);
     if (imgs.some((x) => !x)) return null;
     if (!richImg().unit[`${u.side}:${u.type}`] && side !== u.type) return null;
@@ -826,16 +827,6 @@
       ul.style.cssText = lookStyle(L, R);
       if (ov) ov.style.opacity = String(Math.max(0, L.ov));
     }, token);
-  }
-  /** 사격하는 유닛이 숨어 있었다면 튀어오름 (준비 구간). 보이는 쪽 화면에서만, 간접 화력 제외 */
-  async function popUp(pre, ev) {
-    const P = lookPopup();
-    if (!rich.on || !P || !P.enabled || ui.reduceMotion || ev.indirect) return;
-    const u = getUnit(pre, ev.attackerId);
-    if (!u || u.exposed || !cells[idx(u.r, u.c)].dyn.querySelector('.ul')) return;
-    const from = richUnitLook(u, true), to = richUnitLook(u, false);
-    if (from === LOOK0 || to === LOOK0) return;
-    await lookTween(u, from, to, (P.up || 0) * 1000);
   }
   const richSvg = (inner, aria = 'aria-hidden="true"') => `<svg viewBox="0 0 40 40" ${aria} focusable="false" overflow="visible">${inner}</svg>`;
   /** 연출 층 유닛 (이동·등장·파괴) */
@@ -1366,8 +1357,7 @@
         if (kind) {
           const was = ui.lookMemo.get(u.id), P = lookPopup();
           if (P && P.enabled && !ui.reduceMotion) {
-            if (was && was.exp && !exp && was.i === i) { const dyn = cells[i].dyn; const to = richUnitLook(u, true); if (to !== LOOK0) animBack.push(() => lookTween(u, richUnitLook(u, false), to, (P.down || 0) * 1000)); }
-            else if (!was && exp && u.side !== me && P.firstRevealPulse) { const un = cells[i].dyn.querySelector('.unit'); if (un) { un.style.setProperty('--rv', (P.firstRevealPulse * speedMul()) + 's'); un.classList.add('reveal-pulse'); } }
+            if (!was && exp && u.side !== me && P.firstRevealPulse) { const un = cells[i].dyn.querySelector('.unit'); if (un) { un.style.setProperty('--rv', (P.firstRevealPulse * speedMul()) + 's'); un.classList.add('reveal-pulse'); } }
           }
         }
         memo.set(u.id, { exp, i });
@@ -2489,7 +2479,7 @@
     const ev = events.find((e) => e.type === 'diceRoll');
     ui.view = pre; render();
     if (!ev) { ui.view = post; render(); return; }
-    if (ev.side === me || vis.has(idx(ev.from.r, ev.from.c))) { await popUp(pre, ev); if (token !== ui.gameId) return; }   // 엄폐 연출: 숨어 있던 유닛이 몸을 내밀고 쏨
+    if (ev.side === me || vis.has(idx(ev.from.r, ev.from.c))) { /* 사격해도 엄폐 때 그림 유지 (튀어오름 없음) */ }
     const mine = ev.side === me;
     const tVis = vis.has(idx(ev.target.r, ev.target.c));
     const fVis = vis.has(idx(ev.from.r, ev.from.c));
@@ -4091,7 +4081,8 @@
     const DEF_ITEM = {
       new: { el: 'menu-new', ic: '▶', title: t('menu.new'), desc: t('menu.newDesc') },
       tutorial: { el: 'menu-tut', ic: '✦', title: t('menu.tutorial'), desc: t('menu.tutorialDesc', { n: tutScen ? tutScen.tutorialSteps.length : 0 }) },
-      demo2: { el: 'menu-demo2', ic: '⚀', title: t('menu.demo2'), desc: t('menu.demo2Desc') },   // 데모 2 규칙 세트로 새 게임 (메뉴 모델과 별개: 항상 맨 아래)
+      demo2: { el: 'menu-demo2', ic: '⚀', title: t('menu.demo2'), desc: t('menu.demo2Desc') },
+      mapedit: { el: 'menu-mapedit', ic: '✎', title: t('menu.mapEdit'), desc: t('menu.mapEditDesc') },   // 맵 만들기 (항상 맨 아래)   // 데모 2 규칙 세트로 새 게임 (메뉴 모델과 별개: 항상 맨 아래)
     };
     const item = (it) => {
       const d = DEF_ITEM[it.id];
@@ -4101,7 +4092,7 @@
     showOverlay(`<div class="start-card menu-card${fade ? ' menu-fade' : ''}">
       <button class="mute-btn menu-mute" data-mute aria-pressed="false"></button>
       <div class="menu-head"><h1 class="start-title">${esc(t('gameTitle'))}</h1><div class="start-sub">${esc(t('gameSubtitle'))}</div></div>
-      <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${[...model.items, { id: 'demo2', primary: false }].map(item).join('')}</nav>
+      <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${[...model.items, { id: 'demo2', primary: false }, { id: 'mapedit', primary: false }].map(item).join('')}</nav>
       <div class="menu-two"><button id="menu-rules">${esc(t('menu.rules'))}</button><button id="menu-set">${esc(t('menu.settings'))}</button></div>
       <div class="menu-foot"><span class="lang-inline" role="group" aria-label="${esc(t('lang.label'))}">${langs}</span><span>${esc(t('menu.aiAssets'))}</span><span>v${GAME_CONFIG.RULES_VERSION}</span></div>
     </div>`, () => showMenu(null, false), 'start');
@@ -4110,6 +4101,7 @@
     renderAudioSettings();
     if ($('#menu-new')) $('#menu-new').onclick = () => { ui.demo2 = false; showIntro(); };
     if ($('#menu-demo2')) $('#menu-demo2').onclick = () => { ui.demo2 = true; showIntro(); };
+    if ($('#menu-mapedit')) $('#menu-mapedit').onclick = () => showMapEdit();
     if ($('#menu-tut')) $('#menu-tut').onclick = () => startTutorial(0);
     $('#menu-set').onclick = () => showMenuSettings();
     $('#menu-rules').onclick = () => showRules(() => showMenu('#menu-rules'));
@@ -4125,6 +4117,215 @@
     const fx = focusSel && modal.querySelector(focusSel);
     (fx || modal.querySelector('.menu-item.primary') || modal.querySelector('.menu-item')).focus();
   }
+  /* =====================================================================
+     맵 만들기 (시작 메뉴): 10×10 지형을 칠하고 양쪽 유닛 시작 위치를 놓아 내 맵으로 저장 (순수 로직은 js/custom-map.js)
+     게임 규칙은 소형 전장과 같고, 저장한 맵은 새 게임 시나리오 목록의 '내 맵'으로 나옴. 편집 중에는 게임 상태를 만들지 않음 (소형 전장만 불러 둠: 유닛 기호·진영 이름용)
+     ===================================================================== */
+  const getLS = () => localStorage;
+  const ME_TERRAIN = { '.': 'plain', e: 'cover', T: 'trench' }, ME_GLYPH = { '.': '', e: '▣', T: '≋' };
+  function showMapEdit(initial = null) {
+    if (ui.screen !== 'start') setScreen('start');
+    if (GAME_CONFIG.SCENARIO_ID !== CUSTOM_MAP.TEMPLATE) applyScenario(CUSTOM_MAP.TEMPLATE, false);
+    render();
+    const N = CUSTOM_MAP.SIZE, MAXU = CUSTOM_MAP.MAX_UNITS;
+    const ed = initial || { rec: customMapFromTemplate(), tool: { k: 't', v: '.' }, dirty: false, msg: '', delSure: false };
+    const unitAt = (r, c) => { for (const side of CUSTOM_MAP.SIDES) { const u = ed.rec.units[side].find((x) => x.r === r && x.c === c); if (u) return { side, ...u }; } return null; };
+    const zoneOf = (r) => CUSTOM_MAP.SIDES.find((s) => r >= CUSTOM_MAP.ZONE[s][0] && r <= CUSTOM_MAP.ZONE[s][1]) || '';
+    const unitName = (type) => t(GAME_CONFIG.UNIT_TYPES[type].nameKey);
+    const cellLabel = (r, c) => {
+      const u = unitAt(r, c);
+      return t('mapEdit.cell', { r: r + 1, c: c + 1, terrain: { t: 'terrain.' + ME_TERRAIN[ed.rec.map[r][c]] }, unit: u ? t('mapEdit.cellUnit', { side: { t: 'side.' + u.side }, unit: unitName(u.type) }) : '' });
+    };
+    const cellInner = (r, c) => {
+      const u = unitAt(r, c), g = ME_GLYPH[ed.rec.map[r][c]];
+      return (g ? `<span class="me-glyph" aria-hidden="true">${g}</span>` : '') + (u ? symHtml(u.side, u.type) : '');
+    };
+    const cellHtml = (r, c) => `<button type="button" class="me-cell me-${ME_TERRAIN[ed.rec.map[r][c]]} me-zone-${zoneOf(r) || 'none'}" data-r="${r}" data-c="${c}" tabindex="${r === 0 && c === 0 ? 0 : -1}" aria-label="${esc(cellLabel(r, c))}">${cellInner(r, c)}</button>`;
+    const toolKey = (k, v) => `${k}:${v}`;
+    const curTool = () => toolKey(ed.tool.k, ed.tool.k === 'u' ? ed.tool.v.side + '/' + ed.tool.v.type : ed.tool.v || '');
+    const toolBtn = (k, v, inner, label) => `<button type="button" class="me-tool" data-tool="${esc(toolKey(k, v))}" aria-pressed="${curTool() === toolKey(k, v)}" aria-label="${esc(label)}">${inner}</button>`;
+    const countsText = () => CUSTOM_MAP.SIDES.map((s) => t('mapEdit.count', { side: { t: 'side.' + s }, n: ed.rec.units[s].length, max: MAXU })).join(' · ');
+    const savedList = () => readCustomMaps(getLS);
+    const setMsg = (m) => { ed.msg = m || ''; const el = $('#me-msg'); if (el) el.textContent = ed.msg; };
+    const markDirty = () => { ed.dirty = true; const el = $('#me-dirty'); if (el) el.hidden = false; };
+
+    const draw = (focusSel = null) => {
+      const list = savedList();
+      ui.menuBack = () => showMenu('#menu-mapedit');
+      const pick = `<select id="me-pick" aria-label="${esc(t('mapEdit.pick'))}"><option value="">${esc(t('mapEdit.newMap'))}</option>${list.map((m, i) => `<option value="${esc(m.id)}"${m.id === ed.rec.id ? ' selected' : ''}>${esc(customMapName(m, i + 1, getLang()))}</option>`).join('')}</select>`;
+      const terrainTools = [...CUSTOM_MAP.TERRAIN].map((ch) => toolBtn('t', ch, `<span class="me-tg" aria-hidden="true">${ME_GLYPH[ch] || '·'}</span><span class="tx">${esc(t('terrain.' + ME_TERRAIN[ch]))}</span>`, t('terrain.' + ME_TERRAIN[ch]))).join('');
+      const unitTools = CUSTOM_MAP.SIDES.map((side) => `<div class="me-tools-row"><span class="me-side tx">${esc(t('side.' + side))}</span>${CUSTOM_MAP.TYPES.map((type) => toolBtn('u', side + '/' + type, `${symHtml(side, type)}<span class="tx">${esc(unitName(type))}</span>`, `${t('side.' + side)} ${unitName(type)}`)).join('')}</div>`).join('');
+      let rows = '';
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) rows += cellHtml(r, c);
+      showOverlay(`<div class="start-card map-edit">
+        <div class="start-top"><button class="link back" id="btn-menu-back">${esc(t('btn.toMenu'))}</button>${langButtonsHtml()}</div>
+        <h2 class="start-title">${esc(t('mapEdit.title'))}</h2>
+        <div class="me-row"><label class="me-lbl" for="me-name">${esc(t('mapEdit.name'))}</label><input id="me-name" type="text" maxlength="${CUSTOM_MAP.NAME_MAX}" value="${esc(ed.rec.name)}" placeholder="${esc(t('mapEdit.namePh'))}" autocomplete="off">${pick}</div>
+        <div class="me-tools" role="group" aria-label="${esc(t('mapEdit.toolLabel'))}">
+          <div class="me-tools-row"><span class="me-side tx">${esc(t('mapEdit.terrain'))}</span>${terrainTools}</div>
+          ${unitTools}
+          <div class="me-tools-row">${toolBtn('e', '', `<span class="me-tg" aria-hidden="true">✕</span><span class="tx">${esc(t('mapEdit.erase'))}</span>`, t('mapEdit.erase'))}</div>
+        </div>
+        <div class="me-grid" id="me-grid" role="group" aria-label="${esc(t('mapEdit.gridLabel'))}">${rows}</div>
+        <div class="me-info"><span class="chip sm" id="me-counts"><span class="tx">${esc(countsText())}</span></span><span class="chip orange sm" id="me-dirty"${ed.dirty ? '' : ' hidden'}><span class="tx">${esc(t('mapEdit.unsaved'))}</span></span></div>
+        <div class="hint">${esc(t('mapEdit.zoneHint'))}</div>
+        <div class="me-actions">
+          <button type="button" class="primary" id="me-play"><span class="tx">${esc(t('mapEdit.play'))}</span></button>
+          <button type="button" id="me-save"><span class="tx">${esc(t('mapEdit.save'))}</span></button>
+          <button type="button" id="me-clear"><span class="tx">${esc(t('mapEdit.clear'))}</span></button>
+          <button type="button" id="me-export"><span class="tx">${esc(t('mapEdit.export'))}</span></button>
+          <button type="button" id="me-import"><span class="tx">${esc(t('mapEdit.import'))}</span></button>
+          <button type="button" id="me-del"><span class="tx">${esc(t(ed.delSure ? 'mapEdit.deleteSure' : 'mapEdit.delete'))}</span></button>
+          <input type="file" id="me-file" accept=".json,application/json" hidden>
+        </div>
+        <div class="hint" id="me-msg" role="status" aria-live="polite">${esc(ed.msg)}</div>
+      </div>`, () => draw(), 'start');
+      const modal = $('#modal');
+      modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => { ed.rec.name = $('#me-name').value; setLanguage(b.dataset.lang); }; });
+      $('#btn-menu-back').onclick = () => showMenu('#menu-mapedit');
+      $('#me-name').oninput = (e) => { ed.rec.name = e.target.value; markDirty(); };
+      $('#me-pick').onchange = (e) => {
+        const m = e.target.value && savedList().find((x) => x.id === e.target.value);
+        ed.rec = m ? JSON.parse(JSON.stringify(m)) : customMapFromTemplate();
+        ed.dirty = false; ed.msg = ''; ed.delSure = false;
+        draw('#me-pick');
+      };
+      modal.querySelectorAll('[data-tool]').forEach((b) => {
+        b.onclick = () => {
+          const [k, v] = b.dataset.tool.split(/:(.*)/s);
+          ed.tool = k === 'u' ? { k, v: { side: v.split('/')[0], type: v.split('/')[1] } } : { k, v };
+          modal.querySelectorAll('[data-tool]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        };
+      });
+
+      /* 칸 칠하기·놓기: 모든 동작이 '지정'이라 같은 칸을 여러 번 눌러도 결과가 같음 (포인터와 키보드 클릭이 겹쳐도 안전) */
+      const refreshCell = (r, c) => {
+        const b = modal.querySelector(`.me-cell[data-r="${r}"][data-c="${c}"]`);
+        if (!b) return;
+        b.className = `me-cell me-${ME_TERRAIN[ed.rec.map[r][c]]} me-zone-${zoneOf(r) || 'none'}`;
+        b.setAttribute('aria-label', cellLabel(r, c));
+        b.innerHTML = cellInner(r, c);
+      };
+      const refreshCounts = () => { const el = $('#me-counts'); if (el) el.innerHTML = `<span class="tx">${esc(countsText())}</span>`; };
+      const apply = (r, c) => {
+        const tool = ed.tool, R = ed.rec;
+        if (tool.k === 't') {
+          if (R.map[r][c] === tool.v) return;
+          R.map[r] = R.map[r].slice(0, c) + tool.v + R.map[r].slice(c + 1);
+        } else if (tool.k === 'e') {
+          const u = unitAt(r, c);
+          if (!u) return;
+          R.units[u.side] = R.units[u.side].filter((x) => !(x.r === r && x.c === c));
+        } else {
+          const { side, type } = tool.v, [r0, r1] = CUSTOM_MAP.ZONE[side], here = unitAt(r, c);
+          if (here && here.side === side && here.type === type) return;
+          if (r < r0 || r > r1) { setMsg(t('mapEdit.errZone', { side: { t: 'side.' + side } })); return; }
+          if (!(here && here.side === side) && R.units[side].length >= MAXU) { setMsg(t('mapEdit.errFull', { side: { t: 'side.' + side }, n: MAXU })); return; }
+          if (here) R.units[here.side] = R.units[here.side].filter((x) => !(x.r === r && x.c === c));
+          R.units[side].push({ type, r, c });
+        }
+        setMsg('');
+        markDirty(); ed.delSure = false;
+        refreshCell(r, c); refreshCounts();
+      };
+      const grid = $('#me-grid');
+      let painting = false;
+      const cellOf = (el) => (el && el.closest ? el.closest('.me-cell') : null);
+      grid.onpointerdown = (e) => {
+        const b = cellOf(e.target);
+        if (!b) return;
+        painting = ed.tool.k === 't';
+        apply(+b.dataset.r, +b.dataset.c);
+        if (painting) { try { grid.setPointerCapture(e.pointerId); } catch (err) { /* 일부 브라우저 */ } }
+      };
+      grid.onpointermove = (e) => {
+        if (!painting) return;
+        const b = cellOf(document.elementFromPoint(e.clientX, e.clientY));
+        if (b) apply(+b.dataset.r, +b.dataset.c);
+      };
+      grid.onpointerup = grid.onpointercancel = () => { painting = false; };
+      grid.onclick = (e) => { const b = cellOf(e.target); if (b && e.detail === 0) apply(+b.dataset.r, +b.dataset.c); };   // 키보드(Enter·Space) 클릭만 (마우스·터치는 포인터 이벤트가 처리)
+      grid.onkeydown = (e) => {   // 화살표로 칸 이동 (칸 하나만 탭 순서에 둠)
+        const b = cellOf(e.target);
+        const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+        if (!b || !d) return;
+        e.preventDefault();
+        const r = Math.max(0, Math.min(N - 1, +b.dataset.r + d[0])), c = Math.max(0, Math.min(N - 1, +b.dataset.c + d[1]));
+        const nb = modal.querySelector(`.me-cell[data-r="${r}"][data-c="${c}"]`);
+        if (nb) { b.tabIndex = -1; nb.tabIndex = 0; nb.focus(); }
+      };
+
+      /* 저장 */
+      const save = () => {
+        ed.rec.name = $('#me-name').value;
+        const rec = sanitizeCustomMap(ed.rec);
+        if (!rec) { setMsg(t('mapEdit.errBuild')); return null; }
+        const probs = customMapProblems(rec);
+        if (probs.length) { setMsg(probs.map((p) => t(p.k, p.p)).join(' ')); return null; }
+        const all = savedList(), at = all.findIndex((x) => x.id === ed.rec.id);
+        if (at < 0 && all.length >= CUSTOM_MAP.MAX_MAPS) { setMsg(t('mapEdit.maxMaps', { n: CUSTOM_MAP.MAX_MAPS })); return null; }
+        rec.id = customMapIdOk(ed.rec.id) ? ed.rec.id : customMapNewId();
+        if (at >= 0) all[at] = rec; else all.push(rec);
+        if (!writeCustomMaps(getLS, all)) { setMsg(t('mapEdit.storageFail')); return null; }
+        const errs = registerCustomMap(rec, (at >= 0 ? at : all.length - 1) + 1);
+        if (errs.length) { setMsg(t(errs[0].k)); return null; }
+        ed.rec = rec; ed.dirty = false; ed.delSure = false;
+        return rec;
+      };
+      $('#me-save').onclick = () => { if (save()) { ed.msg = t('mapEdit.saved'); draw('#me-save'); } };
+      $('#me-play').onclick = () => {
+        const rec = save();
+        if (!rec) return;
+        ui.demo2 = false;
+        applyScenario(rec.id);
+        render();
+        showIntro(true);
+      };
+      $('#me-clear').onclick = () => {
+        ed.rec.map = Array.from({ length: N }, () => '.'.repeat(N));
+        ed.rec.units = { ua: [], ru: [] };
+        ed.msg = ''; markDirty(); draw('#me-clear');
+      };
+      $('#me-export').onclick = () => {
+        const rec = sanitizeCustomMap({ ...ed.rec, name: $('#me-name').value });
+        if (!rec) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([customMapToFile(rec)], { type: 'application/json' }));
+        a.download = (rec.name.replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'map') + '.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      };
+      $('#me-import').onclick = () => $('#me-file').click();
+      $('#me-file').onchange = (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+          const rec = parseCustomMapFile(String(rd.result));
+          if (!rec) { setMsg(t('mapEdit.importFail')); return; }
+          rec.id = customMapNewId();
+          ed.rec = rec; ed.dirty = true; ed.delSure = false; ed.msg = t('mapEdit.imported');
+          draw('#me-import');
+        };
+        rd.onerror = () => setMsg(t('mapEdit.importFail'));
+        rd.readAsText(f);
+      };
+      $('#me-del').onclick = () => {
+        const all = savedList(), at = all.findIndex((x) => x.id === ed.rec.id);
+        if (at < 0) { ed.rec = customMapFromTemplate(); ed.dirty = false; ed.msg = ''; draw('#me-del'); return; }   // 저장 안 한 맵은 그냥 새 맵으로
+        if (!ed.delSure) { ed.delSure = true; draw('#me-del'); setTimeout(() => { if (ed.delSure) { ed.delSure = false; const b = $('#me-del'); if (b) b.innerHTML = `<span class="tx">${esc(t('mapEdit.delete'))}</span>`; } }, 3000); return; }
+        unregisterCustomMap(ed.rec.id);
+        all.splice(at, 1);
+        writeCustomMaps(getLS, all);
+        ed.rec = customMapFromTemplate(); ed.dirty = false; ed.delSure = false; ed.msg = t('mapEdit.deleted');
+        draw('#me-del');
+      };
+      const fo = focusSel && modal.querySelector(focusSel);
+      (fo || $('#me-name')).focus({ preventScroll: true });
+    };
+    draw();
+  }
+
   /** 메뉴의 설정: 게임과 상관없는 보기 설정만 (속도·연출 줄이기·통신 범위·테마·언어). 판마다 정하는 값(행동 한도·화력·난이도)은 게임 안 설정에 */
   function showMenuSettings(focusSel = null) {
     if (ui.screen !== 'start') setScreen('start');
@@ -5525,6 +5726,7 @@
   if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!ui.wide) onResize(); }); ro.observe($('#map-col')); ro.observe($('#side')); }
   window.addEventListener('orientationchange', onResize);
 
+  registerSavedCustomMaps(getLS);   // 저장한 내 맵을 시나리오 목록에 (js/custom-map.js)
   loadScenario(loadScenarioPref());   // 지난번에 고른 시나리오 (기본 춘천)
   PLAYER = GAME_CONFIG.PLAYER_SIDE;
   AI_SIDE = enemyOf(PLAYER);

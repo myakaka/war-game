@@ -979,3 +979,30 @@ body.goal-scene .tut-layer { visibility: hidden; }
 .cover-ov img { display: block; width: 100%; height: auto; pointer-events: none; }
 @keyframes revealPulse { 0%, 100% { filter: drop-shadow(0 0 0 rgba(229, 57, 53, 0)); } 50% { filter: drop-shadow(0 0 7px rgba(229, 57, 53, 1)) drop-shadow(0 0 3px rgba(229, 57, 53, 1)); } }
 .unit.reveal-pulse { animation: revealPulse var(--rv, 0.4s) ease-in-out 1; }
+/* 맵 만들기 (시작 메뉴): 10×10 칸 편집 화면. 지형은 색 + 기호(▣ 엄폐물, ≋ 참호)로, 유닛은 게임과 같은 기호로 */
+.map-edit { --me-cell: min(8.4vw, 42px); }
+.map-edit .me-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 8px; }
+.map-edit .me-lbl { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.map-edit #me-name { flex: 1 1 140px; min-width: 0; }
+.map-edit #me-pick { flex: 0 1 160px; min-width: 0; max-width: 100%; }
+.map-edit .me-tools { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.map-edit .me-tools-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.map-edit .me-side { min-width: 84px; font-size: 12px; color: var(--muted); }
+.map-edit .me-tool { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; min-height: 34px; white-space: nowrap; word-break: keep-all; }
+.map-edit .me-tool[aria-pressed="true"] { outline: 2px solid var(--hl-sel-line, #F2A900); background: rgba(242, 169, 0, 0.16); }
+.map-edit .me-tool .uc-sym { width: 22px; height: 22px; display: inline-block; }
+.map-edit .me-tg { font-size: 15px; line-height: 1; min-width: 14px; text-align: center; }
+.map-edit .me-grid { display: grid; grid-template-columns: repeat(10, var(--me-cell)); gap: 2px; width: max-content; max-width: 100%; margin: 8px auto; touch-action: none; user-select: none; }
+.map-edit .me-cell { position: relative; width: var(--me-cell); height: var(--me-cell); padding: 0; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 3px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.map-edit .me-plain { background: #5c6b45; }
+.map-edit .me-cover { background: #7b6a48; }
+.map-edit .me-trench { background: #4a3b2e; }
+.map-edit .me-zone-ua { box-shadow: inset 0 0 0 2px rgba(30, 136, 229, 0.55); }
+.map-edit .me-zone-ru { box-shadow: inset 0 0 0 2px rgba(229, 57, 53, 0.55); }
+.map-edit .me-glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: calc(var(--me-cell) * 0.55); color: rgba(255, 255, 255, 0.5); pointer-events: none; }
+.map-edit .me-cell .uc-sym { position: relative; width: 78%; height: 78%; display: block; pointer-events: none; }
+.map-edit .me-cell .uc-sym svg { width: 100%; height: 100%; display: block; }
+.map-edit .me-info { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.map-edit .me-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.map-edit .me-actions button { white-space: nowrap; word-break: keep-all; }
+.map-edit input[type="text"], .map-edit select { background: #0f1522; color: var(--text, #e8ecf3); border: 1px solid var(--line-2, #3a4660); border-radius: 6px; padding: 6px 8px; font: inherit; }
