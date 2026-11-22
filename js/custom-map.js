@@ -57,6 +57,16 @@ function customMapProblems(rec) {
   return out;
 }
 
+/** 엄폐물 칸 종류·방향 자동 지정 (칸 좌표만으로 정해져 같은 맵은 항상 같음). 방향성 엄폐 규칙과 그림이 같이 읽음 */
+function customCoverCells(map) {
+  const cells = {}, skins = ['crater', 'bush', 'sandbag'];
+  map.forEach((row, r) => { for (let c = 0; c < row.length; c++) if (row[c] === 'e') {
+    let h = (r * 73856093) ^ (c * 19349663); h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); h = (h ^ (h >>> 15)) >>> 0;
+    cells[`${r},${c}`] = { skin: skins[h % 3], rotation: [0, 90, 180, 270][(h >>> 4) % 4] };
+  } });
+  return cells;
+}
+
 /** 맵 기록 → 시나리오 데이터 (틀을 복사해 맵·배치·이름만 바꿈). 틀이 없으면 null */
 function buildCustomScenario(rec) {
   const tpl = SCENARIOS.find((s) => s.id === CUSTOM_MAP.TEMPLATE);
@@ -70,7 +80,9 @@ function buildCustomScenario(rec) {
   s.map = rec.map.slice();
   s.deployments = [];
   for (const side of CUSTOM_MAP.SIDES) for (const u of rec.units[side]) s.deployments.push({ round: 0, side, type: u.type, pos: [u.r, u.c] });
-  if (s.art && s.art.cover) delete s.art.cover.cells;   // 소형 전장의 칸별 엄폐물 그림 지정은 그 맵 좌표용 → 내 맵은 칸 좌표로 자동 선택
+  // 소형 전장의 칸별 엄폐물 종류·방향은 그 맵 좌표용 → 내 맵은 엄폐물 칸마다 종류(구덩이·수풀·모래주머니)와 방향을 칸 좌표로 정해 규칙(coverCells)과 그림(art.cover.cells)이 같은 값을 읽게 함
+  s.coverCells = customCoverCells(rec.map);
+  if (s.art && s.art.cover) s.art.cover.cells = s.coverCells;
   return s;
 }
 

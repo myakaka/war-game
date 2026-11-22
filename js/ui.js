@@ -738,6 +738,8 @@
       const ch = RICH_MAP.trenchChoice(nb, r, c);
       line2 = `<i>${['N', 'E', 'S', 'W'].filter((k) => nb[k]).join('')} ${esc(ch.tile)} ${ch.rot}°</i>`;
     }
+    const ps = GAME_CONFIG.DIRECTIONAL ? protectedSidesAt(r, c) : null;   // 방향성 엄폐: 이 칸이 보호하는 변 (디버그 전용)
+    if (ps) line2 += `<i>${ps.kind} +${ps.defense} ${ps.sides.length === 4 ? 'ALL' : ps.sides.join('')}</i>`;
     return `<div class="dbg-cell" aria-hidden="true"><b>${r},${c}</b>${line2}</div>`;
   }
   /* ---------- 참호전 엄폐 연출 (리치 전용, 화면 표현만. 은폐·노출 값은 엔진 것을 읽기만 함) ----------
@@ -2885,6 +2887,9 @@
     }
     const pillText = hc.dice && hc.dice.area ? (hc.dice.blind ? '?' : (getUnitAt(st, p.r, p.c) ? `${Math.round(hc.chance)}%` : '–')) : (hc.fogged ? '?' : `${Math.round(hc.chance)}%`);   // 데모 2 간접 화력: 안 보이는 칸은 '?', 보이는 빈 칸은 '–'
     g += pillBadge(cellX(p) + CS / 2, cellY(p) - H.badge.h / 2 + 2, pillText);
+    if (hc.dice && !hc.dice.area && ['front', 'side', 'along'].includes(hc.dice.dir) && !hc.fogged) {   // 방향성 엄폐: 정면 +4 / 측면 +0 / 종사 +0 (보이는 대상만 여기까지 옴)
+      g += pillBadge(cellX(p) + CS / 2, cellY(p) + CS + H.badge.h / 2 - 2, t('dice2.dirTag', { dir: t('dice2.dir.' + hc.dice.dir), n: hc.dice.terrain }));
+    }
     hlHover.innerHTML = g;
   }
 
@@ -2984,8 +2989,9 @@
   /** '방어 3 + 지형 1 + 거리 2 = 6' (0인 항은 숨기고, 음수 항은 빼기로) */
   function diceCalcLine(d) {
     let s = t('dice2.cDef', { n: d.def });
+    const dirShown = ['front', 'side', 'along'].includes(d.dir);   // 방향성 엄폐: 보너스가 0 이어도 어느 방향에서 쏘는지 보여 줌
     for (const [key, v] of [['dice2.cTer', d.terrain], ['dice2.cDist', d.distBonus], ['dice2.cBlind', d.blindBonus]]) {
-      if (v) s += ` ${v > 0 ? '+' : '−'} ${t(key)} ${Math.abs(v)}`;
+      if (v || (dirShown && key === 'dice2.cTer')) s += ` ${v >= 0 ? '+' : '−'} ${t(key)}${dirShown && key === 'dice2.cTer' ? `(${t('dice2.dir.' + d.dir)})` : ''} ${Math.abs(v)}`;
     }
     return `${s} = ${d.need}`;
   }

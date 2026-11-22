@@ -182,11 +182,13 @@ function threatMap(state, side, defType, K, records = null, resting = null) {
   const def = { type: defType, hp: GAME_CONFIG.MAX_HP, side };
   const UT = GAME_CONFIG.UNIT_TYPES;
   // 명중률은 지형과 이동 후 공격 여부에만 달라짐 → 기록마다 (지형, 이동 후) 조합으로 한 번만 계산
-  const hitOf = (att, moved, pen, memo, r, c) => {
-    const ter = terrainAt(r, c), k = ter.key + (moved ? '1' : '0');
+  // 방향성 엄폐 시나리오: 기록된 적 위치에서 그 칸으로 들어오는 방향으로 명중률을 봄 (적이 움직일 수 있어 근사. 그 시나리오가 아니면 지형만 보는 기존 계산)
+  const DIRL = !!GAME_CONFIG.DIRECTIONAL;
+  const hitOf = (att, moved, pen, memo, r, c, from = null) => {
+    const ter = terrainAt(r, c), side = DIRL ? getIncomingSide(from, { r, c }) : null, k = DIRL ? `${r},${c},${moved ? 1 : 0},${side}` : ter.key + (moved ? '1' : '0');
     let v = memo.get(k);
     if (v == null) {
-      v = calcHitBreakdown({ attacker: att, defender: def, terrain: ter, signal: false, fogged: false, movedAttack: moved, indirectPenalty: pen }).chance / 100;
+      v = calcHitBreakdown({ attacker: att, defender: DIRL ? { ...def, r, c } : def, terrain: ter, signal: false, fogged: false, movedAttack: moved, indirectPenalty: pen, incoming: side }).chance / 100;
       memo.set(k, v);
     }
     return v;
@@ -219,7 +221,7 @@ function threatMap(state, side, defType, K, records = null, resting = null) {
       const amount = calcDamage(att, def);
       const memo = new Map();
       for (const [i, cost] of reachCells(e.type, e.r, e.c, reach)) {
-        const v = hitOf(att, cost > 1, 0, memo, Math.floor(i / N), i % N) * w * amount;
+        const v = hitOf(att, cost > 1, 0, memo, Math.floor(i / N), i % N, e) * w * amount;
         dmg[i] += v;
         direct[i] += v;
       }

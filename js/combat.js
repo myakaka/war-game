@@ -59,6 +59,67 @@ function diceTerrainBonus(terrain) {
   const v = -((terrain && terrain.hitMod) || 0) / diceRules().terrainDivisor;
   return Math.round(v) + 0;   // -0 → 0
 }
+/* ---------- 방향성 엄폐 (시나리오 directionalCover) ----------
+   사격이 들어오는 방향(대상 칸 기준 사수가 있는 쪽 변 N/E/S/W)에 따라 엄폐·참호의 방어 보너스가 붙거나 빠짐.
+   종류·방향은 시나리오 데이터(coverCells, terrainRules)가 정하고, 화면 그림은 같은 값을 읽음. 플레이어와 AI 가 같은 함수를 씀. */
+const SIDE_DELTA = Object.freeze({ N: [-1, 0], E: [0, 1], S: [1, 0], W: [0, -1] });
+const SIDE_OPP = Object.freeze({ N: 'S', E: 'W', S: 'N', W: 'E' });
+const SIDE_ORDER = ['N', 'E', 'S', 'W'];
+/** 대상 칸 기준 사수가 있는 쪽 변. 같은 칸이거나 위치를 모르면 null (직선 사격이라 한 축만 다름, 둘 다 다르면 더 먼 축) */
+function getIncomingSide(shooter, target) {
+  if (!shooter || shooter.r == null || !target || target.r == null) return null;
+  const dr = shooter.r - target.r, dc = shooter.c - target.c;
+  if (!dr && !dc) return null;
+  return Math.abs(dr) >= Math.abs(dc) ? (dr < 0 ? 'N' : 'S') : (dc > 0 ? 'E' : 'W');
+}
+/** 참호 칸의 통로 방향 집합 A: 이웃 참호가 있는 방향 + (연결이 한 방향뿐인 끝 칸은 그 반대 방향도). 연결 없음 = 빈 집합(전방위 보호) */
+function trenchAlongSides(r, c) {
+  const A = new Set();
+  for (const s of SIDE_ORDER) {
+    const [dr, dc] = SIDE_DELTA[s];
+    if (inBounds(r + dr, c + dc) && terrainAt(r + dr, c + dc).key === 'trench') A.add(s);
+  }
+  if (A.size === 1) A.add(SIDE_OPP[[...A][0]]);
+  return A;
+}
+/** 모래주머니 정면(볼록한 쪽): 기본 그림(rotation 0)은 위쪽으로 볼록, rotation 은 시계 방향. 유닛이 숨는 오목한 쪽은 그 반대 (ui.js richUnitLook 의 sandbagOffset 방향과 같은 기준) */
+const getSandbagFacing = (rotation) => SIDE_ORDER[((((Math.round((rotation || 0) / 90)) % 4) + 4) % 4)];
+/** 이 칸의 방향성 규칙 { kind, defense, directional, rotation } (방향성 시나리오가 아니거나 엄폐·참호가 아니면 null) */
+function directionalRuleAt(r, c) {
+  const D = GAME_CONFIG.DIRECTIONAL;
+  if (!D) return null;
+  const key = terrainAt(r, c).key;
+  if (key === 'trench') return D.rules.trench ? { kind: 'trench', rotation: 0, ...D.rules.trench } : null;
+  if (key === 'cover') {
+    const cell = D.cells[`${r},${c}`] || {}, kind = D.rules[cell.skin] ? cell.skin : D.defaultCover;
+    return D.rules[kind] ? { kind, rotation: cell.rotation || 0, ...D.rules[kind] } : null;
+  }
+  return null;
+}
+/** 그 칸이 보호하는 변들 (디버그·설명용): { defense, sides:[...], kind } 또는 null */
+function protectedSidesAt(r, c) {
+  const rule = directionalRuleAt(r, c);
+  if (!rule) return null;
+  let sides = SIDE_ORDER.slice();
+  if (rule.directional === 'axis') { const A = trenchAlongSides(r, c); sides = sides.filter((s) => !A.has(s)); if (A.size === 0) sides = SIDE_ORDER.slice(); }
+  else if (rule.directional === 'facing') sides = [getSandbagFacing(rule.rotation)];
+  return { defense: rule.defense, sides, kind: rule.kind };
+}
+/**
+ * 대상 칸의 지형 방어 보너스. 반환 { bonus, protectedFrom, reason }
+ *  reason: 'mortar'(박격포 무시) · 'none'(보너스 없는 지형) · 'all'(전방위) · 'front'(보호되는 방향) · 'side'(모래주머니 측면·후면) · 'along'(참호 통로를 따라 오는 종사)
+ *  shooter/incoming 을 모르면(가상 유닛) 보호되는 방향으로 침 = 기존과 같은 값
+ */
+function getTerrainDefenseBonus(target, shooter, weaponType, incoming = null) {
+  if (weaponType === 'mortar' && GAME_CONFIG.MORTAR_IGNORES_TERRAIN) return { bonus: 0, protectedFrom: false, reason: 'mortar' };
+  const rule = directionalRuleAt(target.r, target.c);
+  if (!rule) { const b = diceTerrainBonus(terrainAt(target.r, target.c)); return { bonus: b, protectedFrom: b > 0, reason: b ? 'all' : 'none' }; }
+  const side = incoming || getIncomingSide(shooter, target);
+  let prot = true, reason = 'all';
+  if (rule.directional === 'axis') { reason = 'front'; if (side && trenchAlongSides(target.r, target.c).has(side)) { prot = false; reason = 'along'; } }
+  else if (rule.directional === 'facing') { reason = 'front'; if (side && side !== getSandbagFacing(rule.rotation)) { prot = false; reason = 'side'; } }
+  return { bonus: prot ? rule.defense : 0, protectedFrom: prot, reason };
+}
 /** 거리 보정 (거리 1 = 0) */
 const diceDistanceBonus = (dist) => Math.max(0, dist - 1) * diceRules().distanceStep;
 /** 주사위 하나의 성공 확률(0~1): 0 이거나 N 이상. N ≥ 10 이어도 0 이 있어 10% */
@@ -95,13 +156,15 @@ function diceDefense(defender) {
  * 직접 사격 명중 계산 (dice). attacker/defender 는 { type, hp, r?, c? }, from = 공격 위치(없으면 attacker 위치),
  * 위치를 모르면(위협 추정용 가상 유닛) 인접(거리 1)으로 계산. 반환 형식은 calcHitBreakdown 과 같은 모양 + dice 상세
  */
-function diceBreakdown({ attacker, defender, terrain, from = null }) {
+function diceBreakdown({ attacker, defender, terrain, from = null, incoming = null }) {
   const dc = diceCount(attacker, defender.type);
   const A = dc.count;
   const D = diceDefense(defender);
   const f = from || (attacker.r != null ? attacker : null);
   const dist = f && defender.r != null ? manhattan(f, defender) : 1;
-  const tb = diceTerrainBonus(terrain), db = diceDistanceBonus(dist);
+  // 방향성 엄폐 시나리오: 사격이 들어오는 방향에 따라 지형 보너스가 붙거나 빠짐. 대상 위치를 모르는 가상 유닛은 기존 값. incoming = AI 위협 추정용 방향 힌트(거리는 그대로 1)
+  const dir = GAME_CONFIG.DIRECTIONAL && defender.r != null ? getTerrainDefenseBonus(defender, f, attacker.type, incoming) : null;
+  const tb = dir ? dir.bonus : diceTerrainBonus(terrain), db = diceDistanceBonus(dist);
   const need = D + tb + db;
   const p = diceHitP(A, need);
   const parts = [{ key: 'diceDef', value: D }];
@@ -109,7 +172,7 @@ function diceBreakdown({ attacker, defender, terrain, from = null }) {
   if (db) parts.push({ key: 'diceDist', p: { d: dist }, value: db });
   return {
     chance: p * 100, raw: need, parts, sides: diceRules().sides, need,
-    dice: { count: A, base: dc.base, bonus: dc.bonus, minApplied: dc.min, need, def: D, terrain: tb, terrainKey: terrain ? terrain.key : null, distance: dist, distBonus: db, oneP: diceOneP(need) },
+    dice: { count: A, base: dc.base, bonus: dc.bonus, minApplied: dc.min, need, def: D, terrain: tb, terrainKey: terrain ? terrain.key : null, ...(dir && dir.reason !== 'none' ? { dir: dir.reason } : null), distance: dist, distBonus: db, oneP: diceOneP(need) },
   };
 }
 /**
@@ -189,7 +252,7 @@ function diceRollAll(rng, count, need) {
 
 if (typeof module !== 'undefined' && module.exports) {
   Object.assign(module.exports, {
-    rulesetOf, setRuleset, isDiceRules, isDirectType, isIndirectDiceType, diceIndirectNeed, diceIndirectArea, diceIndirectChance, diceAreaVisible, diceRollFaces, diceStatsOf, diceMaxRange, diceStatsErrors, diceCount, diceDefense, diceTerrainBonus, diceDistanceBonus, diceOneP, diceHitP, diceFaceOk,
+    getIncomingSide, trenchAlongSides, getSandbagFacing, protectedSidesAt, getTerrainDefenseBonus, rulesetOf, setRuleset, isDiceRules, isDirectType, isIndirectDiceType, diceIndirectNeed, diceIndirectArea, diceIndirectChance, diceAreaVisible, diceRollFaces, diceStatsOf, diceMaxRange, diceStatsErrors, diceCount, diceDefense, diceTerrainBonus, diceDistanceBonus, diceOneP, diceHitP, diceFaceOk,
     diceBreakdown, diceTargetsFrom, diceRollAll,
   });
 }

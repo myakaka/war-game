@@ -365,6 +365,8 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   // 참호전 은폐 규칙 (시나리오 concealment 가 있을 때만): 엄폐물·참호(terrain.conceals) 칸의 유닛은 적에게 안 보임. 없으면 null → 다른 시나리오 동작 그대로
   C.CONCEALMENT = s.concealment ? { reconRadius: s.concealment.reconRadius ?? 3, otherRadius: s.concealment.otherRadius ?? 0 } : null;   // reconRadius: 정찰이 은폐를 푸는 거리 · otherRadius: 다른 병종이 푸는 거리 (0 = 못 풂)
   C.SUPPRESS_KILL = !!s.suppressKill;   // 참호전: 제압된 유닛은 어떤 공격이든 명중하면 즉사하고, 제압은 상대 다음 턴 시작에 풀림
+  // 방향성 엄폐 (시나리오 directionalCover): 엄폐물·참호의 방어 보너스가 사격이 들어오는 방향에 따라 붙거나 빠짐 (js/combat.js getTerrainDefenseBonus). 없으면 null → 다른 시나리오 동작 그대로
+  C.DIRECTIONAL = s.directionalCover && s.terrainRules ? { rules: JSON.parse(JSON.stringify(s.terrainRules)), cells: JSON.parse(JSON.stringify(s.coverCells || {})), defaultCover: s.defaultCover || 'crater' } : null;
   C.MORTAR_IGNORES_TERRAIN = !!s.mortarIgnoresTerrain;   // 박격포 판정에서 지형 방어 보너스를 0 으로 (고각 사격)
   C.SCENARIO_RULESET = s.ruleset === 'dice' ? 'dice' : null;   // 시나리오가 규칙 세트를 고정하면 'dice' (데모 2 수치). 없으면 메뉴에서 고른 규칙 세트
   // 점수제 (시나리오 objectivePoints 가 있을 때만): 점유한 거점의 점수가 쌓임. 다른 시나리오는 null → 상태·결과 변화 없음
@@ -1149,8 +1151,8 @@ function rollDice(rng) { return 1 + Math.floor(rng() * diceSides()); }
  * movedAttack: 이동 후 공격이면 MOVE_ATTACK_PENALTY (ENABLE_MOVE_ATTACK 일 때만)
  * parts[]: { key, p, value } — key 는 언어와 무관한 항목 코드 (화면에서 'part.<key>' 문자열로 표시)
  */
-function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAttack = false, indirectPenalty = 0, from = null }) {
-  if (usesDiceHit(attacker, defender)) return diceBreakdown({ attacker, defender, terrain, from });   // 데모 2: 직접 사격은 주사위 개수 방식 (js/combat.js). from = 이동 후 공격 위치(AI 평가용)
+function calcHitBreakdown({ attacker, defender, terrain, signal, fogged, movedAttack = false, indirectPenalty = 0, from = null, incoming = null }) {
+  if (usesDiceHit(attacker, defender)) return diceBreakdown({ attacker, defender, terrain, from, incoming });   // 데모 2: 직접 사격은 주사위 개수 방식 (js/combat.js). from = 이동 후 공격 위치(AI 평가용)
   const C = GAME_CONFIG.COMBAT;
   const parts = [{ key: 'base', value: C.baseHit }];
   if (defender) {

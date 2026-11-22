@@ -3209,3 +3209,36 @@ test('[맵 만들기] 저장소 읽기·쓰기와 파일 내보내기·가져오
   assert.ok(E.SCENARIOS.some((x) => x.id === 'my_aaaa1111'));
   E.unregisterCustomMap('my_aaaa1111');
 });
+
+test('[방향성 엄폐] 참호 통로·모래주머니 정면·구덩이·수풀·박격포가 방향별 보너스를 줌, 시나리오 플래그가 없으면 기존 값', () => {
+  E.loadScenario('skirmish');
+  assert.ok(C().DIRECTIONAL, '소형 전장은 방향성 엄폐 켬');
+  const B = (tr, tc, sr, sc, w = 'infantry') => E.getTerrainDefenseBonus({ r: tr, c: tc }, { r: sr, c: sc }, w).bonus;
+  // 참호 (3,2): 끝(연결 E) → 통로 W·E 에서 오면 종사 +0, N·S 에서 오면 +4
+  assert.deepEqual([B(3, 2, 3, 0), B(3, 2, 3, 6), B(3, 2, 0, 2), B(3, 2, 6, 2)], [0, 0, 4, 4]);
+  // 참호 (3,3): 모서리(연결 W·S) → W·S 종사 +0, N·E +4
+  assert.deepEqual([B(3, 3, 3, 0), B(3, 3, 6, 3), B(3, 3, 0, 3), B(3, 3, 3, 6)], [0, 0, 4, 4]);
+  // 모래주머니: rotation 180 = 정면 S, rotation 0 = 정면 N (정면에서 올 때만 +2)
+  assert.deepEqual(['N', 'E', 'S', 'W'].map((s) => E.getSandbagFacing(s === 'N' ? 0 : s === 'E' ? 90 : s === 'S' ? 180 : 270)), ['N', 'E', 'S', 'W']);
+  assert.deepEqual([B(2, 1, 6, 1), B(2, 1, 0, 1), B(2, 1, 2, 0), B(2, 1, 2, 5)], [2, 0, 0, 0]);
+  assert.deepEqual([B(7, 8, 0, 8), B(7, 8, 9, 8), B(7, 8, 7, 0), B(7, 8, 7, 9)], [2, 0, 0, 0]);
+  // 구덩이 +2, 수풀 +1: 방향과 상관없음
+  assert.deepEqual([B(4, 7, 0, 7), B(4, 7, 9, 7), B(4, 7, 4, 0), B(4, 7, 4, 9)], [2, 2, 2, 2]);
+  assert.deepEqual([B(2, 6, 0, 6), B(2, 6, 9, 6), B(2, 6, 2, 0), B(2, 6, 2, 9)], [1, 1, 1, 1]);
+  // 평지 0, 박격포는 어디서든 0, 사수 위치를 모르는 가상 유닛은 보호되는 방향으로 침
+  assert.equal(B(4, 0, 0, 0), 0);
+  assert.equal(B(3, 3, 0, 3, 'mortar'), 0);
+  assert.equal(E.getTerrainDefenseBonus({ r: 3, c: 3 }, null, 'infantry').bonus, 4);
+  // 실제 명중 계산이 같은 함수를 씀: (3,3) 참호에 서쪽(종사)과 북쪽에서 쏨
+  const hp = C().MAX_HP, mk = (r, c) => ({ type: 'infantry', hp, r, c, side: 'ru' }), def = { type: 'infantry', hp, r: 3, c: 3, side: 'ua' };
+  const along = E.diceBreakdown({ attacker: mk(3, 0), defender: def, terrain: C().TERRAIN[C().MAP[3][3]] }).dice, front = E.diceBreakdown({ attacker: mk(0, 3), defender: def, terrain: C().TERRAIN[C().MAP[3][3]] }).dice;
+  assert.deepEqual([along.terrain, along.dir, front.terrain, front.dir], [0, 'along', 4, 'front']);
+  // 지도 데이터와 화면 그림이 같은 종류·방향을 읽음
+  const sc = E.SCENARIOS.find((s) => s.id === 'skirmish');
+  assert.equal(sc.art.cover.cells, sc.coverCells);
+  // 방향성 시나리오가 아니면 기존 값 그대로
+  E.loadScenario('symmetric');
+  assert.equal(C().DIRECTIONAL, null);
+  assert.equal(E.getTerrainDefenseBonus({ r: 0, c: 0 }, { r: 5, c: 0 }, 'infantry').reason, E.getTerrainDefenseBonus({ r: 0, c: 0 }, null, 'infantry').reason);
+  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+});

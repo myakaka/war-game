@@ -6,6 +6,12 @@
    12라운드가 끝났을 때 남은 총 체력이 많은 쪽이 이기고, 같으면 생존 유닛이 많은 쪽 (victory: roundLimitAttrition). 전멸하면 즉시 종료.
    symmetric: true — 지형·배치·승리 조건이 180도 회전 대칭 (칸 (r,c) ↔ (9-r, 9-c), 좌표는 0부터).
    ===================================================================== */
+// 엄폐물 칸의 종류·방향 (규칙과 그림이 같이 읽음). skin: crater | bush | sandbag, rotation: 0/90/180/270 시계 방향. 모래주머니는 rotation 0 에서 위쪽(N)으로 볼록 = 정면
+const SKIRMISH_COVER_CELLS = {
+  '2,1': { skin: 'sandbag', rotation: 180 }, '7,8': { skin: 'sandbag', rotation: 0 },
+  '2,6': { skin: 'bush', rotation: 0 }, '7,3': { skin: 'bush', rotation: 90 },
+  '4,7': { skin: 'crater', rotation: 0 }, '5,2': { skin: 'crater', rotation: 180 },
+};
 SCENARIOS.push({
   id: 'skirmish',
   nameKey: 'scen.skirmish.name', descKey: 'scen.skirmish.desc', subKey: 'scen.skirmish.sub',
@@ -13,6 +19,17 @@ SCENARIOS.push({
   concealment: { reconRadius: 2, otherRadius: 1 },   // 은폐 규칙 켬. 은폐를 푸는 거리(맨해튼): 정찰 2칸, 다른 병종 1칸(인접). 노출 지속: 사격한 유닛의 소유자 다음 턴 시작까지
   suppressKill: true,                 // 제압된 유닛은 어떤 공격이든 명중하면 즉사. 제압은 상대 다음 턴 시작에 풀림 (내 턴 제압 → 상대 턴 → 내 턴 → 상대 턴 시작에 해제)
   mortarIgnoresTerrain: true,         // 박격포 판정에서 지형 방어 보너스 0 (고각 사격)
+  // 방향성 엄폐: 사격이 들어오는 방향(대상 칸 기준 사수가 있는 변)에 따라 방어 보너스가 붙거나 빠짐 (js/combat.js getTerrainDefenseBonus)
+  //   defense = 보호되는 방향에서 받는 방어 보너스 · conceal = 은폐 여부(참고용, 은폐는 지형 conceals 가 정함) · directional: 'axis' 참호 통로를 가로지르는 방향만 보호(통로를 따라 오는 종사는 +0, 외톨이는 전방위) · 'facing' 모래주머니 볼록한 쪽(정면) 한 방향만 · 'all' 전방위
+  directionalCover: true,
+  terrainRules: {
+    trench:  { defense: 4, conceal: true,  directional: 'axis' },
+    sandbag: { defense: 2, conceal: true,  directional: 'facing' },
+    crater:  { defense: 2, conceal: true,  directional: 'all' },
+    bush:    { defense: 1, conceal: true,  directional: 'all' },
+  },
+  coverCells: SKIRMISH_COVER_CELLS,   // 엄폐물 칸별 종류·방향. 지정이 없는 칸은 defaultCover
+  defaultCover: 'crater',
   ruleset: 'dice',            // 이 시나리오는 항상 주사위 규칙 세트(데모 2 수치: 보병 사거리 4 등)로 진행
   // 소형 전장 전용 병종 수치 표 (여기 값만 고치면 이 시나리오에만 적용, 다른 시나리오는 그대로). 지금 값은 기본값과 같음
   //   classic: 이동 move · 시야 vision · 사거리 rangeMin/rangeMax(간접) 등 (UNIT_TYPES 필드)
@@ -95,11 +112,7 @@ SCENARIOS.push({
     } },
     cover: {
       files: { crater: 'assets/cover/cover_crater.png', bush: 'assets/cover/cover_bush.png', sandbag: 'assets/cover/cover_sandbag.png' },
-      cells: {   // skin: crater | bush | sandbag, rotation: 0/90/180/270 (없으면 칸 좌표 해시로 고정). 모래주머니는 기본 그림에서 위쪽으로 볼록
-        '2,1': { skin: 'sandbag', rotation: 180 }, '7,8': { skin: 'sandbag', rotation: 0 },
-        '2,6': { skin: 'bush', rotation: 0 }, '7,3': { skin: 'bush', rotation: 90 },
-        '4,7': { skin: 'crater', rotation: 0 }, '5,2': { skin: 'crater', rotation: 180 },
-      },
+      cells: SKIRMISH_COVER_CELLS,   // 규칙 데이터(coverCells)와 같은 객체: 그림과 방향성 엄폐 규칙이 같은 종류·방향을 읽음
     },
     // 그림 보정: dx·dy = 칸 크기 비율 이동, scale = 배율. cellOverrides 는 '행,열' 칸만 덮어씀 { dx, dy, scale, rotation, tint: 'rgba(...)' }
     visual: {
