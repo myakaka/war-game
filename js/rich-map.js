@@ -546,8 +546,26 @@ const RICH_MAP = (() => {
         out.push({ kind: 'unit', key: side + ':' + type, src: 'assets/units/' + U.dir + '/' + (unitFiles[type] || type) + '.png', optional: true });
       }
     }
+    for (const [k, files] of Object.entries(art.soldiers || {})) files.forEach((src, i) => out.push({ kind: 'unit', key: `soldier:${k}:${i}`, src, optional: true }));   // 참호 안 배치용 군인 낱장 (tools/split-sprites.py), 없으면 통짜 그림
     return out;
   }
 
-  return { paint, artSources, K, trenchChoice };
+  /** 엄폐물 칸의 그림 선택 (배경 paint 와 유닛 덮개 층이 같은 값을 쓰도록): { skin, rot, tune:{dx,dy,scale}, file }. 엄폐물 그림이 없으면 null */
+  function coverChoice(art, r, c) {
+    if (!art || !art.cover || !art.cover.files) return null;
+    const skins = ['crater', 'bush', 'sandbag'], VIS = art.visual || {}, o2 = (VIS.cellOverrides || {})[`${r},${c}`] || {};
+    const cell = (art.cover.cells || {})[`${r},${c}`] || {}, h = cellHash(r, c);
+    const skin = cell.skin || skins[h % 3], rot = o2.rotation != null ? o2.rotation : cell.rotation != null ? cell.rotation : [0, 90, 180, 270][(h >>> 4) % 4];
+    const base = (VIS.cover || {})[skin];
+    const tune = Object.assign({ dx: 0, dy: 0, scale: 1 }, base, o2.dx != null || o2.dy != null || o2.scale != null ? { dx: o2.dx || 0, dy: o2.dy || 0, scale: o2.scale == null ? 1 : o2.scale } : null);
+    return { skin, rot, tune, file: art.cover.files[skin] };
+  }
+  /** 참호 칸의 그림 선택 + 그림 보정: { tile, rot, tune:{dx,dy,scale}, note }. isT(r,c) = 그 칸이 참호인가. 유닛 위치 보정(통로 중심)에 쓰임 */
+  function trenchInfo(art, isT, r, c) {
+    const nb = { N: isT(r - 1, c), E: isT(r, c + 1), S: isT(r + 1, c), W: isT(r, c - 1) }, ch = trenchChoice(nb, r, c);
+    const VIS = (art && art.visual) || {}, o2 = (VIS.cellOverrides || {})[`${r},${c}`] || {}, base = ((VIS.trench || {}).tiles || {})[ch.tile];
+    const tune = Object.assign({ dx: 0, dy: 0, scale: 1 }, base, o2.dx != null || o2.dy != null || o2.scale != null ? { dx: o2.dx || 0, dy: o2.dy || 0, scale: o2.scale == null ? 1 : o2.scale } : null);
+    return { tile: ch.tile, rot: o2.rotation != null ? o2.rotation : ch.rot, tune, note: ch.note };
+  }
+  return { paint, artSources, K, trenchChoice, trenchInfo, coverChoice };
 })();

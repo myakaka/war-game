@@ -972,3 +972,10 @@ body[data-screen="game"] .goal-bar { display: flex; }
 body.goal-scene .tut-layer { visibility: hidden; }
 .goal-bubble { z-index: 13; pointer-events: none; }
 .goal-bubble .tb-main { font-weight: 800; }
+/* 참호전 엄폐 연출 (PC 리치): 유닛 그림 층(.ul)의 축소·치우침·가림, 모래주머니·덤불 덮개 층, 처음 드러날 때 테두리 깜빡임 */
+#board.rich .unit .ul { position: absolute; inset: -50%; transform-origin: 50% 50%; }   /* 칸의 2배 크기: 아래쪽 사라짐 마스크가 칸 모서리에서 잘리지 않게. 그림은 가운데 칸 크기로 */
+#board.rich .unit .ul svg { position: absolute; left: 25%; top: 25%; width: 50%; height: 50%; }
+.cover-ov { position: absolute; z-index: 7; pointer-events: none; }
+.cover-ov img { display: block; width: 100%; height: auto; pointer-events: none; }
+@keyframes revealPulse { 0%, 100% { filter: drop-shadow(0 0 0 rgba(229, 57, 53, 0)); } 50% { filter: drop-shadow(0 0 7px rgba(229, 57, 53, 1)) drop-shadow(0 0 3px rgba(229, 57, 53, 1)); } }
+.unit.reveal-pulse { animation: revealPulse var(--rv, 0.4s) ease-in-out 1; }

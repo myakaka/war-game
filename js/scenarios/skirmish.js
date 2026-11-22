@@ -105,10 +105,36 @@ SCENARIOS.push({
     visual: {
       trench: { edgeFeather: true, tiles: { straight_a: { dx: 0, dy: 0, scale: 1 }, straight_b: { dx: 0, dy: 0, scale: 1 }, straight_v: { dx: 0, dy: 0, scale: 1 }, corner: { dx: 0, dy: 0, scale: 1 }, end: { dx: 0, dy: 0, scale: 1 } } },
       cover: { crater: { dx: 0, dy: 0, scale: 1 }, bush: { dx: 0, dy: 0, scale: 1 }, sandbag: { dx: 0, dy: 0, scale: 1.25 } },
-      units: { scaleInTrench: 0.70, scaleInCover: 0.80, darkenInTrench: 0.9 },   // 참호·엄폐물 칸 위 유닛 그림 배율·밝기 (체력·배지는 그대로)
-      cellOverrides: {},
+      // 참호·엄폐물 칸 위 내 유닛의 표시 (은폐 중일 때. 노출되면 평지처럼 원래 크기). 체력·배지는 그대로, 클릭 영역도 그대로
+      //  scaleIn* 배율 · darkenInTrench 밝기 · fadeBottom* 아래쪽을 사라지게 하는 비율 · sandbagOffset 모래주머니 오목한 쪽으로 치우침(칸 크기 배) · sandbagOverlayAlpha 유닛 위에 덮는 모래주머니 투명도(0~1) · trenchOffset 참호 그림 종류별 통로 중심(그림이 돈 만큼 같이 돎)
+      //  bushUnitAlpha 덤불 속 유닛 투명도 · bushOverlayAlpha 유닛 위에 덮는 덤불 투명도 · popup 사격할 때 튀어오름(up/down 초, firstRevealPulse 처음 드러날 때 깜빡임)
+      units: {
+        scaleInTrench: 0.85, scaleInCrater: 0.85, scaleInBush: 0.90, scaleInSandbag: 0.90,
+        darkenInTrench: 0.9, fadeBottomTrench: 0.22, fadeBottomCrater: 0.12,
+        soldierScale: 0.45,   // 참호 안에서 군인 한 명의 크기 (원래 크기 배). 통로 폭(칸의 약 0.25배)에 들어가도록
+        // 참호 그림 종류별 군인 3명의 자리 (기본 방향 기준 칸 크기 배, 그림이 돈 만큼 같이 돎): 직선은 일렬, 코너는 ㄱ자, 끝은 막힌 쪽부터 일렬
+        soldierSlots: {
+          straight_a: [[-0.27, -0.03], [0, -0.03], [0.27, -0.03]], straight_b: [[-0.27, -0.03], [0, -0.03], [0.27, -0.03]],
+          straight_v: [[-0.01, -0.27], [-0.01, 0], [-0.01, 0.27]],
+          corner: [[-0.27, 0.02], [0.03, 0.03], [0.01, 0.28]],
+          end: [[0, -0.06], [0, -0.25], [0, -0.43]],
+        },
+        trenchOffset: { straight_a: { dx: 0, dy: -0.03 }, straight_b: { dx: 0, dy: -0.03 }, straight_v: { dx: -0.01, dy: 0 }, corner: { dx: 0, dy: 0.02 }, end: { dx: 0, dy: -0.15 } },   // 참호 통로 중심 (기본 방향 기준, 그림이 돈 만큼 같이 돎)
+        sandbagOffset: 0.30, sandbagOverlayAlpha: 0.3, bushOverlayAlpha: 0.6, bushUnitAlpha: 0.85,
+        popup: { enabled: true, up: 0.15, down: 0.3, firstRevealPulse: 0.4 },
+      },
+      cellOverrides: {},   // '행,열': { dx, dy, scale, rotation, tint, unit: { dx, dy, scale } } (unit = 그 칸 유닛 표시 보정)
     },
     unitSet: 'hostomel',
+    unitScaleType: { mortar: 0.8 },   // 병종별 그림 크기 배율 (박격포 그림이 커서 줄임, 링은 그대로)
+    unitScaleAll: 0.8,   // 이 시나리오의 모든 유닛 그림·링 크기 배율 (참호·엄폐물과 어울리도록 작게)
+    // 참호 안 배치용 군인 낱장 (한 장에 3명인 그림을 한 명씩 자른 것, tools/split-sprites.py). 키 = 진영:병종 또는 병종(기본 그림 세트)
+    soldiers: {
+      infantry: ['assets/units/hostomel/infantry_s1.png', 'assets/units/hostomel/infantry_s2.png', 'assets/units/hostomel/infantry_s3.png'],
+      'ru:infantry': ['assets/units/ru/infantry_s1.png', 'assets/units/ru/infantry_s2.png', 'assets/units/ru/infantry_s3.png'],
+      'ua:recon': ['assets/units/ua/recon_s1.png', 'assets/units/ua/recon_s2.png', 'assets/units/ua/recon_s3.png'],
+      'ru:recon': ['assets/units/ru/recon_s1.png', 'assets/units/ru/recon_s2.png', 'assets/units/ru/recon_s3.png'],
+    },
     unitSides: {
       ru: { dir: 'ru', types: ['infantry', 'armor', 'antitank', 'artillery', 'mortar', 'recon', 'signal'], unitScale: { infantry: 1.15 } },
       ua: { dir: 'ua', types: ['recon'], unitScale: {} },   // 우크라이나군 정찰: 위장 정찰병 그림 (우글레다르와 같음). 다른 병종은 기본 그림

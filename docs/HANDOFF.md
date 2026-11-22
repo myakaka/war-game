@@ -7,7 +7,7 @@
 - 은폐(시나리오 `concealment`): engine.js `isHiddenFrom`, `getVisibleTiles`(은폐한 적 칸 제외, 유닛 존재용)·`getTerrainVisibleTiles`(안개 덮개·맹사격용), `hiddenBlockerOnLine`+`resolveAttack`(막은 유닛 대신 맞음·사격하면 노출), `startTurn`에서 노출 해제. 박격포 `mortarIgnoresTerrain`(combat.js `diceIndirectNeed`). 제압 즉사 `suppressKill`(engine.js `resolveAttack` 피해 직전 amount=hp, `startTurn`/`endTurn` 의 `suppSeen` 해제 타이밍).
 - 화면(ui.js/css): 은폐·노출 배지, 정찰 선택 시 반경 표시, 지형 설명 줄, 막힘 로그, 이미지 지도에서 엄폐물·참호는 기호 타일(`terrVisOf`로 안개 덮개 분리).
 - CLAUDE.md 안개 규칙에 은폐 예외 한 줄 추가(승인됨).
-- 참호·엄폐물 그림(리치 테마 전용): 시나리오 `art.trench/cover/visual`(skirmish.js), rich-map.js `trenchChoice`·6c 단계(참호 자동 타일·엄폐물 겹쳐 그리기, 파일 없으면 기호), ui.js `richUnitTune`(참호·엄폐 칸 유닛 축소)·`?debug=1`(칸 좌표·이웃 방향). 파일은 assets/terrain/trench_*.png, assets/cover/cover_*.png. 보정은 `visual.cellOverrides`('행,열' 0부터).
+- 참호·엄폐물 그림(리치 테마 전용): 시나리오 `art.trench/cover/visual`(skirmish.js), rich-map.js `trenchChoice`·6c 단계(참호 자동 타일·엄폐물 겹쳐 그리기, 파일 없으면 기호), ui.js `richUnitLook`·`lookStyle`·`coverOverlayHtml`·`popUp`·`lookTween`(엄폐 칸 유닛 축소·아래쪽 사라짐·모래주머니/덤불 덮개 층·사격 시 튀어오름·노출 해제 복귀·처음 드러날 때 깜빡임, 설정은 `art.visual.units`, rich-map.js `coverChoice`)·`?debug=1`(칸 좌표·이웃 방향). 파일은 assets/terrain/trench_*.png, assets/cover/cover_*.png. 보정은 `visual.cellOverrides`('행,열' 0부터).
 - 검증: 테스트 통과(참호전 4건·승리 순서 개정), 소형 전장 시드 기준선 재저장, AI 8판 시뮬레이션 오류 0, 화면 캡처 확인.
 
 ## 알려진 문제 / 다음

@@ -156,6 +156,7 @@
     overlay: null,         // 열려 있는 창을 현재 언어로 다시 그리는 함수 (언어 전환용)
     summary: null,         // 2인 모드 요약 패널을 다시 그리는 함수
     mouse: null,           // 마지막 마우스 위치 (툴팁 배치용)
+    lookMemo: new Map(), lookMemoViewer: null,   // 엄폐 연출: 유닛별 노출 여부 기억 (노출이 풀릴 때 되돌아가는 연출, 처음 드러남 판정)
     anim: { hideUnits: new Set(), hideFlag: null },   // 연출 중 지도에서 잠시 숨길 것 (연출 층이 대신 그림)
     reduceMotion: false,
     // 3단계: 화면 구조
@@ -689,14 +690,27 @@
       U = { ...F, size: F.size * U.fallbackScale, ring: U.ring };
     }
     if (!im) im = richImg().unit.infantry;
+    const usc = (scenArt() || {}).unitScaleAll;   // 시나리오 전체 유닛 크기 배율 (그림·링 함께. 소형 전장: 참호·엄폐물에 비해 커 보이지 않게)
+    if (usc && usc !== 1) U = { ...U, size: U.size * usc, ring: U.ring * usc };
+    const tsc = ((scenArt() || {}).unitScaleType || {})[type];   // 병종별 그림 크기 배율 (진영 무관, 링은 그대로)
+    if (tsc && tsc !== 1) U = { ...U, size: U.size * tsc };
     const ar = im.w / im.h;
     const w = U.by === 'h' ? U.size * CS * ar : U.size * CS, h = U.by === 'h' ? U.size * CS : U.size * CS / ar;
     const R = U.ring * CS;
-    let body = `<circle cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="${RU.ringFill}" stroke="${D.line}" stroke-width="${RU.ringW}" vector-effect="non-scaling-stroke"/>`;
+    let body = `<circle cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="${RU.ringFill}" stroke="${opts.exposed ? '#E53935' : D.line}" stroke-width="${opts.exposed ? RU.ringW + 1.6 : RU.ringW}" vector-effect="non-scaling-stroke"/>`;
     if (opts.selected) body += `<circle class="pulse-sel" style="animation-duration:${DESIGN.hl.sel.pulseMs}ms" cx="20" cy="20" r="${R}" fill="${D.line}" fill-opacity="0.16" stroke="${RU.selLine}" stroke-width="${RU.selW}" vector-effect="non-scaling-stroke"/>`;
     const deg = richBaseDeg(side) + (opts.angle || 0);   // 공격 측은 180도 + 임시 회전각 (art.flipFacing 이면 방어 측)
     const rot = deg ? ` transform="rotate(${+deg.toFixed(2)} 20 20)"` : '';
-    body += `<g filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})"><image href="${esc(im.src)}" x="${(20 - w / 2).toFixed(2)}" y="${(20 - h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"${rot}/></g>`;
+    if (opts.soldiers) {   // 참호 안: 군인 낱장 3개를 통로 모양대로 (링은 줄여서 표시용으로만)
+      const f = w / im.w, k = opts.soldiers.k / (usc && usc !== 1 ? usc : 1), bd = richBaseDeg(side);   // 낱장 크기는 통로 폭 기준이라 전체 배율의 영향을 받지 않게
+      body = `<g transform="translate(20 20) scale(${opts.soldiers.ringScale}) translate(-20 -20)">${body}</g>`;
+      let sg = '';
+      opts.soldiers.list.forEach((s, i) => {
+        const sw = s.img.w * f * k, sh = s.img.h * f * k, cx = 20 + s.x * CS, cy = 20 + s.y * CS;
+        sg += `<image href="${esc(s.img.src)}" x="${(cx - sw / 2).toFixed(2)}" y="${(cy - sh / 2).toFixed(2)}" width="${sw.toFixed(2)}" height="${sh.toFixed(2)}" preserveAspectRatio="none"${bd ? ` transform="rotate(${bd} ${cx.toFixed(2)} ${cy.toFixed(2)})"` : ''}/>`;
+      });
+      body += `<g data-sold="1" filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})">${sg}</g>`;
+    } else body += `<g filter="url(#${opts.done ? 'rich-shadow-dim' : 'rich-shadow'})"><image href="${esc(im.src)}" x="${(20 - w / 2).toFixed(2)}" y="${(20 - h / 2).toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"${rot}/></g>`;
     const B = RU.badge, txt = t('unit.' + type + '.badge');
     const bh = B.h * CS, bw = Math.max(bh, (B.charW * [...txt].length + 2 * B.pad) * CS);
     const bx = 20 + R * B.at, by = 20 + R * B.at;
@@ -712,8 +726,7 @@
       const H = DESIGN.hl.done, cx = (20 - R * 0.62).toFixed(2), cy = (20 - R * 0.62).toFixed(2);
       top += `<circle cx="${cx}" cy="${cy}" r="${H.r}" fill="${H.fill}" stroke="#fff" stroke-width="1"/><path d="M${cx - 2.8} ${+cy + 0.2}L${cx - 0.8} ${+cy + 2.3}L${+cx + 2.9} ${cy - 2}" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
     }
-    if (opts.scale && opts.scale !== 1) body = `<g transform="translate(20 20) scale(${opts.scale}) translate(-20 -20)">${body}</g>`;   // 참호·엄폐물 칸: 링과 그림만 줄임 (배지·체력은 top 층이라 그대로)
-    return { body, top };
+    return { body, top, R };   // 참호·엄폐물 칸의 축소·가림은 칸 그림 층(.ul)이 CSS 로 처리 (배지·체력은 top 층이라 그대로)
   }
   /** 디버그 (?debug=1): 칸 좌표(행,열 0부터)와 참호 이웃 방향·고른 그림·회전. 그림 보정(art.visual) 할 때 칸을 찾는 용도 */
   function debugCellHtml(r, c) {
@@ -727,14 +740,102 @@
     }
     return `<div class="dbg-cell" aria-hidden="true"><b>${r},${c}</b>${line2}</div>`;
   }
-  /** 참호전 그림 보정(art.visual.units): 참호·엄폐물 칸 위 유닛의 배율과 밝기 (화면 표현만, 터치 영역은 그대로). 해당 없으면 { scale: 1, dark: 1 } */
-  function richUnitTune(u) {
-    const V = ((scenArt() || {}).visual || {}).units;
-    if (!V || !rich.on) return { scale: 1, dark: 1 };
+  /* ---------- 참호전 엄폐 연출 (리치 전용, 화면 표현만. 은폐·노출 값은 엔진 것을 읽기만 함) ----------
+     look = { scale, dx, dy, dark, alpha, fade(아래쪽 사라짐 비율), ov(유닛 위 덮개 층 투명도), ring(노출 테두리) }
+     은폐 중인 내 유닛(참호·구덩이·모래주머니·덤불): 줄이고 어둡게 + 참호·구덩이는 아래쪽 사라짐, 모래주머니·덤불은 그림이 유닛 위를 덮음.
+     노출 중이거나 평지: 원래 크기. 정찰로 보이는 적 유닛은 예전 표시(축소·어둡게)만 */
+  const LOOK0 = { scale: 1, dx: 0, dy: 0, dark: 1, alpha: 1, fade: 0, ov: 0 };
+  const coverOf = (u) => (terrainAt(u.r, u.c).key === 'cover' ? RICH_MAP.coverChoice(scenArt(), u.r, u.c) : null);
+  /** u 가 은폐 지형 위에 있는가: 'trench' | 'crater' | 'bush' | 'sandbag' | null */
+  function coverKindOf(u) {
+    if (!GAME_CONFIG.CONCEALMENT || !rich.on) return null;
     const key = terrainAt(u.r, u.c).key;
-    if (key === 'trench') return { scale: V.scaleInTrench ?? 1, dark: V.darkenInTrench ?? 1 };
-    if (key === 'cover') return { scale: V.scaleInCover ?? 1, dark: 1 };
-    return { scale: 1, dark: 1 };
+    if (key === 'trench') return 'trench';
+    if (key === 'cover') { const c = coverOf(u); return c ? c.skin : 'crater'; }
+    return null;
+  }
+  /** concealed: 은폐 표현 / 아니면 노출 표현. 해당 없으면 LOOK0 (visual.units 가 없으면 아무것도 안 바꿈) */
+  function richUnitLook(u, concealed = !u.exposed) {
+    const V = ((scenArt() || {}).visual || {}).units, kind = coverKindOf(u);
+    if (!V || !kind) return LOOK0;
+    if (!concealed) return { ...LOOK0, ring: true };
+    const scale = { trench: V.scaleInTrench, crater: V.scaleInCrater, bush: V.scaleInBush, sandbag: V.scaleInSandbag }[kind] ?? 1;
+    const dark = kind === 'trench' || kind === 'crater' ? (V.darkenInTrench ?? 1) : 1;
+    const L = { ...LOOK0, scale, dark };
+    if (kind === 'trench') {
+      L.fade = V.fadeBottomTrench ?? 0;
+      if (soldierLayout(u)) { L.scale = 1; L.fade = 0; return L; }   // 군인 낱장 모드: 크기·자리는 낱장 배치가 정함 (통짜 보정은 건너뜀)
+      // 통로 중심에 서도록: 그림 종류별 기본 방향(직선 가로 W–E · 세로 N–S · 코너 W+S · 끝 N 만 열림)의 통로 중심 보정을 그림이 돈 만큼 돌려 적용 (칸 크기 배)
+      const isT = (rr, cc) => rr >= 0 && rr < N && cc >= 0 && cc < N && terrainAt(rr, cc).key === 'trench';
+      const ti = RICH_MAP.trenchInfo(scenArt(), isT, u.r, u.c), off = (V.trenchOffset || {})[ti.tile], th = (ti.rot * Math.PI) / 180;
+      if (off) { L.dx += off.dx * Math.cos(th) - off.dy * Math.sin(th); L.dy += off.dx * Math.sin(th) + off.dy * Math.cos(th); }
+      L.dx += ti.tune.dx; L.dy += ti.tune.dy;   // 그림 보정(tiles·cellOverrides)으로 그림이 옮겨졌으면 유닛도 같이
+    }
+    if (kind === 'crater') L.fade = V.fadeBottomCrater ?? 0;
+    if (kind === 'bush') { L.alpha = V.bushUnitAlpha ?? 1; L.ov = V.bushOverlayAlpha ?? 0; }
+    if (kind === 'sandbag') {
+      L.ov = V.sandbagOverlayAlpha ?? 1;   // 유닛 위에 덮는 모래주머니 투명도 (0 이면 덮지 않음)
+      const c = coverOf(u), off = V.sandbagOffset ?? 0, th = ((c ? c.rot : 0) * Math.PI) / 180;
+      L.dx = -Math.sin(th) * off; L.dy = Math.cos(th) * off;   // 오목한 쪽 = rotation 0 이면 아래(S), 시계 방향으로 따라 돎
+    }
+    const o = (((scenArt() || {}).visual || {}).cellOverrides || {})[`${u.r},${u.c}`];
+    if (o && o.unit) { L.dx += o.unit.dx || 0; L.dy += o.unit.dy || 0; L.scale *= o.unit.scale == null ? 1 : o.unit.scale; }
+    return L;
+  }
+  /** 참호 안 군인 낱장 배치: 은폐 중인 유닛(양쪽 진영 모두)이고 낱장 그림이 있으면 { list:[{img,x,y}], k, ringScale }, 아니면 null (통짜 그림) */
+  function soldierLayout(u) {
+    const V = ((scenArt() || {}).visual || {}).units;
+    if (!V || !V.soldierSlots || !rich.on || u.exposed || coverKindOf(u) !== 'trench') return null;
+    const side = richImg().unit[`soldier:${u.side}:${u.type}:0`] ? `${u.side}:${u.type}` : u.type, imgs = [0, 1, 2].map((i) => richImg().unit[`soldier:${side}:${i}`]);
+    if (imgs.some((x) => !x)) return null;
+    if (!richImg().unit[`${u.side}:${u.type}`] && side !== u.type) return null;
+    const isT = (rr, cc) => rr >= 0 && rr < N && cc >= 0 && cc < N && terrainAt(rr, cc).key === 'trench';
+    const ti = RICH_MAP.trenchInfo(scenArt(), isT, u.r, u.c), slots = V.soldierSlots[ti.tile];
+    if (!slots) return null;
+    const th = (ti.rot * Math.PI) / 180, cs = Math.cos(th), sn = Math.sin(th);
+    return { k: V.soldierScale ?? 0.4, ringScale: V.scaleInTrench ?? 0.7, list: slots.map(([sx, sy], i) => ({ img: imgs[i], x: sx * cs - sy * sn + ti.tune.dx, y: sx * sn + sy * cs + ti.tune.dy })) };
+  }
+  const lookPopup = () => ((((scenArt() || {}).visual || {}).units || {}).popup) || null;
+  /** 그림 층(.ul) 인라인 스타일. R = 링 반지름(SVG 40칸 기준): 아래쪽 사라짐 마스크의 위치 */
+  function lookStyle(L, R) {
+    let s = `transform:translate(${(L.dx * 50).toFixed(2)}%,${(L.dy * 50).toFixed(2)}%) scale(${L.scale.toFixed(3)});`;   // .ul 은 칸의 2배 크기(마스크가 칸 모서리에서 잘리지 않게) → 칸 비율의 절반
+    if (L.dark !== 1) s += `filter:brightness(${L.dark.toFixed(3)});`;
+    if (L.alpha !== 1) s += `opacity:${L.alpha.toFixed(3)};`;
+    if (L.fade > 0.001) {
+      const bot = 25 + (20 + R) / 40 * 50, len = L.fade * 2 * R / 40 * 50, g = `linear-gradient(to bottom,#000 ${(bot - len).toFixed(1)}%,transparent ${bot.toFixed(1)}%)`;
+      s += `-webkit-mask-image:${g};mask-image:${g};`;
+    }
+    return s;
+  }
+  /** 칸 위 덮개 층 (모래주머니·덤불: 유닛 위에 그림을 덮어 방벽·잎 뒤에 있는 모습). 은폐 중인 내 유닛에만 */
+  function coverOverlayHtml(u, L) {
+    if (!L.ov) return '';
+    const c = coverOf(u);
+    if (!c || !richImg().decor[c.file]) return '';
+    const T = c.tune, mk = 'radial-gradient(circle closest-side,#000 56%,transparent 100%)', mask = c.skin === 'bush' ? `mask-image:${mk};-webkit-mask-image:${mk};` : '';
+    return `<div class="cover-ov" aria-hidden="true" style="left:${((0.5 + T.dx) * 100).toFixed(2)}%;top:${((0.5 + T.dy) * 100).toFixed(2)}%;width:${(T.scale * 100).toFixed(1)}%;transform:translate(-50%,-50%) rotate(${c.rot}deg);opacity:${L.ov.toFixed(3)};${mask}"><img src="${esc(c.file)}" alt=""></div>`;
+  }
+  const lerpLook = (a, b, p) => { const o = { ...b }; for (const k of ['scale', 'dx', 'dy', 'dark', 'alpha', 'fade', 'ov']) o[k] = a[k] + (b[k] - a[k]) * p; return o; };
+  /** 그 칸의 유닛 그림·덮개 층을 from → to 로 부드럽게 (연출만). 반환 Promise */
+  function lookTween(pos, from, to, ms) {
+    const dyn = cells[idx(pos.r, pos.c)].dyn, ul = dyn.querySelector('.ul'), ov = dyn.querySelector('.cover-ov');
+    if (!ul || ui.reduceMotion || !(ms > 0)) return Promise.resolve();
+    const R = Number(ul.dataset.r) || 12, token = ui.gameId;
+    return tween(ms * speedMul(), (p) => {
+      const L = lerpLook(from, to, p);
+      ul.style.cssText = lookStyle(L, R);
+      if (ov) ov.style.opacity = String(Math.max(0, L.ov));
+    }, token);
+  }
+  /** 사격하는 유닛이 숨어 있었다면 튀어오름 (준비 구간). 보이는 쪽 화면에서만, 간접 화력 제외 */
+  async function popUp(pre, ev) {
+    const P = lookPopup();
+    if (!rich.on || !P || !P.enabled || ui.reduceMotion || ev.indirect) return;
+    const u = getUnit(pre, ev.attackerId);
+    if (!u || u.exposed || !cells[idx(u.r, u.c)].dyn.querySelector('.ul')) return;
+    const from = richUnitLook(u, true), to = richUnitLook(u, false);
+    if (from === LOOK0 || to === LOOK0) return;
+    await lookTween(u, from, to, (P.up || 0) * 1000);
   }
   const richSvg = (inner, aria = 'aria-hidden="true"') => `<svg viewBox="0 0 40 40" ${aria} focusable="false" overflow="visible">${inner}</svg>`;
   /** 연출 층 유닛 (이동·등장·파괴) */
@@ -768,7 +869,7 @@
     const u = ui.view && getUnit(ui.view, id);
     if (!u || !rich.on) return;
     const im = cells[idx(u.r, u.c)].dyn.querySelector('.unit image');
-    if (!im) return;
+    if (!im || im.parentNode.hasAttribute('data-sold')) return;   // 참호 안 군인 낱장은 방향 전환 연출 없음
     const deg = richBaseDeg(u.side) + a;
     if (deg) im.setAttribute('transform', `rotate(${+deg.toFixed(2)} 20 20)`); else im.removeAttribute('transform');
   }
@@ -1006,9 +1107,8 @@
     }
     const coolHtml = concHtml + suppHtml + (cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '');
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
-      const tune = richUnitTune(u);
-      const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0, scale: tune.scale });
-      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}"${tune.dark !== 1 ? ` style="filter:brightness(${tune.dark})"` : ''}>${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
+      const L = richUnitLook(u), p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0, exposed: !!L.ring, soldiers: soldierLayout(u) });
+      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}"><div class="ul" data-r="${p.R}"${L === LOOK0 ? '' : ` style="${lookStyle(L, p.R)}"`}>${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div></div>${coverOverlayHtml(u, L)}<div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
     }
     return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>${coolHtml}`;
   }
@@ -1242,6 +1342,8 @@
     }
     const indirect = sel && GAME_CONFIG.UNIT_TYPES[sel.type].indirect;
 
+    if (ui.lookMemoViewer !== me) { ui.lookMemo = new Map(); ui.lookMemoViewer = me; }   // 보는 진영이 바뀌면(2인 대전) 처음 드러남 판정을 다시 시작
+    const memo = new Map(), animBack = [];
     for (let i = 0; i < N * N; i++) {
       const { r, c } = posOf(i);
       const cls = ['cell'];
@@ -1259,7 +1361,20 @@
       if (ui.debug) html += debugCellHtml(r, c);
       cells[i].el.className = cls.join(' ');
       cells[i].dyn.innerHTML = html;
+      if (shown && rich.on && GAME_CONFIG.CONCEALMENT) {   // 엄폐 연출: 노출이 풀리면 은폐 표현으로 천천히 돌아감, 숨어 있던 적이 처음 드러나면 테두리 깜빡임 (화면 표현만)
+        const kind = coverKindOf(u), exp = !!kind && !!u.exposed;
+        if (kind) {
+          const was = ui.lookMemo.get(u.id), P = lookPopup();
+          if (P && P.enabled && !ui.reduceMotion) {
+            if (was && was.exp && !exp && was.i === i) { const dyn = cells[i].dyn; const to = richUnitLook(u, true); if (to !== LOOK0) animBack.push(() => lookTween(u, richUnitLook(u, false), to, (P.down || 0) * 1000)); }
+            else if (!was && exp && u.side !== me && P.firstRevealPulse) { const un = cells[i].dyn.querySelector('.unit'); if (un) { un.style.setProperty('--rv', (P.firstRevealPulse * speedMul()) + 's'); un.classList.add('reveal-pulse'); } }
+          }
+        }
+        memo.set(u.id, { exp, i });
+      }
     }
+    ui.lookMemo = memo;
+    for (const f of animBack) f();
     renderHighlights(st, me, sel);
     clearHover();
     if (ui.scoutMode && ui.scoutAt && ui.scoutSet.has(ui.scoutAt.i)) hlHover.innerHTML = scoutPreviewSvg(posOf(ui.scoutAt.i));
@@ -2374,6 +2489,7 @@
     const ev = events.find((e) => e.type === 'diceRoll');
     ui.view = pre; render();
     if (!ev) { ui.view = post; render(); return; }
+    if (ev.side === me || vis.has(idx(ev.from.r, ev.from.c))) { await popUp(pre, ev); if (token !== ui.gameId) return; }   // 엄폐 연출: 숨어 있던 유닛이 몸을 내밀고 쏨
     const mine = ev.side === me;
     const tVis = vis.has(idx(ev.target.r, ev.target.c));
     const fVis = vis.has(idx(ev.from.r, ev.from.c));
