@@ -352,6 +352,16 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   C.AI_MODE = s.aiProfile === 'symmetric' ? 'symmetric' : null;   // symmetric: 역할과 무관한 중립 AI
   C.SECOND_MOVER_BONUS = Number.isInteger(s.secondMoverBonus) && s.secondMoverBonus > 0 ? s.secondMoverBonus : 0;
   C.SYMMETRIC = !!s.symmetric;
+  // 시나리오별 병종 수치 덮어쓰기 (s.unitStats = { classic: {병종:{필드}}, dice: {병종:{필드}} }). 매번 기본값으로 되돌린 뒤 합침 → 다른 시나리오에 새지 않음
+  if (s.unitStats || C.STATS_OVERRIDDEN) {   // 덮어쓴 적이 없으면 건드리지 않음 (표를 직접 고쳐 쓰는 진단·테스트 보호)
+    C.UNIT_TYPES = JSON.parse(JSON.stringify(UNIT_TYPES));
+    C.DICE_STATS = JSON.parse(JSON.stringify(RULES.DICE_STATS));
+  }
+  C.STATS_OVERRIDDEN = !!s.unitStats;
+  if (s.unitStats) {
+    for (const [k, v] of Object.entries(s.unitStats.classic || {})) if (C.UNIT_TYPES[k]) Object.assign(C.UNIT_TYPES[k], v);
+    for (const [k, v] of Object.entries(s.unitStats.dice || {})) if (C.DICE_STATS[k]) Object.assign(C.DICE_STATS[k], v);
+  }
   C.SCENARIO_RULESET = s.ruleset === 'dice' ? 'dice' : null;   // 시나리오가 규칙 세트를 고정하면 'dice' (데모 2 수치). 없으면 메뉴에서 고른 규칙 세트
   // 점수제 (시나리오 objectivePoints 가 있을 때만): 점유한 거점의 점수가 쌓임. 다른 시나리오는 null → 상태·결과 변화 없음
   C.OBJECTIVE_POINTS = s.objectivePoints ? { ...s.objectivePoints } : null;

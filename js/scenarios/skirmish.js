@@ -10,6 +10,21 @@ SCENARIOS.push({
   nameKey: 'scen.skirmish.name', descKey: 'scen.skirmish.desc', subKey: 'scen.skirmish.sub',
   tags: ['sym', 'twoPlayer'],
   ruleset: 'dice',            // 이 시나리오는 항상 주사위 규칙 세트(데모 2 수치: 보병 사거리 4 등)로 진행
+  // 소형 전장 전용 병종 수치 표 (여기 값만 고치면 이 시나리오에만 적용, 다른 시나리오는 그대로). 지금 값은 기본값과 같음
+  //   classic: 이동 move · 시야 vision · 사거리 rangeMin/rangeMax(간접) 등 (UNIT_TYPES 필드)
+  //   dice:    주사위 attack · 방어 defense · 직접 사격 최대 사거리 maxRange (DICE_STATS 필드)
+  unitStats: {
+    classic: {
+      infantry: { move: 2, vision: 2 },
+      recon:    { move: 5, vision: 3 },
+      mortar:   { move: 2, vision: 2, rangeMin: 2, rangeMax: 4 },
+    },
+    dice: {
+      infantry: { attack: 2, defense: 5, maxRange: 4 },
+      recon:    { attack: 1, defense: 4, maxRange: 3 },
+      mortar:   { attack: 2, defense: 4 },
+    },
+  },
   bgm: null,
   bgmLoopTrim: [0, 0],
   scaleMeters: 250,
