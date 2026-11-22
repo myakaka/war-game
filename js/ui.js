@@ -2888,7 +2888,8 @@
     const pillText = hc.dice && hc.dice.area ? (hc.dice.blind ? '?' : (getUnitAt(st, p.r, p.c) ? `${Math.round(hc.chance)}%` : '–')) : (hc.fogged ? '?' : `${Math.round(hc.chance)}%`);   // 데모 2 간접 화력: 안 보이는 칸은 '?', 보이는 빈 칸은 '–'
     g += pillBadge(cellX(p) + CS / 2, cellY(p) - H.badge.h / 2 + 2, pillText);
     if (hc.dice && !hc.dice.area && ['front', 'side', 'along'].includes(hc.dice.dir) && !hc.fogged) {   // 방향성 엄폐: 정면 +4 / 측면 +0 / 종사 +0 (보이는 대상만 여기까지 옴)
-      g += pillBadge(cellX(p) + CS / 2, cellY(p) + CS + H.badge.h / 2 - 2, t('dice2.dirTag', { dir: t('dice2.dir.' + hc.dice.dir), n: hc.dice.terrain }));
+      const tag = t('dice2.dirTag', { dir: t('dice2.dir.' + hc.dice.dir), n: hc.dice.terrain });
+      g += pillBadge(cellX(p) + CS / 2, cellY(p) + CS + H.badge.h / 2 - 2, tag, { ...H.badge, w: Math.max(H.badge.w, tag.length * H.badge.font * 0.8 + 14) });   // 글자 수에 맞춰 넓힘
     }
     hlHover.innerHTML = g;
   }
