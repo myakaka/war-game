@@ -362,6 +362,9 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
     for (const [k, v] of Object.entries(s.unitStats.classic || {})) if (C.UNIT_TYPES[k]) Object.assign(C.UNIT_TYPES[k], v);
     for (const [k, v] of Object.entries(s.unitStats.dice || {})) if (C.DICE_STATS[k]) Object.assign(C.DICE_STATS[k], v);
   }
+  // 참호전 은폐 규칙 (시나리오 concealment 가 있을 때만): 엄폐물·참호(terrain.conceals) 칸의 유닛은 적에게 안 보임. 없으면 null → 다른 시나리오 동작 그대로
+  C.CONCEALMENT = s.concealment ? { reconRadius: s.concealment.reconRadius ?? 3, otherRadius: s.concealment.otherRadius ?? 0 } : null;   // reconRadius: 정찰이 은폐를 푸는 거리 · otherRadius: 다른 병종이 푸는 거리 (0 = 못 풂)
+  C.MORTAR_IGNORES_TERRAIN = !!s.mortarIgnoresTerrain;   // 박격포 판정에서 지형 방어 보너스를 0 으로 (고각 사격)
   C.SCENARIO_RULESET = s.ruleset === 'dice' ? 'dice' : null;   // 시나리오가 규칙 세트를 고정하면 'dice' (데모 2 수치). 없으면 메뉴에서 고른 규칙 세트
   // 점수제 (시나리오 objectivePoints 가 있을 때만): 점유한 거점의 점수가 쌓임. 다른 시나리오는 null → 상태·결과 변화 없음
   C.OBJECTIVE_POINTS = s.objectivePoints ? { ...s.objectivePoints } : null;
@@ -808,7 +811,7 @@ function createInitialState(deploy = null) {
 
 /** 현재 턴 진영의 유닛 행동 상태 초기화 */
 function startTurn(state) {
-  for (const u of state.units) if (u.side === state.turn) { u.moved = false; u.acted = false; delete u.moveLeft; }
+  for (const u of state.units) if (u.side === state.turn) { u.moved = false; u.acted = false; delete u.moveLeft; delete u.exposed; }   // exposed: 은폐 규칙의 노출은 소유자 다음 턴 시작에 끝남
   startActivations(state);
   startFires(state);
   const arrivals = processArrivals(state);   // 예약 투입 (이 진영, 이 라운드까지 예정된 것)
@@ -1176,7 +1179,7 @@ function hasSignalSupport(state, attacker, pos = attacker) {
 function computeHitChance(state, attackerId, targetPos) {
   const a = getUnit(state, attackerId);
   if (!a) throw new Error(t('err.noAttacker'));
-  const vis = getVisibleTiles(state, a.side);
+  const vis = getTerrainVisibleTiles(state, a.side);   // 칸 시야 (은폐한 유닛이 있는 칸도 보이는 칸이므로 '?' 표시로 존재가 새지 않음)
   const fogged = !vis.has(idx(targetPos.r, targetPos.c));
   const target = getUnitAt(state, targetPos.r, targetPos.c);
   if (isDiceRules() && isIndirectDiceType(a.type)) {   // 데모 2 간접 화력: 한 번 굴려 범위 안 유닛마다 자기 필요한 숫자로 판정 (js/combat.js diceIndirectArea)
@@ -1197,8 +1200,25 @@ function computeHitChance(state, attackerId, targetPos) {
 }
 
 /* =========================== 5. 시야 / 기억 =========================== */
-/** 진영의 시야 (칸 인덱스 Set) */
+/**
+ * 은폐 (시나리오 concealment): u 가 side 의 적이고, 은폐 지형(엄폐물·참호) 위에 있고, 노출되지 않았고(u.exposed: 사격·막은 뒤 소유자 다음 턴 시작까지),
+ * side 의 살아 있는 유닛이 반경(정찰 reconRadius, 다른 병종 otherRadius, 맨해튼) 안에 없으면 side 에게 안 보임. concealment 가 없으면 항상 false.
+ */
+function isHiddenFrom(state, side, u) {
+  const K = GAME_CONFIG.CONCEALMENT;
+  if (!K || u.side === side || u.exposed) return false;
+  if (!terrainAt(u.r, u.c).conceals) return false;
+  return !state.units.some((s) => s.side === side && manhattan(s, u) <= (s.type === 'recon' ? K.reconRadius : K.otherRadius));
+}
+/** 진영의 시야 (칸 인덱스 Set). 은폐 중인 적이 선 칸은 빠진다 (유닛 존재 판단용: 보이는 적·사격 대상·기억·AI 모두 이 집합을 씀). 칸 자체의 가시성(안개 덮개·맹사격)은 getTerrainVisibleTiles */
 function getVisibleTiles(state, side) {
+  const vis = getTerrainVisibleTiles(state, side);
+  if (!GAME_CONFIG.CONCEALMENT) return vis;
+  for (const u of state.units) if (isHiddenFrom(state, side, u)) vis.delete(idx(u.r, u.c));
+  return vis;
+}
+/** 진영의 칸 시야 (칸 인덱스 Set, 은폐와 무관). 안개 덮개와 맹사격 판정에 쓴다 — 은폐한 유닛이 있다는 사실이 새지 않게 */
+function getTerrainVisibleTiles(state, side) {
   const vis = new Set();
   for (const u of state.units) {
     if (u.side !== side) continue;
@@ -1411,7 +1431,7 @@ function getAttackableTiles(state, unitId) {
   const out = [];
   if (t.indirect) {
     // 사거리 안 모든 칸 (빈 칸·안개 속 포함). fires.blindFire 가 false 면 진영 시야 안의 칸만
-    const vis = blindFireAllowed(state, u.side) ? null : getVisibleTiles(state, u.side);
+    const vis = blindFireAllowed(state, u.side) ? null : getTerrainVisibleTiles(state, u.side);
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
       if (inFireRange(state, u, u, { r, c }) && (!vis || vis.has(idx(r, c)))) out.push({ r, c });
     }
@@ -1494,6 +1514,12 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   }
   noteActivation(state, a);
   const ut = unitType(a);
+  let blocked = false;
+  if (GAME_CONFIG.CONCEALMENT && isDirectType(a.type)) {   // 은폐 규칙: 직선 사격 경로 중간에 숨은 적이 있으면 그 유닛이 대신 맞고 노출됨
+    const b = hiddenBlockerOnLine(state, a, targetPos);
+    if (b) { targetPos = { r: b.r, c: b.c }; blocked = true; b.exposed = true; }
+  }
+  if (GAME_CONFIG.CONCEALMENT) a.exposed = true;   // 사격하면 노출 (소유자 다음 턴 시작까지)
   const hc = computeHitChance(state, attackerId, targetPos);
   let roll, hit, rolls = null;
   let unitHits = null;   // 데모 2 간접 화력: 범위 안 유닛별 판정 [{ id, hit }]
@@ -1514,6 +1540,7 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
     fogged: hc.fogged, movedAttack: hc.movedAttack, indirect: !!ut.indirect, parts: hc.parts,
     targetType: hc.targetId ? getUnit(state, hc.targetId).type : null,   // 통계용 (화면에는 표시하지 않음)
   }];
+  if (blocked) events[0].blocked = true;   // 숨은 유닛이 막았음 (화면 안내용)
   if (hc.dice) Object.assign(events[0], { rule: 'dice', rolls, diceCount: hc.dice.count, dice: { ...hc.dice } });   // classic 이벤트에는 이 필드들이 없음
   events.push({ type: hit ? 'hit' : 'miss', attackerId: a.id, side: a.side, target: { ...targetPos } });
   if (unitHits) {   // 범위 안 유닛마다 명중/빗나감 (화면은 보이는 유닛만 표시)
@@ -1554,6 +1581,18 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
   updateMemory(state);
   pushVictoryIfAny(state, events);
   return events;
+}
+
+/** 은폐 규칙: a 가 targetPos 를 직선으로 쏠 때 그 사이(양 끝 제외)에 있는 a 에게 숨은 적 중 가장 가까운 것 (없으면 null). 아군이나 보이는 유닛이 먼저 나오면 거기서 멈춤 */
+function hiddenBlockerOnLine(state, a, targetPos) {
+  const dr = Math.sign(targetPos.r - a.r), dc = Math.sign(targetPos.c - a.c);
+  if ((dr !== 0 && dc !== 0) || (dr === 0 && dc === 0)) return null;
+  for (let r = a.r + dr, c = a.c + dc; !(r === targetPos.r && c === targetPos.c); r += dr, c += dc) {
+    const o = getUnitAt(state, r, c);
+    if (!o) continue;
+    return o.side !== a.side && isHiddenFrom(state, a.side, o) ? o : null;
+  }
+  return null;
 }
 
 /** 유닛 행동 종료(대기) */
@@ -1612,10 +1651,14 @@ function roundLimitResult(state) {
   const objs = (s) => state.objectives.filter((o) => o.owner === s).length;
   return limitCompare(state, objs, 'limitObjectives');
 }
-/** 라운드 제한 판정 (roundLimitAttrition, 소모전): 남은 병력(도착 대기 포함)이 많은 쪽 → 남은 총 체력(= 입은 피해가 적은 쪽) → 무승부. reason: limitUnits / limitHp / limitDraw */
+/** 라운드 제한 판정 (roundLimitAttrition, 소모전): 남은 총 체력(도착 대기 유닛은 최대 체력)이 많은 쪽 → 남은 병력 수가 많은 쪽 → 무승부. reason: limitHpTotal / limitUnits / limitDraw */
 function attritionLimitResult(state) {
+  const [a, b] = GAME_CONFIG.ROUND_ORDER;
+  const hp = (s) => state.units.filter((u) => u.side === s).reduce((k, u) => k + u.hp, 0) + (state.pending || []).filter((p) => p.side === s).length * GAME_CONFIG.MAX_HP;
   const n = (s) => state.units.filter((u) => u.side === s).length + (state.pending || []).filter((p) => p.side === s).length;
-  return limitCompare(state, n, 'limitUnits');
+  if (hp(a) !== hp(b)) return { winner: hp(a) > hp(b) ? a : b, reason: 'limitHpTotal' };
+  if (n(a) !== n(b)) return { winner: n(a) > n(b) ? a : b, reason: 'limitUnits' };
+  return { winner: 'draw', reason: 'limitDraw' };
 }
 /** 라운드 제한 판정 (roundLimitPoints): 총점이 많은 쪽 → 남은 총 체력 → 무승부. reason: limitPoints / limitHp / limitDraw */
 function pointsLimitResult(state) {
@@ -3443,7 +3486,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GAME_CONFIG, RULES, UNIT_TYPES, TERRAIN_TYPES, AI_CONFIG, SCENARIOS, loadScenario, validateScenario, listScenarios,
     createInitialState, startTurn, endTurn, getReachableTiles, getAttackableTiles, computeHitChance,
-    resolveAttack, moveUnit, finishUnit, getVisibleTiles, canUnitScout, getScoutTargets, getScoutTiles, scoutArea, scoutTilesAround, checkVictory, aiTakeTurn, simulateGames,
+    resolveAttack, moveUnit, finishUnit, getVisibleTiles, getTerrainVisibleTiles, isHiddenFrom, canUnitScout, getScoutTargets, getScoutTiles, scoutArea, scoutTilesAround, checkVictory, aiTakeTurn, simulateGames,
     setForces, forcesError, forcesDefault, publicReinforcements, setDraft, restoreDraft, draftError, draftDataErrors, draftBlock, draftCost, draftCount, draftDefaultComp, draftAiComp, draftAutoPlace, draftTypeList, publicSetup, createSeededRng, cloneState,
     buildGameRecord, summarizeGameRecords, aiUpdatePlan, resolveProfile, listTacticProfiles, compareTacticProfiles,
     simulateRuleSets, withConfig, attackCost, moveAttackBlockReason, diagnoseScenario, pendingArrivals,

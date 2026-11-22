@@ -100,7 +100,7 @@ const AI_CONFIG = {
   GARRISON_TYPES: ['infantry', 'antitank'],   // 수비 측: 비어 있는 아군 거점을 채우러 가는 병종
   DEFENDER_LEASH: 2,              // 수비 측 유닛이 가장 가까운 거점에서 벗어나도 되는 거리
   HQ_ALERT_RADIUS: 6,             // 수비 측: 본부 이 거리 안에 적이 보이면 요격
-  PATH_COST: { plain: 1, city: 1, mountain: 3, river: 2, forest: 2, paddy: 2 },   // 목표 거리 계산용 근사 비용 (진입 불가는 지형의 impassableFor 를 따름)
+  PATH_COST: { plain: 1, city: 1, mountain: 3, river: 2, forest: 2, paddy: 2, cover: 1, trench: 1 },   // 목표 거리 계산용 근사 비용 (진입 불가는 지형의 impassableFor 를 따름)
   UNIT_VALUE: { infantry: 1.0, armor: 1.6, artillery: 1.4, recon: 0.8, signal: 2.0, antitank: 1.3, mortar: 1.2 },   // 통신은 고가치 표적
   // 병종별 보정 종류 (aiScorePosition 참고)
   TYPE_BONUS: { artillery: 'rear', signal: 'supportBehind', recon: 'vision', armor: 'crossing', antitank: 'huntArmor', mortar: 'mortarRear' },

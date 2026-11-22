@@ -118,14 +118,15 @@ function diceBreakdown({ attacker, defender, terrain, from = null }) {
  *   N = 대상 방어 + 그 유닛이 선 칸의 지형 보너스 + (조준 칸까지 거리 - 1) + (조준 칸이 쏘는 진영에게 안 보이면 blindPenalty)
  * 사거리·쿨다운·대상 칸 방식은 classic 그대로 (이 함수는 사거리를 검사하지 않음).
  */
-function diceIndirectNeed(defender, terrain, dist, blind) {
-  const def = diceDefense(defender), terr = diceTerrainBonus(terrain), distBonus = diceDistanceBonus(dist), blindBonus = blind ? diceRules().blindPenalty : 0;
+function diceIndirectNeed(defender, terrain, dist, blind, ignoreTerrain = false) {
+  const def = diceDefense(defender), terr = ignoreTerrain ? 0 : diceTerrainBonus(terrain), distBonus = diceDistanceBonus(dist), blindBonus = blind ? diceRules().blindPenalty : 0;
   return { need: def + terr + distBonus + blindBonus, def, terrain: terr, terrainKey: terrain ? terrain.key : null, distBonus, blindBonus };
 }
 /** from = 쏘는 위치 (기본 공격자 위치). 반환 { count, base, penalty, minApplied, dist, distBonus, blind, blindBonus, units:[{ id, unit, center, need, def, terrain, p }] } (중심 → 위·아래·왼쪽·오른쪽 순) */
 function diceIndirectArea(state, attacker, aim, from = null) {
   const dc = diceCount(attacker, null);
-  const blind = !getVisibleTiles(state, attacker.side).has(idx(aim.r, aim.c));
+  const blind = !getTerrainVisibleTiles(state, attacker.side).has(idx(aim.r, aim.c));   // 칸 시야 기준 (은폐 유닛이 있는 칸도 보이는 칸)
+  const ignoreTerr = !!GAME_CONFIG.MORTAR_IGNORES_TERRAIN && attacker.type === 'mortar';   // 시나리오 mortarIgnoresTerrain
   const dist = manhattan(from || attacker, aim);
   const cells = [{ r: aim.r, c: aim.c, center: true }];
   if (unitType(attacker).splash !== false) for (const [dr, dc2] of DIRS) cells.push({ r: aim.r + dr, c: aim.c + dc2, center: false });
@@ -134,7 +135,7 @@ function diceIndirectArea(state, attacker, aim, from = null) {
     if (!inBounds(cell.r, cell.c)) continue;
     const o = getUnitAt(state, cell.r, cell.c);
     if (!o) continue;
-    const n = diceIndirectNeed(o, terrainAt(o.r, o.c), dist, blind);
+    const n = diceIndirectNeed(o, terrainAt(o.r, o.c), dist, blind, ignoreTerr);
     units.push({ id: o.id, unit: o, center: cell.center, ...n, p: diceHitP(dc.count, n.need) });
   }
   const bb = blind ? diceRules().blindPenalty : 0;
@@ -142,7 +143,7 @@ function diceIndirectArea(state, attacker, aim, from = null) {
 }
 
 /** (dice 간접 화력) 가상의 사격이 defender 에게 명중할 확률 0~1 (AI 평가·위험 계산용. attacker/defender 는 { type, hp }, 지형은 defender 가 선 칸) */
-const diceIndirectChance = (attacker, defender, terrain, dist, blind = false) => diceHitP(diceCount(attacker, null).count, diceIndirectNeed(defender, terrain, dist, blind).need);
+const diceIndirectChance = (attacker, defender, terrain, dist, blind = false) => diceHitP(diceCount(attacker, null).count, diceIndirectNeed(defender, terrain, dist, blind, !!GAME_CONFIG.MORTAR_IGNORES_TERRAIN && attacker.type === 'mortar').need);
 
 /** (dice 간접 화력) 범위 안 유닛 중 보는 진영 시야 안에 있는 것만 (안개 규칙: 안 보이는 유닛의 필요한 숫자·확률·결과는 화면·로그에 쓰지 않음). area = hc.dice.area, vis = 시야 Set */
 const diceAreaVisible = (area, vis) => area.filter((x) => vis.has(idx(x.r, x.c)));

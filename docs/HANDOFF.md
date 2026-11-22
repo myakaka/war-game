@@ -1,20 +1,19 @@
-# HANDOFF (2026-11-22, 뒤) — 소형 전장 `skirmish` + 소모전 판정 (미커밋)
+# HANDOFF (2026-11-22, 저녁) — 참호전(소형 전장 교체) + 은폐 규칙 + 시나리오별 병종 수치 표
 
 ## 끝난 것
-- 배경: "읽을 수 있는 수를 벗어났다"는 플레이 느낌 → 칸과 병력을 줄인 새 시나리오부터 시험(기존 시나리오는 그대로).
-- `js/scenarios/skirmish.js` (+ index.html script 한 줄): 10×10, 180도 대칭, 12라운드, ru(위) 선공, 양쪽 5기(보병 2·정찰 2·박격포 1), 거점·증원 없음, 행동 한도 5/5, 대칭 AI(`aiProfile: 'symmetric'`), ru 그림 세트 재사용.
-- 새 승리 조건 `roundLimitAttrition`(engine.js `attritionLimitResult`): 12라운드 종료 시 남은 병력 → 입은 피해(남은 총 체력) → 무승부. `roundLimitType`·`limitResultNow`·`validateScenario` TYPES에 연결.
-- 표시: `goal.barKey`(tutorial.js `goalInfo`)로 거점 없는 시나리오의 표시줄 문구 지정, 목표 장면은 없음. 문구 `scen.skirmish.*`, `goal.bar.attrition`, `intro.attrition`, `result.r.limit{Units,HpUnits,DrawUnits}`, `reason.limitUnits` (ui.js 결과 문구 접미사 `Units`).
-- 결정: rulesVersion 13 유지(새 승리 조건 종류만 추가). 사거리·이동 수치는 그대로(지도가 작아 상대적으로 넓게 닿음). AI 가중치 변경 없음. 거점이 없어도 대칭 AI가 12라운드 내내 교전함(40판 시뮬레이션: 오류 0, 평균 생존 ru 3.1·ua 3.6, 무승부 4판).
-- 규칙 세트 고정: 시나리오 필드 `ruleset: 'dice'`(→ `C.SCENARIO_RULESET`)로 이 시나리오는 항상 데모 2 수치(보병 사거리 4, 정찰 3 등). ui.js `newGame`이 우선 적용, `simulateGames`도 그 규칙으로 돌고 끝나면 되돌림. 40판: ru 22 : ua 18, 전멸 11판(클래식일 때 ru 30 : ua 60보다 균형).
-- 검증: test.js 269 통과, 브라우저 확인(HUD '데모 2' 표시), 시드 비교 기존 28건 모두 SAME + 소형 전장 7건 새 기준선 저장(35건, 주사위 규칙 기준), layout-check 32 SAME.
+- `skirmish`를 참호전으로 교체: 10×10, 6기(보병 3·정찰 2·박격포 1), 엄폐물 `e`(+2)·참호 `T`(+4) 지형 추가(rules.js `TERRAIN_TYPES`, `conceals: true`), 점대칭, 12라운드, 주사위 규칙 고정.
+- 시나리오별 병종 수치 덮어쓰기 `unitStats: { classic, dice }`(engine.js `loadScenario`, 덮어쓴 시나리오가 있을 때만 되돌림). 정찰 시야 3.
+- 승리: `roundLimitAttrition`을 남은 총 체력 → 생존 유닛 수 → 무승부로 변경(`attritionLimitResult`, reason `limitHpTotal/limitUnits/limitDraw`).
+- 은폐(시나리오 `concealment`): engine.js `isHiddenFrom`, `getVisibleTiles`(은폐한 적 칸 제외, 유닛 존재용)·`getTerrainVisibleTiles`(안개 덮개·맹사격용), `hiddenBlockerOnLine`+`resolveAttack`(막은 유닛 대신 맞음·사격하면 노출), `startTurn`에서 노출 해제. 박격포 `mortarIgnoresTerrain`(combat.js `diceIndirectNeed`).
+- 화면(ui.js/css): 은폐·노출 배지, 정찰 선택 시 반경 표시, 지형 설명 줄, 막힘 로그, 이미지 지도에서 엄폐물·참호는 기호 타일(`terrVisOf`로 안개 덮개 분리).
+- CLAUDE.md 안개 규칙에 은폐 예외 한 줄 추가(승인됨).
+- 참호·엄폐물 그림(리치 테마 전용): 시나리오 `art.trench/cover/visual`(skirmish.js), rich-map.js `trenchChoice`·6c 단계(참호 자동 타일·엄폐물 겹쳐 그리기, 파일 없으면 기호), ui.js `richUnitTune`(참호·엄폐 칸 유닛 축소)·`?debug=1`(칸 좌표·이웃 방향). 파일은 assets/terrain/trench_*.png, assets/cover/cover_*.png. 보정은 `visual.cellOverrides`('행,열' 0부터).
+- 검증: 테스트 통과(참호전 4건·승리 순서 개정), 소형 전장 시드 기준선 재저장, AI 8판 시뮬레이션 오류 0, 화면 캡처 확인.
 
-## 알려진 문제 / 다음 (사용자가 다음에 이어서 정할 것)
-- **정찰 시야**: 주사위 수치표(`DICE_STATS`)에는 시야가 없어 정찰 시야 5(지도 절반)가 그대로. 이 시나리오만 줄일지(시나리오별 수치 덮어쓰기 칸을 새로 만들어야 함, 제안 시야 3) 정하기.
-- **엄폐물 지도**: 도시 대신 엄폐물. 쉬운 방법 = 도시 규칙(명중 -20)은 두고 `terrainNames`로 이름만 '엄폐물'로 바꾸기(그림은 새 이미지 또는 도시 그림 임시). 개수·배치(제안: 진영 앞 2개씩 + 중앙 1개) 미정.
-- 밸런스는 직접 플레이로 판단(CLAUDE.md).
-- 정찰(통신)·대전차·기갑·포병은 이 시나리오에 없음. 병력 구성은 관리자 편성으로 바꿔 볼 수 있음.
-- 더 줄이는 실험(칸 8×8, 병력 4기 등)은 같은 파일을 복사해 시험.
+## 알려진 문제 / 다음
+- AI 은폐 전용 가중치(엄폐 우선·웅크리기/공세·사격 아끼기)는 아직 없음(기존 평가가 지형 방어를 쓰고 보이는 적만 봄). 직접 플레이 뒤에 정할 것.
+- 이미지 지도(리치)에 엄폐물·참호 그림이 없어 기호 타일로 보임. 모바일 화면은 확인하지 않음.
+- 규칙서 범례(`?`)에 은폐 설명 없음. 밸런스는 직접 플레이로.
 
 ---
 # HANDOFF (2026-11-22) — 관리자 편성 (미커밋)

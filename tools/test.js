@@ -3029,25 +3029,100 @@ test('[관리자] 직접 편성(draft)과 같이 써도 해제하면 기본/편�
 });
 
 /* ---------------- 소모전 판정 (roundLimitAttrition, 소형 전장) ---------------- */
-test('[소형 전장] 12라운드 종료: 남은 병력 → 입은 피해(남은 총 체력) → 무승부, 거점 없이도 판정', () => {
+test('[소형 전장] 12라운드 종료: 남은 총 체력 → 생존 유닛 수 → 무승부, 거점 없이도 판정', () => {
   E.loadScenario('skirmish');
   assert.equal(C().MAP.length, 10);
   assert.equal(C().OBJECTIVES.length, 0);
   assert.equal(E.roundLimitType(), 'roundLimitAttrition');
   const st = E.createInitialState();
   st.round = C().MAX_ROUNDS;
-  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'draw', reason: 'limitDraw' }, '같은 병력·같은 체력 = 무승부');
-  const ru = st.units.filter((u) => u.side === 'ru');
-  ru[0].hp = Math.max(1, ru[0].hp - 1);
-  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ua', reason: 'limitHp' }, '병력이 같으면 피해가 적은 쪽');
-  st.units.splice(st.units.indexOf(ru[1]), 1);
-  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ua', reason: 'limitUnits' }, '병력이 많은 쪽');
-  const ua = st.units.filter((u) => u.side === 'ua');
-  st.units.splice(st.units.indexOf(ua[0]), 1);
-  st.units.splice(st.units.indexOf(ua[1]), 1);
-  assert.deepEqual({ ...E.checkVictory(st, { roundLimit: true }) }, { winner: 'ru', reason: 'limitUnits' }, '병력이 적은 쪽이 지고, 체력은 보지 않음');
+  const res = () => ({ ...E.checkVictory(st, { roundLimit: true }) });
+  assert.deepEqual(res(), { winner: 'draw', reason: 'limitDraw' }, '같은 체력·같은 유닛 수 = 무승부');
+  const ru = st.units.filter((u) => u.side === 'ru'), ua = st.units.filter((u) => u.side === 'ua');
+  ru[0].hp -= 1;
+  assert.deepEqual(res(), { winner: 'ua', reason: 'limitHpTotal' }, '남은 체력 합이 많은 쪽');
+  ru[0].hp += 1;
+  st.units.splice(st.units.indexOf(ru[1]), 1);   // ru 는 한 기 적고 체력 합도 4 적음
+  assert.deepEqual(res(), { winner: 'ua', reason: 'limitHpTotal' });
+  ua[0].hp = 2; ua[1].hp = 2;                      // ua 는 체력 합이 ru 와 같아지지만 유닛은 하나 더 많음
+  assert.deepEqual(res(), { winner: 'ua', reason: 'limitUnits' }, '체력 합이 같으면 생존 유닛이 많은 쪽');
+  ua[0].hp = 4;
+  assert.deepEqual(res(), { winner: 'ua', reason: 'limitHpTotal' }, '체력이 먼저: 유닛이 더 적어도 체력 합이 많으면 이김');
+  st.units.splice(st.units.indexOf(ua[2]), 1); st.units.splice(st.units.indexOf(ua[3]), 1); st.units.splice(st.units.indexOf(ua[4]), 1);
+  ru.slice(2).forEach((u) => { u.hp = 1; });
+  assert.equal(res().winner, 'ua', '유닛이 적어도 체력 합이 크면 이김');
   st.round = 1;
   assert.equal(E.checkVictory(st, { roundLimit: true }), null, '12라운드 전에는 끝나지 않음');
+  E.loadScenario(SCEN_IDS[0]);
+});
+
+/* ---------------- 참호전 은폐 규칙 (시나리오 concealment, 소형 전장) ---------------- */
+function trenchBoard(spec) {   // spec: [id, 진영 index(0=ru,1=ua), 병종, r, c]
+  E.loadScenario('skirmish'); E.setRuleset('dice');
+  const st = E.createInitialState(), sides = C().ROUND_ORDER;
+  st.units = spec.map(([id, k, type, r, c]) => ({ id, side: sides[k], type, r, c, hp: C().MAX_HP, moved: false, acted: false }));
+  st.pending = []; st.turn = sides[0]; E.startTurn(st);
+  return st;
+}
+const tileOf = (r, c) => r * 10 + c;
+const unitById = (st, id) => st.units.find((u) => u.id === id);
+test('[참호전] 엄폐물·참호 안의 적은 보이지 않고, 정찰 2칸·다른 병종 1칸 안이거나 노출되면 보임, 평지는 시야 거리대로', () => {
+  E.loadScenario('skirmish');
+  assert.deepEqual({ ...C().CONCEALMENT }, { reconRadius: 2, otherRadius: 1 });
+  let st = trenchBoard([['r1', 0, 'infantry', 3, 1], ['u1', 1, 'infantry', 3, 3], ['u2', 1, 'infantry', 4, 1]]);   // (3,3) 참호, (4,1) 평지
+  const u1 = st.units[1], vis = () => E.getVisibleTiles(st, 'ru');
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), true);
+  assert.equal(vis().has(tileOf(3, 3)), false, '시야 안(2칸)이어도 참호 속 적은 안 보임');
+  assert.equal(vis().has(tileOf(4, 1)), true, '평지 적은 시야 안이면 보임');
+  assert.equal(E.getTerrainVisibleTiles(st, 'ru').has(tileOf(3, 3)), true, '칸 시야에는 들어감 (안개 덮개로 존재가 새지 않음)');
+  assert.equal(E.isHiddenFrom(st, 'ua', st.units[0]), false, '평지의 r1 은 숨지 않음');
+  st.units.push({ id: 'r2', side: 'ru', type: 'recon', r: 5, c: 3, hp: 4, moved: false, acted: false });   // (5,3)→(3,3) = 2
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '정찰 2칸 안');
+  st.units[3].r = 6;   // 거리 3
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), true, '정찰 2칸 밖 (3칸은 안 보임)');
+  st.units[0].c = 2;   // 보병 r1 이 (3,2)로 → (3,3) 과 인접 (1칸)
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '다른 병종은 인접(1칸)에서 보임');
+  st.units[0].c = 1;
+  assert.equal(E.isHiddenFrom(st, 'ua', st.units[3]), false, '적 정찰은 평지 위라 숨지 않음');
+  u1.exposed = true;
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '노출되면 보임');
+  E.loadScenario(SCEN_IDS[0]);
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '은폐 규칙이 없는 시나리오는 언제나 false');
+});
+test('[참호전] 숨은 유닛이 직선 사격을 막아 대신 맞고, 사격한 유닛과 함께 노출되며, 소유자 다음 턴 시작에 다시 은폐', () => {
+  let st = trenchBoard([['r1', 0, 'infantry', 3, 1], ['r3', 0, 'recon', 6, 4], ['u1', 1, 'infantry', 3, 3], ['u2', 1, 'infantry', 3, 4]]);
+  jsonEq(targetsOf(st, 'r1'), ['3,4'], '보이는 u2 만 대상 (숨은 u1 은 목록에 없음)');
+  const ev = E.resolveAttack(st, 'r1', { r: 3, c: 4 }, () => 0);
+  const roll = ev.find((e) => e.type === 'diceRoll');
+  assert.equal(roll.blocked, true);
+  jsonEq(roll.target, { r: 3, c: 3 }, '대신 맞는 칸은 숨은 유닛');
+  assert.equal(roll.dice.distance, 2, '거리 보정은 막은 유닛까지');
+  const r1 = unitById(st, 'r1'), u1 = unitById(st, 'u1'), u2 = unitById(st, 'u2');
+  assert.equal(u2.hp, C().MAX_HP, '뒤의 유닛은 안 맞음');
+  assert.ok(r1.exposed && u1.exposed, '쏜 유닛과 막은 유닛 노출');
+  E.endTurn(st);   // ua 턴 시작: ua 유닛의 노출이 풀림
+  assert.equal(unitById(st, 'u1').exposed, undefined, '소유자 턴 시작에 노출 해제');
+  assert.ok(unitById(st, 'r1').exposed, 'ru 의 노출은 ru 다음 턴 시작까지 유지');
+  E.endTurn(st);
+  assert.equal(unitById(st, 'r1').exposed, undefined);
+  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+});
+test('[참호전] 박격포는 지형 방어 보너스를 무시하고, 직접 사격은 그대로 적용', () => {
+  const st = trenchBoard([['r4', 0, 'mortar', 0, 4], ['r1', 0, 'infantry', 3, 0], ['u1', 1, 'infantry', 3, 3], ['u2', 1, 'infantry', 4, 6]]);   // u1 참호(+4), u2 평지
+  const area = E.diceIndirectArea(st, st.units[0], { r: 3, c: 3 });
+  const x = area.units.find((q) => q.id === 'u1');
+  assert.equal(x.terrain, 0, '박격포: 참호 보너스 0');
+  assert.equal(x.need, x.def + x.distBonus + x.blindBonus);
+  const direct = E.computeHitChance(st, 'r1', { r: 3, c: 3 });
+  assert.ok(direct.dice === undefined || direct.dice.terrain === 4 || direct.targetId === 'u1');
+  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+});
+test('[참호전] 맵·배치가 180도 점대칭이고 양쪽 편성이 같음 (보병 3·정찰 2·박격포 1)', () => {
+  assert.deepEqual([...E.validateScenario(E.SCENARIOS.find((s) => s.id === 'skirmish'))], []);
+  E.loadScenario('skirmish');
+  const comp = (side) => { const o = {}; for (const d of C().DEPLOYMENT[side]) o[d.type] = (o[d.type] || 0) + 1; return JSON.stringify(Object.entries(o).sort()); };
+  assert.equal(comp('ru'), comp('ua'));
+  assert.deepEqual(C().DEPLOYMENT.ru.reduce((o, d) => ({ ...o, [d.type]: (o[d.type] || 0) + 1 }), {}), { infantry: 3, recon: 2, mortar: 1 });
   E.loadScenario(SCEN_IDS[0]);
 });
 test('[소형 전장] 시나리오가 주사위 규칙 세트를 고정: simulateGames 는 그 규칙으로 돌고 끝나면 되돌림, 다른 시나리오는 영향 없음', () => {

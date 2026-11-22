@@ -87,6 +87,9 @@ const TERRAIN_TYPES = {
   '~': { key: 'river',    moveCost: 1, hitMod: 20, consumesAll: true, nameKey: 'terrain.river', symbol: 'river' },
   'f': { key: 'forest',   moveCost: 2, hitMod: -10, nameKey: 'terrain.forest', symbol: 'forest' },
   'w': { key: 'paddy',    moveCost: 2, hitMod: 0, impassableFor: ['armor'], nameKey: 'terrain.paddy', symbol: 'paddy' },
+  // 참호전 시나리오용 (concealment 시나리오에서 conceals 칸의 유닛이 은폐됨). 방어 보너스(주사위) = -hitMod / terrainDivisor: 엄폐물 +2, 참호 +4. 이동 비용은 평지와 같음
+  'e': { key: 'cover',    moveCost: 1, hitMod: -20, conceals: true, nameKey: 'terrain.cover', symbol: 'cover' },
+  'T': { key: 'trench',   moveCost: 1, hitMod: -40, conceals: true, nameKey: 'terrain.trench', symbol: 'trench' },
 };
 
 /*

@@ -30,6 +30,8 @@
       mountain: { bg: '#D8CBB0', mark: '#8A6B4A', fill: '#C2B190' },
       river:    { bg: '#A9C8D8', mark: '#4F7C96' },
       city:     { bg: '#D2C6B2', mark: '#A59580' },
+      cover:    { bg: '#E3DCBD', mark: '#8C7A55', fill: '#B8A67C' },
+      trench:   { bg: '#CDBE9B', mark: '#6B573A', fill: '#8E7A55' },
     },
     grid: { thin: 'rgba(110,90,60,0.22)', thinW: 0.6, thick: 'rgba(110,90,60,0.5)', thickW: 1.3, every: 4 },
     tipOffset: 16,   // 툴팁: 커서에서 떨어지는 거리 (px)
@@ -103,7 +105,7 @@
     overlay: { runway: { fill: '#9C9A92', edge: '#7E7C75', line: '#FFFFFF', lineW: 1.6, dash: '5 4', halfW: 11 } },
     /* 확대 중 미니맵: 지도 짧은 변 대비 크기, 지형 색(윤곽용), 중립 거점, 보이는 영역 사각형 */
     minimap: { frac: 0.2, neutral: '#8a8f99', view: '#ffd34d',
-      terrain: { plain: '#e3dcbd', city: '#a39886', mountain: '#8d826c', river: '#7fa6c4', forest: '#88a46a', paddy: '#b3c79e' } },
+      terrain: { plain: '#e3dcbd', city: '#a39886', mountain: '#8d826c', river: '#7fa6c4', forest: '#88a46a', paddy: '#b3c79e', cover: '#b8a67c', trench: '#8e7a55' } },
     scenMap: 76,
     scenPrev: { w: 480, h: 270, period: 8 },   // 시나리오 카드 미리보기 canvas 크기, 지형 그림 한 장이 덮는 칸 수   // 시나리오 카드의 지도 미리보기 크기 (px)
     /* PC 리치 테마 (그림 세트가 있는 시나리오, 넓은 화면만). 길이 단위: 칸 */
@@ -189,6 +191,12 @@
     if (viewer === 'all') return ALL_TILES;
     if (!viewer) return new Set();
     return getVisibleTiles(st, viewer);
+  }
+  /** 칸 시야 (안개 덮개용). 은폐한 적이 선 칸도 보이는 칸이다 — visOf 는 유닛 존재 판단용이라 그런 칸이 빠짐 */
+  function terrVisOf(st, viewer) {
+    if (viewer === 'all') return ALL_TILES;
+    if (!viewer) return new Set();
+    return getTerrainVisibleTiles(st, viewer);
   }
   /** 각 진영의 시야 (여러 상태의 합집합: 행동 전/후) */
   function visMapOf(...states) {
@@ -310,6 +318,12 @@
         break;
       case 'city':
         for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) g += `<rect x="${8.5 + i * 8.5}" y="${8.5 + j * 8.5}" width="6" height="6" fill="${T.mark}"/>`;
+        break;
+      case 'cover':   // 엄폐물: 모래주머니 더미(둥근 덩어리 3개)
+        g += `<ellipse cx="14" cy="24" rx="7" ry="4.6" fill="${T.fill}" stroke="${T.mark}" stroke-width="1.2"/><ellipse cx="26" cy="24" rx="7" ry="4.6" fill="${T.fill}" stroke="${T.mark}" stroke-width="1.2"/><ellipse cx="20" cy="17" rx="7" ry="4.6" fill="${T.fill}" stroke="${T.mark}" stroke-width="1.2"/>`;
+        break;
+      case 'trench':   // 참호: 지그재그 도랑
+        g += `<path d="M5 14h10v12h10V14h10" fill="none" stroke="${T.fill}" stroke-width="7" stroke-linejoin="miter"/><path d="M5 14h10v12h10V14h10" fill="none" stroke="${T.mark}" stroke-width="1.4" stroke-dasharray="3 2.5"/>`;
         break;
       default: break;
     }
@@ -544,6 +558,7 @@
     angTok: new Map(),  // 유닛 id → 진행 중인 회전 연출 번호 (새 회전이 오면 이전 것은 멈춤)
   };
   ui.themePref = (() => { try { const v = localStorage.getItem(THEME_KEY); return v === 'basic' || v === 'rich' ? v : null; } catch (e) { return null; } })();
+  ui.debug = (() => { try { return /[?&]debug=1(&|$)/.test(location.search); } catch (e) { return false; } })();   // ?debug=1: 칸 좌표·참호 이웃 방향 표시
   ui.gridAlways = (() => { try { return localStorage.getItem(GRID_KEY) === '1'; } catch (e) { return false; } })();
   const scenArt = () => { const sc = SCENARIOS.find((x) => x.id === GAME_CONFIG.SCENARIO_ID); return (sc && sc.art) || null; };
   /** 기본값: 너비 900px 이상 + 마우스 환경이면 리치. 사용자가 고르면 그 선택 */
@@ -570,6 +585,7 @@
         res();
       };
       im.onerror = () => {
+        if (it.kind === 'decor' && it.optional) { console.warn('[rich] 그림 파일을 불러오지 못함 (기호 표시로 대체): ' + it.src); res(); return; }   // 참호·엄폐물 그림: 없어도 게임은 계속
         const U = it.kind === 'unit' && (it.optional || DESIGN.rich.units[it.key]);
         if (U && (U === true || U.optional)) { res(); return; }   // 선택 그림 (박격포): 없으면 대체 그림 사용
         rej(new Error(it.src));
@@ -598,7 +614,7 @@
     rich.on = on;
     boardEl.classList.toggle('rich', on);
     $('#app').classList.toggle('rich-on', on);   // PC 여백 배경의 질감 정도
-    boardEl.classList.toggle('grid-on', on && ui.gridAlways);
+    boardEl.classList.toggle('grid-on', on && (ui.gridAlways || ui.debug));
     if (on) paintRichBg();
     renderThemeSettings();
     if (changed && ui.state) render();
@@ -611,11 +627,15 @@
     const key = `${GAME_CONFIG.SCENARIO_ID}:${size}`;
     if (key === rich.bgKey || size <= 0) return;
     rich.bgKey = key;
-    RICH_MAP.paint(rich.canvas, {
+    const po = {
       n: N, size, art: scenArt(), img: richImg(), keyAt: (r, c) => terrainAt(r, c).key,
       runways: (GAME_CONFIG.OVERLAYS || []).filter((o) => o.kind === 'runway'),
       seed: [...GAME_CONFIG.SCENARIO_ID].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7),
-    });
+    };
+    RICH_MAP.paint(rich.canvas, po);
+    // 참호·엄폐물 그림이 실제로 그려졌을 때만 그 칸의 기호 타일을 숨김 (그림이 없으면 기호가 남음)
+    boardEl.classList.toggle('art-trench', !!(po.used && po.used.trench));
+    boardEl.classList.toggle('art-cover', !!(po.used && po.used.cover));
   }
   /** 화면 배치가 바뀌었을 때: 테마 판정이 달라졌으면 전환, 아니면 바탕만 (연속 변화는 0.2초 뒤 한 번) */
   function themeOnLayout() {
@@ -692,7 +712,29 @@
       const H = DESIGN.hl.done, cx = (20 - R * 0.62).toFixed(2), cy = (20 - R * 0.62).toFixed(2);
       top += `<circle cx="${cx}" cy="${cy}" r="${H.r}" fill="${H.fill}" stroke="#fff" stroke-width="1"/><path d="M${cx - 2.8} ${+cy + 0.2}L${cx - 0.8} ${+cy + 2.3}L${+cx + 2.9} ${cy - 2}" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
     }
+    if (opts.scale && opts.scale !== 1) body = `<g transform="translate(20 20) scale(${opts.scale}) translate(-20 -20)">${body}</g>`;   // 참호·엄폐물 칸: 링과 그림만 줄임 (배지·체력은 top 층이라 그대로)
     return { body, top };
+  }
+  /** 디버그 (?debug=1): 칸 좌표(행,열 0부터)와 참호 이웃 방향·고른 그림·회전. 그림 보정(art.visual) 할 때 칸을 찾는 용도 */
+  function debugCellHtml(r, c) {
+    const ter = terrainAt(r, c);
+    let line2 = '';
+    if (ter.key === 'trench' && rich.on) {
+      const isT = (rr, cc) => rr >= 0 && rr < N && cc >= 0 && cc < N && terrainAt(rr, cc).key === 'trench';
+      const nb = { N: isT(r - 1, c), E: isT(r, c + 1), S: isT(r + 1, c), W: isT(r, c - 1) };
+      const ch = RICH_MAP.trenchChoice(nb, r, c);
+      line2 = `<i>${['N', 'E', 'S', 'W'].filter((k) => nb[k]).join('')} ${esc(ch.tile)} ${ch.rot}°</i>`;
+    }
+    return `<div class="dbg-cell" aria-hidden="true"><b>${r},${c}</b>${line2}</div>`;
+  }
+  /** 참호전 그림 보정(art.visual.units): 참호·엄폐물 칸 위 유닛의 배율과 밝기 (화면 표현만, 터치 영역은 그대로). 해당 없으면 { scale: 1, dark: 1 } */
+  function richUnitTune(u) {
+    const V = ((scenArt() || {}).visual || {}).units;
+    if (!V || !rich.on) return { scale: 1, dark: 1 };
+    const key = terrainAt(u.r, u.c).key;
+    if (key === 'trench') return { scale: V.scaleInTrench ?? 1, dark: V.darkenInTrench ?? 1 };
+    if (key === 'cover') return { scale: V.scaleInCover ?? 1, dark: 1 };
+    return { scale: 1, dark: 1 };
   }
   const richSvg = (inner, aria = 'aria-hidden="true"') => `<svg viewBox="0 0 40 40" ${aria} focusable="false" overflow="visible">${inner}</svg>`;
   /** 연출 층 유닛 (이동·등장·파괴) */
@@ -771,7 +813,7 @@
       const { r, c } = posOf(i);
       const el = document.createElement('div');
       el.className = 'cell';
-      el.innerHTML = terrainSvg(terrainAt(r, c).key, r, c, 'ter', true) + '<div class="dyn"></div>';   // 지형(+장식 표식)은 시야와 무관하게 항상 그림
+      el.innerHTML = terrainSvg(terrainAt(r, c).key, r, c, 'ter ter-' + terrainAt(r, c).key, true) + '<div class="dyn"></div>';   // 지형(+장식 표식)은 시야와 무관하게 항상 그림
       // Pointer Events: 터치와 마우스를 이벤트마다 구분 (하이브리드 기기). 호버는 마우스(펜)일 때만
       el.addEventListener('pointerdown', (e) => { ui.pointer = e.pointerType === 'touch' ? 'touch' : 'mouse'; });
       el.addEventListener('click', () => onCellClick(i));
@@ -954,10 +996,17 @@
     const supp = ui.viewer && ui.viewer !== 'all' && u.suppressed > 0 ? u.suppressed : 0;
     if (supp) label += ', ' + t('aria.suppressed', { n: supp });
     const suppHtml = supp ? `<div class="cool-badge supp-badge" aria-hidden="true"><span>${esc(t('supp.badge', { n: supp }))}</span></div>` : '';
-    const coolHtml = suppHtml + (cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '');
+    // 은폐 규칙(참호전): 은폐 지형 위 내 유닛은 '은폐', 사격·막은 뒤 노출된 유닛은 (적도) '노출'. 적의 은폐 유닛은 아예 그려지지 않으므로 여기 오지 않음
+    let concHtml = '';
+    if (GAME_CONFIG.CONCEALMENT && terrainAt(u.r, u.c).conceals && ui.viewer && ui.viewer !== 'all') {
+      const key = u.exposed ? 'conceal.exposed' : u.side === ui.viewer ? 'conceal.hidden' : null;
+      if (key) { label += ', ' + t(key); concHtml = `<div class="cool-badge conceal-badge${u.exposed ? ' exposed' : ''}" aria-hidden="true"><span>${esc(t(key))}</span></div>`; }
+    }
+    const coolHtml = concHtml + suppHtml + (cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '');
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
-      const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0 });
-      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}">${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
+      const tune = richUnitTune(u);
+      const p = richUnitParts(u.side, u.type, { hp: u.hp, selected, done, angle: rich.angle.get(u.id) || 0, scale: tune.scale });
+      return `<div class="unit ${u.side} rich${spent ? ' act-spent' : ''}"${tune.dark !== 1 ? ` style="filter:brightness(${tune.dark})"` : ''}>${richSvg(p.body, `role="img" aria-label="${esc(label)}"`)}</div><div class="unit-top">${richSvg(p.top)}</div>${coolHtml}`;
     }
     return `<div class="unit ${u.side}${spent ? ' act-spent' : ''}">${unitSvg(u.side, u.type, { hp: u.hp, selected, done, label })}</div>${coolHtml}`;
   }
@@ -1064,7 +1113,7 @@
   /** 간접 화력 사거리 영역. fires 시나리오는 진영 시야 안 칸(또렷)과 안개 속 칸(흐리게)을 나눠 그림 — 칸 구분만이고 적 유무는 드러내지 않음 */
   function fireRegionSvg(st, me) {
     if (!GAME_CONFIG.FIRES) return regionSvg(ui.atkSet, artyStyle());
-    const vis = getVisibleTiles(st, me), seen = new Set(), fog = new Set();
+    const vis = getTerrainVisibleTiles(st, me), seen = new Set(), fog = new Set();
     for (const i of ui.atkSet) (vis.has(i) ? seen : fog).add(i);
     const F = DESIGN.hl.artyFog;
     return regionSvg(fog, { fill: F.fill, line: F.line, w: F.w, dash: F.dash }) + regionSvg(seen, artyStyle());
@@ -1081,6 +1130,11 @@
     const zones = signalZoneSets(st, shownSignals(st, me, sel));
     for (const side of GAME_CONFIG.ROUND_ORDER) under += regionSvg(zones[side], signalStyle(side));
     if (me && me !== 'all') under += regionSvg(getScoutTiles(st, me), scoutZoneStyle());   // 이번 턴 통신 정찰 칸 (내 진영 것만)
+    if (GAME_CONFIG.CONCEALMENT && sel && sel.type === 'recon' && sel.side === me) {   // 은폐 규칙: 정찰이 은폐를 푸는 반경을 옅게 표시
+      const rad = new Set();
+      for (let i = 0; i < N * N; i++) if (manhattan(posOf(i), sel) <= GAME_CONFIG.CONCEALMENT.reconRadius) rad.add(i);
+      under += regionSvg(rad, scoutZoneStyle());
+    }
     if (ui.scoutMode && sel) under += regionSvg(ui.scoutSet, scoutRangeStyle());
     if (deployTargetsSet) under += rich.on ? richCells(deployTargetsSet, DESIGN.rich.move) : regionSvg(deployTargetsSet, moveStyle());
     if (sel && rich.on) {   // 리치: 평소 격자선 없음. 선택 시 이동 칸(흰 12% + 칸 윤곽)과 공격 대상 칸(붉은 윤곽)만
@@ -1132,7 +1186,7 @@
     if (ui.deploy) { renderDeploy(); return; }
     const st = ui.view;
     const me = ui.viewer;
-    const vis = visOf(st, me);
+    const vis = visOf(st, me), tvis = terrVisOf(st, me);
     const playerTurn = playerCanAct();
     const sel = playerTurn && ui.selectedId ? getUnit(st, ui.selectedId) : null;
     ui.scoutSet = new Set();
@@ -1163,10 +1217,10 @@
     for (let i = 0; i < N * N; i++) {
       const { r, c } = posOf(i);
       const cls = ['cell'];
-      if (!vis.has(i)) cls.push('fog');   // 안개는 이미 계산된 시야로 덮개만 얹음 (지형은 그대로 보임)
+      if (!tvis.has(i)) cls.push('fog');   // 안개는 이미 계산된 시야로 덮개만 얹음 (지형은 그대로 보임)
       if (ui.moveSet.has(i)) cls.push('can-move');
       if (ui.atkSet.has(i)) cls.push(indirect ? 'can-fire' : 'can-attack');
-      if (ui.flash.has(i) && vis.has(i)) cls.push('flash');
+      if (ui.flash.has(i) && tvis.has(i)) cls.push('flash');
       const u = getUnitAt(st, r, c);
       // 시야 밖 적 유닛은 DOM 에 아예 넣지 않음 (aria-label 포함). 연출 중인 유닛은 연출 층이 대신 그림
       const shown = !!u && !!me && (me === 'all' || u.side === me || vis.has(i)) && !ui.anim.hideUnits.has(u.id);
@@ -1174,6 +1228,7 @@
       if (playerTurn && shown && u.side === me && !u.acted) cls.push('clickable');
       let html = marksHtml(me, r, c) + markersHtml(st, r, c);
       if (shown) html += unitHtml(u, !!sel && sel.id === u.id);
+      if (ui.debug) html += debugCellHtml(r, c);
       cells[i].el.className = cls.join(' ');
       cells[i].dyn.innerHTML = html;
     }
@@ -2327,6 +2382,7 @@
       if (!fxEv.hit) { if (tVis) await missFx(ev.target); }
       else if (ev.indirect && tVis) await impactFx(ev.target, vis, GAME_CONFIG.UNIT_TYPES[ev.unitType].splash === false);
     }
+    if (ev.blocked && (mine || tVis)) pushLog(me, M('log.blocked', null, me));   // 은폐 규칙: 숨어 있던 유닛이 사격을 막아 대신 맞음 (사격한 쪽·피격 칸을 보는 쪽에만)
     if (!indD && ev.hit && mine && !tVis && !hotseat()) pushLog(me, M('log.hitUnknown', null, me));   // 데모 2 간접 화력은 안 보이는 유닛의 명중을 알리지 않음
     if (token !== ui.gameId) return;
     await Promise.all(plan.units.map((u) => wait(u.at - plan.hitAt).then(() => (ui.reduceMotion ? shakeFx(u.pos) : unitHitFx(u.pos, u.push)))));
@@ -2525,7 +2581,9 @@
     const events = resolveAttack(st, id, target, ui.tut ? ui.tut.rng : Math.random);   // 상태는 여기서 확정 (튜토리얼: 단계 시드)
     annotate(events, hotseat() ? visMapOf(before, st) : visMapOf(before));
     ui.turnEvents.push(...events);
-    await playAttack(events, before, st, visBefore);
+    // 은폐 규칙: 숨은 유닛이 막아 대신 맞았거나 사격으로 노출된 칸은 사격 뒤 상태에서 보이므로, 연출·피해 표시에 그 시야를 합친다 (노출된 유닛은 더는 숨어 있지 않음)
+    const visPlay = GAME_CONFIG.CONCEALMENT ? new Set([...visBefore, ...getVisibleTiles(st, ui.viewer)]) : visBefore;
+    await playAttack(events, before, st, visPlay);
     if (token !== ui.gameId) return;
     ui.view = st;
     ui.busy = false;
@@ -2581,6 +2639,9 @@
     if (ter.consumesAll) notes.push({ k: 'ter.noteEnd' });
     if (ter.partialEntry) notes.push({ k: 'ter.notePartial', partial: true });
     if (ter.impassableFor && ter.impassableFor.length) notes.push({ k: 'ter.noteImpassable', p: { list: ter.impassableFor.map(typeName).join(t('list.sep')) } });
+    if (GAME_CONFIG.CONCEALMENT && ter.conceals) {   // 참호전: 방어 보너스(주사위)와 은폐를 한 줄로
+      notes.push({ k: GAME_CONFIG.MORTAR_IGNORES_TERRAIN ? 'ter.noteConcealMortar' : 'ter.noteConceal', p: { n: diceTerrainBonus(ter), recon: GAME_CONFIG.CONCEALMENT.reconRadius, other: GAME_CONFIG.CONCEALMENT.otherRadius } });
+    }
     return {
       cost: String(ter.moveCost),
       hit: ter.hitMod ? `${ter.hitMod > 0 ? '+' : ''}${ter.hitMod}%` : '0',

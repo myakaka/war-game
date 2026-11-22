@@ -242,6 +242,43 @@ const RICH_MAP = (() => {
     }
   }
 
+  /* ---------- 참호·엄폐물 그림 (art.trench / art.cover, 참호전 시나리오 전용 장식) ---------- */
+  const warned = new Set();
+  const warnOnce = (msg) => { if (!warned.has(msg)) { warned.add(msg); console.warn('[rich-map] ' + msg); } };
+  /**
+   * 참호 칸의 이웃(N,E,S,W 중 참호인 곳)으로 그림과 시계 방향 회전을 고름.
+   * 기준 방향: straight_a/b = W–E · straight_v = N–S · corner = W+S · end = N 만 열림
+   */
+  function trenchChoice(nb, r, c) {
+    const { N, E, S, W } = nb, cnt = (N ? 1 : 0) + (E ? 1 : 0) + (S ? 1 : 0) + (W ? 1 : 0);
+    const a = (r + c) % 2 === 0 ? 'straight_a' : 'straight_b';   // 가로 직선은 (행+열) 짝수·홀수로 번갈아
+    if (cnt === 0) return { tile: 'end', rot: 0, note: 'isolated' };
+    if (cnt === 1) return { tile: 'end', rot: N ? 0 : E ? 90 : S ? 180 : 270, note: 'end' };
+    if (cnt === 2) {
+      if (W && E) return { tile: a, rot: 0, note: 'straight' };
+      if (N && S) return { tile: 'straight_v', rot: 0, note: 'straight' };
+      if (W && S) return { tile: 'corner', rot: 0, note: 'corner' };
+      if (N && W) return { tile: 'corner', rot: 90, note: 'corner' };
+      if (N && E) return { tile: 'corner', rot: 180, note: 'corner' };
+      return { tile: 'corner', rot: 270, note: 'corner' };   // S + E
+    }
+    return { tile: W || E ? a : 'straight_v', rot: 0, note: 'junction' };   // 3~4방향: 가장 가까운 직선으로 대체 (이번 맵엔 없음)
+  }
+  /** 칸 좌표로 만든 고정 해시 (항상 같은 값) */
+  const cellHash = (r, c) => { let h = (r * 73856093) ^ (c * 19349663); h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); return (h ^ (h >>> 15)) >>> 0; };
+  /** 큰 그림을 절반씩 줄여 가며 목표 크기로 (한 번에 줄이면 계단 현상이 생김). 반환 canvas */
+  function shrunk(img, w, h) {
+    let cv = img, cw = img.naturalWidth || img.width, ch = img.naturalHeight || img.height;
+    while (cw / 2 >= w && ch / 2 >= h) {
+      const nx = newCanvas(Math.max(1, Math.round(cw / 2)), Math.max(1, Math.round(ch / 2)));
+      const g = nx.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cv, 0, 0, nx.width, nx.height);
+      cv = nx; cw = nx.width; ch = nx.height;
+    }
+    const out = newCanvas(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    const g = out.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cv, 0, 0, out.width, out.height);
+    return out;
+  }
+
   /**
    * 지도 바탕 전체를 canvas 에 그림.
    * o: { n, size(캔버스 px), keyAt(r,c)→지형 키, img: {terrain:{key:Image}, runway, patch}, art, runways:[{col, rows}], seed }
@@ -382,6 +419,76 @@ const RICH_MAP = (() => {
       }
     }
 
+    // 6c. 참호·엄폐물 그림 (art.trench / art.cover 가 있는 시나리오만). 규칙과 무관한 바탕 그림. 그림이 없으면 건너뜀 → 기호 표시가 남음
+    const used = { trench: false, cover: false };
+    const VIS = o.art.visual || {};
+    const ovr = (r, c) => (VIS.cellOverrides || {})[`${r},${c}`] || {};
+    const tuneOf = (base, o2) => Object.assign({ dx: 0, dy: 0, scale: 1 }, base, o2.dx != null || o2.dy != null || o2.scale != null ? { dx: o2.dx || 0, dy: o2.dy || 0, scale: o2.scale == null ? 1 : o2.scale } : null);
+    if (o.art.trench) {
+      const files = o.art.trench.files, need = ['straight_a', 'straight_b', 'straight_v', 'corner', 'end'];
+      if (need.every((k) => decorImg[files[k]])) {
+        used.trench = true;
+        const TV = VIS.trench || {}, feather = TV.edgeFeather !== false, fpx = Math.max(2, cellPx * 0.04);
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+          if (key(r, c) !== 'trench') continue;
+          const isT = (rr, cc) => rr >= 0 && rr < n && cc >= 0 && cc < n && key(rr, cc) === 'trench';
+          const nb = { N: isT(r - 1, c), E: isT(r, c + 1), S: isT(r + 1, c), W: isT(r, c - 1) };
+          const ch = trenchChoice(nb, r, c), o2 = ovr(r, c);
+          if (ch.note === 'junction') warnOnce(`참호 (${r},${c}) 에 3~4방향 이웃: 직선으로 대체`);
+          if (ch.note === 'isolated') console.info(`[rich-map] 참호 (${r},${c}) 이웃 없음: end 사용`);
+          const tune = tuneOf((TV.tiles || {})[ch.tile], o2);
+          const rot = o2.rotation != null ? o2.rotation : ch.rot;
+          const sz = Math.ceil(cellPx) + 1, cv = newCanvas(sz, sz), g = cv.getContext('2d');
+          g.imageSmoothingQuality = 'high';
+          const draw = shrunk(decorImg[files[ch.tile]], sz * tune.scale, sz * tune.scale);
+          g.save(); g.translate(sz / 2 + tune.dx * cellPx, sz / 2 + tune.dy * cellPx); g.rotate(rot * Math.PI / 180); g.drawImage(draw, -draw.width / 2, -draw.height / 2); g.restore();
+          if (o2.tint) { g.globalCompositeOperation = 'source-atop'; g.fillStyle = o2.tint; g.fillRect(0, 0, sz, sz); g.globalCompositeOperation = 'source-over'; }
+          if (feather) {   // 평지와 맞닿은 변(참호가 아닌 이웃 쪽)만 1~3px 부드럽게
+            g.globalCompositeOperation = 'destination-in';
+            for (const [side, has] of [['N', nb.N], ['E', nb.E], ['S', nb.S], ['W', nb.W]]) {
+              if (has) continue;
+              const gr = side === 'W' ? g.createLinearGradient(0, 0, fpx, 0) : side === 'E' ? g.createLinearGradient(sz, 0, sz - fpx, 0) : side === 'N' ? g.createLinearGradient(0, 0, 0, fpx) : g.createLinearGradient(0, sz, 0, sz - fpx);
+              gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
+              g.fillStyle = gr; g.fillRect(0, 0, sz, sz);
+            }
+            g.globalCompositeOperation = 'source-over';
+          }
+          ctx.drawImage(cv, Math.floor(c * cellPx), Math.floor(r * cellPx));
+        }
+      } else warnOnce('참호 그림 파일이 모두 있지 않아 기호 표시로 대체');
+    }
+    if (o.art.cover) {
+      const files = o.art.cover.files, CV = VIS.cover || {};
+      const skins = ['crater', 'bush', 'sandbag'];
+      if (skins.every((k) => decorImg[files[k]])) {
+        used.cover = true;
+        for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+          if (key(r, c) !== 'cover') continue;
+          const cell = (o.art.cover.cells || {})[`${r},${c}`] || {}, o2 = ovr(r, c), h = cellHash(r, c);
+          const skin = cell.skin || skins[h % 3], rot = o2.rotation != null ? o2.rotation : cell.rotation != null ? cell.rotation : [0, 90, 180, 270][(h >>> 4) % 4];
+          const tune = tuneOf(CV[skin], o2);
+          const im = decorImg[files[skin]], ar = (im.naturalWidth || im.width) / (im.naturalHeight || im.height);
+          const w = Math.round(cellPx * tune.scale), hh = Math.round(w / ar);
+          let layer = shrunk(im, w, hh);
+          if (skin === 'bush') {   // 덤불 그림은 투명 배경이 아니라 풀밭 사각형이므로 가장자리를 둥글게 지워 평지와 섞음
+            const lc = newCanvas(layer.width, layer.height), lg = lc.getContext('2d');
+            lg.drawImage(layer, 0, 0);
+            const m = Math.min(lc.width, lc.height), gr = lg.createRadialGradient(lc.width / 2, lc.height / 2, m * 0.28, lc.width / 2, lc.height / 2, m * 0.5);
+            gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+            lg.globalCompositeOperation = 'destination-in'; lg.fillStyle = gr; lg.fillRect(0, 0, lc.width, lc.height);
+            layer = lc;
+          }
+          if (o2.tint) { const lc = newCanvas(layer.width, layer.height), lg = lc.getContext('2d'); lg.drawImage(layer, 0, 0); lg.globalCompositeOperation = 'source-atop'; lg.fillStyle = o2.tint; lg.fillRect(0, 0, lc.width, lc.height); layer = lc; }
+          ctx.save();
+          ctx.translate((c + 0.5 + tune.dx) * cellPx, (r + 0.5 + tune.dy) * cellPx);
+          ctx.rotate(rot * Math.PI / 180);
+          ctx.drawImage(layer, -layer.width / 2, -layer.height / 2);
+          ctx.restore();
+        }
+      } else warnOnce('엄폐물 그림 파일이 모두 있지 않아 기호 표시로 대체');
+    }
+    o.used = used;
+
     // 7. 활주로 (규칙상 표식일 뿐: 이동·지형·시야와 무관)
     if (o.img.runway) {
       const im = o.img.runway, RW = K.runway;
@@ -429,6 +536,9 @@ const RICH_MAP = (() => {
     for (const v of [art.dryField, ...(art.fields || []), ...(art.decor || [])]) {
       if (v && v.src && !seen.has(v.src)) { seen.add(v.src); out.push({ kind: 'decor', key: v.src, src: v.src }); }
     }
+    for (const grp of [art.trench, art.cover]) {   // 참호·엄폐물 그림 (참호전): 없으면 건너뛰고 기호 표시 (optional)
+      for (const src of Object.values((grp && grp.files) || {})) if (!seen.has(src)) { seen.add(src); out.push({ kind: 'decor', key: src, src, optional: true }); }
+    }
     for (const [type, file] of Object.entries(unitFiles)) out.push({ kind: 'unit', key: type, src: `assets/units/${art.unitSet}/${file}.png` });
     // 진영별 병종 그림 (art.unitSides: { 진영 id: { dir, types: [병종] } }). 없거나 못 불러오면 기본 그림 세트로 (optional)
     for (const [side, U] of Object.entries(art.unitSides || {})) {
@@ -439,5 +549,5 @@ const RICH_MAP = (() => {
     return out;
   }
 
-  return { paint, artSources, K };
+  return { paint, artSources, K, trenchChoice };
 })();
