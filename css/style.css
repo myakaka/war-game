@@ -557,6 +557,8 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
 .cool-badge > span { background: #4B5563; color: #fff; border: 1px solid #F9FAFB; border-radius: 4px; padding: 0 2px; font-weight: 800; line-height: 1.15;
   font-size: max(8px, calc(var(--cell) * 0.27)); white-space: nowrap; word-break: keep-all; }
 .supp-badge { right: auto; left: 0; }
+.cool-badge.sym > span { padding: 1px; line-height: 0; }   /* 기호 배지 (제압·은폐·노출): 글자 없이 그림만 */
+.cool-badge .bi { width: max(11px, calc(var(--cell) * 0.3)); height: max(11px, calc(var(--cell) * 0.3)); display: block; }
 .conceal-badge { top: auto; bottom: 0; right: auto; left: 0; }
 .conceal-badge > span { background: #3F5F3A; }                 /* 은폐 표식: 내 유닛 */
 .conceal-badge.exposed > span { background: #B45309; }         /* 노출 표식: 사격·막은 뒤 소유자 다음 턴 시작까지 (적 유닛도 표시) */

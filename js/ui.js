@@ -995,12 +995,14 @@
     // 제압: 시야 안에 있는 유닛이면 적도 표시 (시야 밖에서 맞은 적은 유닛 자체가 그려지지 않으므로 안 보이고, 제압 중에 시야에 들어오면 다시 보임)
     const supp = ui.viewer && ui.viewer !== 'all' && u.suppressed > 0 ? u.suppressed : 0;
     if (supp) label += ', ' + t('aria.suppressed', { n: supp });
-    const suppHtml = supp ? `<div class="cool-badge supp-badge" aria-hidden="true"><span>${esc(t('supp.badge', { n: supp }))}</span></div>` : '';
+    const icon = (d) => `<svg class="bi" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;   // 배지 기호 (글자 대신)
+    const ICON = { supp: icon('<circle cx="8" cy="8" r="5.8"/><path d="M4.6 8h6.8"/>'), hidden: icon('<path d="M8 1.8l5 2v4.2c0 3-2.4 5-5 6.2-2.6-1.2-5-3.2-5-6.2V3.8z"/>'), exposed: icon('<path d="M8 2l6.4 11.4H1.6z"/><path d="M8 6.4v3M8 11.6v.1"/>') };
+    const suppHtml = supp ? `<div class="cool-badge supp-badge sym" aria-hidden="true"><span>${ICON.supp}</span></div>` : '';
     // 은폐 규칙(참호전): 은폐 지형 위 내 유닛은 '은폐', 사격·막은 뒤 노출된 유닛은 (적도) '노출'. 적의 은폐 유닛은 아예 그려지지 않으므로 여기 오지 않음
     let concHtml = '';
     if (GAME_CONFIG.CONCEALMENT && terrainAt(u.r, u.c).conceals && ui.viewer && ui.viewer !== 'all') {
       const key = u.exposed ? 'conceal.exposed' : u.side === ui.viewer ? 'conceal.hidden' : null;
-      if (key) { label += ', ' + t(key); concHtml = `<div class="cool-badge conceal-badge${u.exposed ? ' exposed' : ''}" aria-hidden="true"><span>${esc(t(key))}</span></div>`; }
+      if (key) { label += ', ' + t(key); concHtml = `<div class="cool-badge conceal-badge sym${u.exposed ? ' exposed' : ''}" aria-hidden="true"><span>${u.exposed ? ICON.exposed : ICON.hidden}</span></div>`; }
     }
     const coolHtml = concHtml + suppHtml + (cool ? `<div class="cool-badge" aria-hidden="true"><span>${esc(t('cool.badge', { n: cool }))}</span></div>${u.type === 'artillery' ? '<div class="cool-smoke" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}` : '');
     if (rich.on) {   // 그림 층 + 맨 위 층(배지·체력·완료): 아래 칸 유닛 그림이 위 칸 배지를 덮지 않게
@@ -1125,6 +1127,27 @@
     return regionSvg(ui.dualSet, { line: A.line, w: A.w, dash: A.dash });
   }
   /** 상태 하이라이트 층 (아래: 영역 채움·사선·윤곽 / 위: 링·배지) */
+  /**
+   * 직사 사격선 (소형 전장처럼 시나리오가 주사위 규칙을 고정한 판 전용): 선택한 내 유닛의 현재 칸에서 상하좌우로 직사 사거리만큼.
+   * 끊김: 지도 끝 · 아군 유닛(막음, 그 칸은 제외) · 시야 안의 적(그 칸까지 포함). 안 보이는 적은 끊지 않음 (존재가 새지 않게). 사거리 끝 칸은 end 로 따로 반환
+   */
+  function fireLines(st, me, sel) {
+    const out = { set: new Set(), ends: [] };
+    if (!sel || sel.side !== me || !GAME_CONFIG.SCENARIO_RULESET || !isDiceRules() || !isDirectType(sel.type) || sel.acted || sel.suppressed > 0) return out;
+    const max = diceMaxRange(sel.type), vis = visOf(st, me);
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      for (let k = 1; k <= max; k++) {
+        const r = sel.r + dr * k, c = sel.c + dc * k;
+        if (!inBounds(r, c)) break;
+        const o = getUnitAt(st, r, c);
+        if (o && o.side === sel.side) break;
+        out.set.add(idx(r, c));
+        if (o && vis.has(idx(r, c))) break;
+        if (k === max) out.ends.push({ r, c });
+      }
+    }
+    return out;
+  }
   function renderHighlights(st, me, sel, deployTargetsSet = null) {
     let under = hatchDefs('hl-hatch'), over = objGroupSvg(st);
     const zones = signalZoneSets(st, shownSignals(st, me, sel));
@@ -1134,6 +1157,11 @@
       const rad = new Set();
       for (let i = 0; i < N * N; i++) if (manhattan(posOf(i), sel) <= GAME_CONFIG.CONCEALMENT.reconRadius) rad.add(i);
       under += regionSvg(rad, scoutZoneStyle());
+    }
+    const fl = fireLines(st, me, sel);   // 직사 사격선: 이동·공격 칸 표시 아래에 옅은 붉은 띠, 사거리 끝 칸은 실선 윤곽
+    if (fl.set.size) {
+      under += regionSvg(fl.set, { fill: 'rgba(229,57,53,0.13)', line: 'rgba(229,57,53,0.5)', w: 1.4, dash: '3 3' });
+      for (const p of fl.ends) over += `<rect x="${cellX(p) + 2}" y="${cellY(p) + 2}" width="${CS - 4}" height="${CS - 4}" fill="none" stroke="rgba(229,57,53,0.85)" stroke-width="1.8" vector-effect="non-scaling-stroke"/>`;
     }
     if (ui.scoutMode && sel) under += regionSvg(ui.scoutSet, scoutRangeStyle());
     if (deployTargetsSet) under += rich.on ? richCells(deployTargetsSet, DESIGN.rich.move) : regionSvg(deployTargetsSet, moveStyle());
@@ -1476,7 +1504,7 @@
     const cool = !u.acted && cooldownTurnsLeft(ui.view, u);
     if (u.suppressed > 0) {   // 제압 (후퇴·제압 규칙): 내 유닛만
       chip = { text: t('card.suppressed'), cls: 'chip orange' };
-      note = t('status.suppressedNote');
+      note = t(GAME_CONFIG.SUPPRESS_KILL ? 'status.suppressedNoteKill' : 'status.suppressedNote');
     } else if (!u.acted && activationBlocked(ui.view, u)) {
       chip = { text: t('card.actSpent'), cls: 'chip orange' };
       note = t('status.actSpentNote');
