@@ -364,6 +364,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   }
   // 참호전 은폐 규칙 (시나리오 concealment 가 있을 때만): 엄폐물·참호(terrain.conceals) 칸의 유닛은 적에게 안 보임. 없으면 null → 다른 시나리오 동작 그대로
   C.CONCEALMENT = s.concealment ? { reconRadius: s.concealment.reconRadius ?? 3, otherRadius: s.concealment.otherRadius ?? 0 } : null;   // reconRadius: 정찰이 은폐를 푸는 거리 · otherRadius: 다른 병종이 푸는 거리 (0 = 못 풂)
+  C.SUPPRESS_KILL = !!s.suppressKill;   // 참호전: 제압된 유닛은 어떤 공격이든 명중하면 즉사하고, 제압은 상대 다음 턴 시작에 풀림
   C.MORTAR_IGNORES_TERRAIN = !!s.mortarIgnoresTerrain;   // 박격포 판정에서 지형 방어 보너스를 0 으로 (고각 사격)
   C.SCENARIO_RULESET = s.ruleset === 'dice' ? 'dice' : null;   // 시나리오가 규칙 세트를 고정하면 'dice' (데모 2 수치). 없으면 메뉴에서 고른 규칙 세트
   // 점수제 (시나리오 objectivePoints 가 있을 때만): 점유한 거점의 점수가 쌓임. 다른 시나리오는 null → 상태·결과 변화 없음
@@ -811,6 +812,7 @@ function createInitialState(deploy = null) {
 
 /** 현재 턴 진영의 유닛 행동 상태 초기화 */
 function startTurn(state) {
+  if (GAME_CONFIG.SUPPRESS_KILL) for (const u of state.units) if (u.side === state.turn && u.suppSeen) { delete u.suppressed; delete u.suppSeen; }   // 참호전: 제압은 소유자의 행동 불가 턴을 한 번 보낸 뒤 그 다음 턴 시작에 풀림
   for (const u of state.units) if (u.side === state.turn) { u.moved = false; u.acted = false; delete u.moveLeft; delete u.exposed; }   // exposed: 은폐 규칙의 노출은 소유자 다음 턴 시작에 끝남
   startActivations(state);
   startFires(state);
@@ -1019,7 +1021,8 @@ function endTurn(state) {
   const pos = order.indexOf(state.turn);
   const roundEnd = pos === order.length - 1;
   if (state.scout) delete state.scout;   // 통신 정찰은 자기 턴이 끝나면 사라짐
-  for (const u of state.units) if (u.side === state.turn && u.suppressed > 0 && --u.suppressed <= 0) delete u.suppressed;   // 제압: 제압된 유닛의 자기 턴이 끝나면 해제
+  if (GAME_CONFIG.SUPPRESS_KILL) { for (const u of state.units) if (u.side === state.turn && u.suppressed > 0) u.suppSeen = true; }   // 참호전: 해제는 다음 자기 턴 시작 (startTurn)
+  else for (const u of state.units) if (u.side === state.turn && u.suppressed > 0 && --u.suppressed <= 0) delete u.suppressed;   // 제압: 제압된 유닛의 자기 턴이 끝나면 해제
   const checkSide = GAME_CONFIG.OBJECTIVE_CHECK_AFTER || order[order.length - 1];
   if (roundEnd) recordObjectiveTimeline(state);
   if (GAME_CONFIG.OBJECTIVE_POINTS) {   // 점수제: 자기 턴 끝(ownTurnEnd) 또는 라운드 끝(roundEnd, 양쪽 동시)에 지금 점유한 거점의 점수
@@ -1561,12 +1564,13 @@ function resolveAttack(state, attackerId, targetPos, rng = Math.random) {
         if (o && landed(o)) hits.push({ unit: o, amount: GAME_CONFIG.COMBAT.splashDamage, splash: true });
       }
     }
+    if (GAME_CONFIG.SUPPRESS_KILL) for (const h of hits) if (h.unit.side !== a.side && h.unit.suppressed > 0) { h.amount = h.unit.hp; h.suppKill = true; }   // 참호전: 제압 중 명중하면 체력과 상관없이 격파
     for (const h of hits) {   // 피해는 동시에 적용
       h.unit.hp = Math.max(0, h.unit.hp - h.amount);
       events.push({ type: h.splash ? 'splashDamage' : 'damage', unitId: h.unit.id, side: h.unit.side, unitType: h.unit.type, pos: { r: h.unit.r, c: h.unit.c }, amount: h.amount, hp: h.unit.hp });
     }
     for (const h of hits) {
-      if (h.unit.hp <= 0) events.push({ type: 'destroyed', unitId: h.unit.id, side: h.unit.side, unitType: h.unit.type, pos: { r: h.unit.r, c: h.unit.c } });
+      if (h.unit.hp <= 0) events.push({ type: 'destroyed', unitId: h.unit.id, side: h.unit.side, unitType: h.unit.type, pos: { r: h.unit.r, c: h.unit.c }, ...(h.suppKill ? { cause: 'suppressKill' } : null) });
     }
     state.units = state.units.filter((u) => u.hp > 0);
     const rev = resolveRetreats(state, a, targetPos, hits);   // 후퇴·제압 (피해를 모두 적용한 뒤)

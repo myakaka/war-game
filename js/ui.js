@@ -585,7 +585,7 @@
         res();
       };
       im.onerror = () => {
-        if (it.kind === 'decor' && it.optional) { console.warn('[rich] 그림 파일을 불러오지 못함 (기호 표시로 대체): ' + it.src); res(); return; }   // 참호·엄폐물 그림: 없어도 게임은 계속
+        if (it.kind === 'decor' && it.optional) { console.warn('[rich] decor image failed to load (falling back to symbols): ' + it.src); res(); return; }   // 참호·엄폐물 그림: 없어도 게임은 계속
         const U = it.kind === 'unit' && (it.optional || DESIGN.rich.units[it.key]);
         if (U && (U === true || U.optional)) { res(); return; }   // 선택 그림 (박격포): 없으면 대체 그림 사용
         rej(new Error(it.src));
@@ -1819,7 +1819,7 @@
   const RES = (ev) => ({ t: ev.dice && ev.dice.area ? 'res.land' : ev.hit ? 'res.hit' : 'res.miss' });   // 데모 2 간접 화력: 유닛별 결과는 diceUnit 로그가 보이는 유닛만
 
   /** 격파 로그 문구 키: 후퇴 불가·재직격은 원인을 함께 */
-  const DESTROY_KEY = (ev, full) => (ev.cause === 'retreatBlocked' ? 'log.destroyedRetreat' : ev.cause === 'resuppressed' ? 'log.destroyedResupp' : 'log.destroyed') + (full ? 'Full' : '');
+  const DESTROY_KEY = (ev, full) => (ev.cause === 'retreatBlocked' ? 'log.destroyedRetreat' : ev.cause === 'resuppressed' ? 'log.destroyedResupp' : ev.cause === 'suppressKill' ? 'log.destroyedSuppKill' : 'log.destroyed') + (full ? 'Full' : '');
   /** 전체 공개용 기록 (전투 되돌아보기) */
   function describeFull(ev) {
     switch (ev.type) {

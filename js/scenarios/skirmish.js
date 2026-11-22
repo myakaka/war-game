@@ -11,6 +11,7 @@ SCENARIOS.push({
   nameKey: 'scen.skirmish.name', descKey: 'scen.skirmish.desc', subKey: 'scen.skirmish.sub',
   tags: ['sym', 'twoPlayer'],
   concealment: { reconRadius: 2, otherRadius: 1 },   // 은폐 규칙 켬. 은폐를 푸는 거리(맨해튼): 정찰 2칸, 다른 병종 1칸(인접). 노출 지속: 사격한 유닛의 소유자 다음 턴 시작까지
+  suppressKill: true,                 // 제압된 유닛은 어떤 공격이든 명중하면 즉사. 제압은 상대 다음 턴 시작에 풀림 (내 턴 제압 → 상대 턴 → 내 턴 → 상대 턴 시작에 해제)
   mortarIgnoresTerrain: true,         // 박격포 판정에서 지형 방어 보너스 0 (고각 사격)
   ruleset: 'dice',            // 이 시나리오는 항상 주사위 규칙 세트(데모 2 수치: 보병 사거리 4 등)로 진행
   // 소형 전장 전용 병종 수치 표 (여기 값만 고치면 이 시나리오에만 적용, 다른 시나리오는 그대로). 지금 값은 기본값과 같음

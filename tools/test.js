@@ -3117,6 +3117,27 @@ test('[참호전] 박격포는 지형 방어 보너스를 무시하고, 직접 �
   assert.ok(direct.dice === undefined || direct.dice.terrain === 4 || direct.targetId === 'u1');
   E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
 });
+test('[참호전] 제압된 유닛은 어떤 공격이든 명중하면 즉사하고, 제압은 내 턴 → 상대 턴 → 내 턴을 지나 상대 턴 시작에 풀림', () => {
+  assert.equal((E.loadScenario('skirmish'), C().SUPPRESS_KILL), true);
+  let st = trenchBoard([['r1', 0, 'infantry', 3, 0], ['u1', 1, 'infantry', 4, 0]]);
+  E.resolveAttack(st, 'r1', { r: 4, c: 0 }, () => 0);
+  assert.ok(unitById(st, 'u1'), '제압 아닌 유닛은 맞아도 즉사하지 않음');
+  st = trenchBoard([['r1', 0, 'infantry', 3, 0], ['u1', 1, 'infantry', 4, 0]]);
+  unitById(st, 'u1').suppressed = 1;
+  const ev = E.resolveAttack(st, 'r1', { r: 4, c: 0 }, () => 0);
+  jsonEq(ev.filter((e) => e.type === 'destroyed').map((e) => [e.unitId, e.cause]), [['u1', 'suppressKill']], '직접 사격도 제압 중이면 즉사');
+  assert.equal(unitById(st, 'u1'), undefined);
+  st = trenchBoard([['r4', 0, 'mortar', 0, 4], ['r3', 0, 'recon', 3, 5], ['u1', 1, 'infantry', 3, 4]]);
+  E.resolveAttack(st, 'r4', { r: 3, c: 4 }, () => 0);
+  assert.equal(unitById(st, 'u1').suppressed, 1, '박격포 정중앙 명중 → 제압');
+  E.endTurn(st);   // ua 턴 (행동 불가)
+  assert.equal(unitById(st, 'u1').suppressed, 1);
+  E.endTurn(st);   // 다시 ru 턴: 아직 제압
+  assert.equal(unitById(st, 'u1').suppressed, 1, '내 다음 턴에도 제압 유지');
+  E.endTurn(st);   // ua 턴 시작: 해제
+  assert.equal(unitById(st, 'u1').suppressed, undefined, '상대 턴이 시작되면 풀림');
+  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+});
 test('[참호전] 맵·배치가 180도 점대칭이고 양쪽 편성이 같음 (보병 3·정찰 2·박격포 1)', () => {
   assert.deepEqual([...E.validateScenario(E.SCENARIOS.find((s) => s.id === 'skirmish'))], []);
   E.loadScenario('skirmish');
