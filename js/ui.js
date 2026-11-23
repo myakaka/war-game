@@ -1174,7 +1174,7 @@
   }
   /** 화면에 그릴 통신 유닛: 시점 진영의 통신만 ('all' 이면 양쪽). 토글이 꺼져 있으면 선택한 통신만 */
   function shownSignals(st, me, sel) {
-    if (!me || isDiceRules() || !GAME_CONFIG.COMBAT.signalBonus) return [];   // 데모 2·v13: 통신 명중 보너스 없음 → 반경 표시도 없음
+    if (!me || !GAME_CONFIG.COMBAT.signalBonus) return [];   // v13: 통신 명중 보너스 없음 → 반경 표시도 없음
     if (sel && GAME_CONFIG.UNIT_TYPES[sel.type].isSignal && !ui.showSignal) return [sel];
     if (!ui.showSignal) return [];
     return st.units.filter((u) => GAME_CONFIG.UNIT_TYPES[u.type].isSignal && (me === 'all' || u.side === me));
@@ -1226,7 +1226,7 @@
    */
   function fireLines(st, me, sel) {
     const out = { set: new Set(), ends: [] };
-    if (!sel || sel.side !== me || !isDiceRules() || !isDirectType(sel.type) || sel.acted || sel.suppressed > 0) return out;
+    if (!sel || sel.side !== me || !isDirectType(sel.type) || sel.acted || sel.suppressed > 0) return out;
     const max = diceMaxRange(sel.type), vis = visOf(st, me);
     for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       for (let k = 1; k <= max; k++) {
@@ -1678,21 +1678,20 @@
     const actLine = actCardText(u);
     if (actLine) h += `<div class="uc-row"><span class="uc-lbl">${esc(t('card.actLbl'))}</span><span class="tx">${esc(actLine)}</span></div>`;
     h += `<div class="box tx" title="${esc(t('ter.hitMod'))} ${ter.hitMod}%">${esc(t('card.terrain', { terrain: TR(ter.key), def: defModText(ter), cost: ter.moveCost }))}</div>`;
-    if (u.side === me && !isDiceRules() && GAME_CONFIG.COMBAT.signalBonus) {   // 데모 2·v13: 통신 보너스 줄 없음
+    if (u.side === me && GAME_CONFIG.COMBAT.signalBonus) {   // v13: 통신 보너스 줄 없음
       const sg = signalState(u), n = GAME_CONFIG.COMBAT.signalBonus;
       h += `<div class="box tx ${sg === 'on' ? 'on' : ''}">${esc(t(sg === 'on' ? 'card.sigOn' : sg === 'off' ? 'card.sigOff' : 'card.sigNA', { n }))}</div>`;
     }
     const e = effectiveStats(u);
     const cell = (k, v, base) => `<div><div class="k tx">${esc(t(k))}</div><div class="v">${v}${base != null && base !== v ? `<s>${base}</s>` : ''}</div></div>`;
-    if (isDiceRules()) {   // 데모 2: 수치 표(DICE_STATS)의 값 — 주사위 · 보너스 · 방어 · 시야 · 사거리
+    {   // 수치 표(DICE_STATS)의 값 — 주사위 · 보너스 · 방어 · 시야 · 사거리
       const ds = diceStatsOf(u.type) || {}, dc = diceCount(u, null);
       const bon = ds.bonusDice ? Object.entries(ds.bonusDice).map(([k, n]) => `${typeName(k)} +${n}`).join(', ') : '';
-      const maxR = !isDirectType(u.type) ? rangeText(ty, u) : (ds.maxRange == null ? '∞' : ds.maxRange);   // 간접 화력은 classic 사거리
+      const maxR = !isDirectType(u.type) ? rangeText(ty, u) : (ds.maxRange == null ? '∞' : ds.maxRange);   // 간접 화력은 UNIT_TYPES 사거리
       h += `<div class="stat5">${cell('stat.dice', dc ? dc.count : '-', dc ? ds.attack : null)}`
         + `<div title="${esc(bon)}"><div class="k tx">${esc(t('stat.diceBonus'))}</div><div class="v">${bon ? '+' + Math.max(...Object.values(ds.bonusDice)) : '-'}</div></div>`
         + `${cell('stat.def', diceDefense(u), ds.defense)}${cell('stat.vision', ty.vision)}${cell('stat.range', maxR)}</div>`;
-    } else
-    h += `<div class="stat5">${cell('stat.atkSoft', e.atkSoft, ty.atkSoft)}${cell('stat.atkArmor', e.atkArmor, ty.atkArmor)}${cell('stat.def', e.def, ty.def)}${cell('stat.vision', ty.vision)}${cell('stat.range', rangeText(ty, u))}</div>`;
+    }
     return h;
   }
 
@@ -1723,7 +1722,7 @@
       if (mv.cost != null) bits.push(t('card.cost', { n: mv.cost }));
       bits.push(terName(ter));
       const sg = signalState(u);
-      if (sg !== 'na' && !isDiceRules() && GAME_CONFIG.COMBAT.signalBonus) bits.push(t(sg === 'on' ? 'card.sumSigOn' : 'card.sumSigOff', { n: GAME_CONFIG.COMBAT.signalBonus }));
+      if (sg !== 'na' && GAME_CONFIG.COMBAT.signalBonus) bits.push(t(sg === 'on' ? 'card.sumSigOn' : 'card.sumSigOff', { n: GAME_CONFIG.COMBAT.signalBonus }));
       if (!u.acted && activationBlocked(ui.view, u)) bits.unshift(t('card.actSpent'));
       if (u.suppressed > 0) bits.unshift(t('card.suppressed'));
     } else bits.push(P(u), terName(ter));
@@ -3682,7 +3681,7 @@
   /** 새 게임: 직접 배치를 고르면 배치 단계 (AI 모드는 국군만, 2인 모드는 라운드 순서대로 양쪽), 아니면 기본 배치로 바로 시작 */
   function newGame() {
     ui.gameId++;
-    setRuleset(GAME_CONFIG.SCENARIO_RULESET || 'dice');   // 규칙 세트는 판을 시작할 때 고정 (게임 도중 바꾸지 않음). 시나리오가 고정한 규칙 세트가 우선
+    assertDiceStats();   // 수치 표에 빠진 값이 있으면 판을 시작하지 않음
     const admin = hotseat() ? null : loadForces();   // 관리자 편성 (AI 대전만). 있으면 직접 편성보다 우선
     if (GAME_CONFIG.DRAFT) {   // 직접 편성: 고른 편성을 시작 부대로 (기본 편성이면 기본 배치로 되돌림)
       try { setDraft(admin ? null : ui.draftComps || null); } catch (err) { console.error(err); ui.draftComps = null; setDraft(null); }
@@ -4015,13 +4014,6 @@
     const costs = Object.keys(C.UNIT_TYPES).filter((k) => C.UNIT_TYPES[k].canAttack && !C.UNIT_TYPES[k].indirect)
       .map((k) => t('intro.costItem', { unit: U(k), n: attackCost(k) })).join(t('intro.listSep'));
     return `<li>${t('intro.moveMA', { costs })}</li><li>${t('intro.maPenalty', { pen: C.MOVE_ATTACK_PENALTY })}</li>`;
-  }
-  /** 인트로: 명중률·주사위 규칙 (상수에서 생성) */
-  function introHitRuleHtml() {
-    const C = GAME_CONFIG, CB = C.COMBAT;
-    const mv = C.ENABLE_MOVE_ATTACK ? t('intro.hit.mv', { n: Math.abs(C.MOVE_ATTACK_PENALTY) }) : '';
-    const dice = diceSides() === 10 ? t('intro.hit.d10', { min: CB.minHitD10, max: CB.maxHitD10 }) : t('intro.hit.d100', { min: CB.minHit, max: CB.maxHit });
-    return `<li>${t('intro.hit', { base: CB.baseHit, per: CB.perPoint, fog: Math.abs(CB.fogPenalty), mv, dice })}</li><li>${t('intro.scout', { range: C.SCOUT.range })}</li>`;
   }
   const langButtonsHtml = () => `<div class="seg" role="group" aria-label="${esc(t('lang.label'))}">${['ko', 'en'].map((l) => `<button data-lang="${l}" lang="${l}" class="${getLang() === l ? 'active' : ''}" aria-pressed="${getLang() === l}">${l.toUpperCase()}</button>`).join('')}</div>`;
 
@@ -4570,8 +4562,7 @@
       .map((k) => `${t(C.UNIT_TYPES[k].nameKey)} ${diceStatsOf(k).maxRange == null ? t('rules.dice.unlimited') : diceStatsOf(k).maxRange}`).join(t('list.sep'));
     const bonus = Object.keys(C.UNIT_TYPES).filter((k) => isDirectType(k) && scenarioHasType(k) && diceStatsOf(k).bonusDice)
       .map((k) => Object.entries(diceStatsOf(k).bonusDice).map(([bk, n]) => t('rules.dice.bonusItem', { unit: t(C.UNIT_TYPES[k].nameKey), target: t(C.UNIT_TYPES[bk].nameKey), n })).join(' ')).join(' ');
-    return `<ul>${li(t('rules.dice.1'))}${li(t('rules.dice.2', { terr: terr || '0', step: R.distanceStep }))}${li(t('rules.dice.3', { max: R.sides - 1, bonus }))}${li(t('rules.dice.4', { ranges }))}${li(t('rules.dice.6', { mortar: C.DICE_STATS.mortar.attack, artillery: C.DICE_STATS.artillery.attack, blind: R.blindPenalty }))}${li(t('rules.dice.5'))}</ul>`
-      + `<div class="hint">${esc(t('rules.dice.tut'))}</div>`;
+    return `<ul>${li(t('rules.dice.1'))}${li(t('rules.dice.2', { terr: terr || '0', step: R.distanceStep }))}${li(t('rules.dice.3', { max: R.sides - 1, bonus }))}${li(t('rules.dice.4', { ranges }))}${li(t('rules.dice.6', { mortar: C.DICE_STATS.mortar.attack, artillery: C.DICE_STATS.artillery.attack, blind: R.blindPenalty }))}${li(t('rules.dice.5'))}</ul>`;
   }
   const ruleSecs = () => ['goal', ...(GAME_CONFIG.DRAFT ? ['draft'] : []), 'move', 'hit', 'terrain', 'fog', 'units', 'obj', 'fires', 'retreat', 'zoom', 'terms'];   // 편성 항목은 직접 편성이 있는 시나리오(대칭 전장)만
   /** 규칙 항목 하나. 수치는 규칙·시나리오 데이터에서 (현재 판의 상태·숨은 정보는 읽지 않음) */
@@ -4589,8 +4580,7 @@
       case 'move':
         return `<ul>${introMoveRuleHtml()}${li(t('intro.pass'))}${introActRuleHtml()}${actLimitsOf(ui.act) ? li(esc(t('rules.actShown'))) : ''}</ul>`;
       case 'hit':
-        if (isDiceRules()) return diceRuleHtml();
-        return `<ul>${introHitRuleHtml()}${li(esc(t('rules.dmg', { min: CB.minDamage, pen: CB.hpPenaltyPerLoss })))}</ul>`;
+        return diceRuleHtml();
       case 'terrain': {
         const chars = [...new Set(C.MAP.join(''))].filter((ch) => C.TERRAIN[ch]);
         const rows = chars.map((ch) => {
@@ -4608,13 +4598,13 @@
       case 'units': {
         const types = Object.keys(C.UNIT_TYPES).filter(scenarioHasType);
         const rows = types.map((k) => {
-          const ty = C.UNIT_TYPES[k], dice = isDiceRules(), ds = diceStatsOf(k) || {};
-          const atkTxt = dice ? (ds.attack != null ? ds.attack + (ds.bonusDice ? ` (${Object.entries(ds.bonusDice).map(([bk, n]) => `${t(C.UNIT_TYPES[bk].nameKey)} +${n}`).join(', ')})` : '') : '-') : (ty.canAttack ? `${ty.atkSoft}/${ty.atkArmor}` : '-');
-          const rngTxt = dice && isDirectType(k) ? (ds.maxRange == null ? t('rules.dice.unlimited') : ds.maxRange) : rangeText(ty, { side: PLAYER, type: k });
-          return `<tr><td class="ru-name">${symHtml(PLAYER, k)}<span>${esc(t(ty.nameKey))}</span></td><td>${ty.move}</td><td>${ty.vision}</td><td>${esc(atkTxt)}</td><td>${dice ? ds.defense : ty.def}</td><td>${esc(rngTxt)}</td></tr>`
+          const ty = C.UNIT_TYPES[k], ds = diceStatsOf(k) || {};
+          const atkTxt = ds.attack != null ? ds.attack + (ds.bonusDice ? ` (${Object.entries(ds.bonusDice).map(([bk, n]) => `${t(C.UNIT_TYPES[bk].nameKey)} +${n}`).join(', ')})` : '') : '-';
+          const rngTxt = isDirectType(k) ? (ds.maxRange == null ? t('rules.dice.unlimited') : ds.maxRange) : rangeText(ty, { side: PLAYER, type: k });
+          return `<tr><td class="ru-name">${symHtml(PLAYER, k)}<span>${esc(t(ty.nameKey))}</span></td><td>${ty.move}</td><td>${ty.vision}</td><td>${esc(atkTxt)}</td><td>${ds.defense}</td><td>${esc(rngTxt)}</td></tr>`
             + `<tr class="ru-desc"><td colspan="6">${esc(t('unitDesc.' + k))}</td></tr>`;
         }).join('');
-        return `<table class="rules-table units"><thead><tr><th>${esc(t('rules.th.unit'))}</th><th>${esc(t('rules.th.mv'))}</th><th>${esc(t('rules.th.vis'))}</th><th class="wrap">${esc(t(isDiceRules() ? 'rules.th.dice' : 'rules.th.atk'))}</th><th>${esc(t('rules.th.def'))}</th><th>${esc(t(isDiceRules() ? 'rules.th.drange' : 'rules.th.rng'))}</th></tr></thead><tbody>${rows}</tbody></table>
+        return `<table class="rules-table units"><thead><tr><th>${esc(t('rules.th.unit'))}</th><th>${esc(t('rules.th.mv'))}</th><th>${esc(t('rules.th.vis'))}</th><th class="wrap">${esc(t('rules.th.dice'))}</th><th>${esc(t('rules.th.def'))}</th><th>${esc(t('rules.th.drange'))}</th></tr></thead><tbody>${rows}</tbody></table>
           <ul>${li(t('intro.symbols', SP()))}</ul>`;
       }
       case 'obj': {
@@ -4787,7 +4777,6 @@
   }
   /** 튜토리얼 시작 (k 단계). 원래 시나리오·모드는 기억했다가 종료할 때 되돌림 (저장된 시나리오 선택은 건드리지 않음) */
   function startTutorial(k = 0) {
-    setRuleset('dice');
     if (!ui.tut && !ui.practice) { ui.tutBack = GAME_CONFIG.SCENARIO_ID; ui.tutMode = ui.mode; }
     ui.practice = false;
     ui.mode = 'ai';
@@ -5072,7 +5061,6 @@
   /** 처음 화면(모드 선택)으로. 진행 중이던 게임·연출은 버리고, 화면 정보도 지움 */
   function goMenu() {
     if (ui.tut || ui.practice) tutCleanup();
-    setRuleset('dice');
     ui.gameId++;
     ui.busy = false;
     clearFx();

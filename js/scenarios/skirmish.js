@@ -30,7 +30,6 @@ SCENARIOS.push({
   },
   coverCells: SKIRMISH_COVER_CELLS,   // 엄폐물 칸별 종류·방향. 지정이 없는 칸은 defaultCover
   defaultCover: 'crater',
-  ruleset: 'dice',            // 이 시나리오는 항상 주사위 규칙 세트(데모 2 수치: 보병 사거리 4 등)로 진행
   // 소형 전장 전용 병종 수치 표 (여기 값만 고치면 이 시나리오에만 적용, 다른 시나리오는 그대로). 지금 값은 기본값과 같음
   //   classic: 이동 move · 시야 vision · 사거리 rangeMin/rangeMax(간접) 등 (UNIT_TYPES 필드)
   //   dice:    주사위 attack · 방어 defense · 직접 사격 최대 사거리 maxRange (DICE_STATS 필드)

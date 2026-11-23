@@ -16,7 +16,6 @@ const RULES = {
     range: 6,                               // 정찰 지점을 고를 수 있는 맨해튼 거리
     radius: 1,                              // 1 = 3x3
   },
-  RULESET: 'dice',                          // 규칙 세트 (판 시작 때 setRuleset 이 고정): 'classic' = 지금 규칙 · 'dice' = 데모 2 (직접 사격만 주사위 개수 방식, js/combat.js). rulesVersion 은 classic 규칙의 버전
   DICE_RULES: {                             // 데모 2('dice') 직접 사격 공통 수치 (js/combat.js)
     sides: 10,                              // 주사위 면 수: 0 ~ 면 수-1 (0 은 항상 성공)
     terrainDivisor: 10,                     // 지형 방어 보너스 = -(지형 명중 보정 %) / 이 값 (예: 숲 -10% → +1, 도심 -20% → +2, 강 +20% → -2)

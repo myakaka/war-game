@@ -1,25 +1,20 @@
 'use strict';
 /* =====================================================================
-   직접 사격·간접 화력 판정 모듈 (규칙 세트별). DOM 없음 · 순수 함수.
-   규칙 세트(GAME_CONFIG.RULESET): 'classic' = 기존 규칙 그대로(이 파일은 아무것도 바꾸지 않음) · 'dice' = 데모 2.
+   직접 사격·간접 화력 판정 모듈. DOM 없음 · 순수 함수. v15부터 주사위 규칙이 유일한 규칙이다 (옛 퍼센트 규칙은 없어짐).
    엔진(명중률 계산·사격 대상·판정), AI, 확인 시트, 시뮬레이션이 모두 이 파일의 같은 함수를 부른다 (표시와 실제 판정이 어긋나지 않게).
-   데모 2 직접 사격 규칙 (후퇴·제압·안개·행동 제한은 그대로). 간접 화력(박격포·포병)도 주사위 규칙: diceIndirectArea:
-     - 수치는 모두 RULES.DICE_STATS 표 한 곳 (attack·defense·maxRange·bonusDice). classic 의 대인/대기갑 값은 쓰지 않음
+   직접 사격 규칙 (후퇴·제압·안개·행동 제한은 그대로). 간접 화력(박격포·포병)도 주사위 규칙: diceIndirectArea:
+     - 수치는 모두 RULES.DICE_STATS 표 한 곳 (attack·defense·maxRange·bonusDice)
      - 대상: 상하좌우 직선, 각 방향에서 가장 가까운 유닛 하나(사이에 유닛이 있으면 막힘, 지형은 시선을 막지 않음), 표의 maxRange(null = 무제한)
      - 필요한 숫자 N = 방어 D + 지형 보너스 + 거리 보정(거리-1)
      - 주사위 개수 A = max(1, 체력보정(attack + 대상 병종의 bonusDice)), d10(0~9). 하나라도 0 이거나 N 이상이면 명중 (피해는 늘지 않음)
    엔진 로드 순서: engine.js 다음 (함수는 호출 때 엔진 함수를 쓰므로 순서는 중요하지 않음)
    ===================================================================== */
 
-/** 지금 규칙 세트 ('classic' | 'dice') */
-const rulesetOf = () => (GAME_CONFIG.RULESET === 'dice' ? 'dice' : 'classic');
-/** 규칙 세트 고정 (판을 시작하기 전에만 부른다). 알 수 없는 값은 classic */
-function setRuleset(r) {
-  if (r === 'dice') { const errs = diceStatsErrors(); if (errs.length) throw new Error(errs.join(' / ')); }   // 수치 표에 빠진 값이 있으면 데모 2 는 시작하지 않음
-  GAME_CONFIG.RULESET = r === 'dice' ? 'dice' : 'classic';
-  return rulesetOf();
+/** 수치 표(DICE_STATS)에 빠진 값이 있으면 판을 시작하지 않음 (판을 시작하기 전에 부른다) */
+function assertDiceStats() {
+  const errs = diceStatsErrors();
+  if (errs.length) throw new Error(errs.join(' / '));
 }
-const isDiceRules = () => GAME_CONFIG.RULESET === 'dice';
 const diceRules = () => GAME_CONFIG.DICE_RULES;
 /** 데모 2 수치 표의 한 줄 (없으면 null) */
 const diceStatsOf = (typeKey) => (GAME_CONFIG.DICE_STATS && GAME_CONFIG.DICE_STATS[typeKey]) || null;
@@ -211,8 +206,8 @@ const diceIndirectChance = (attacker, defender, terrain, dist, blind = false) =>
 /** (dice 간접 화력) 범위 안 유닛 중 보는 진영 시야 안에 있는 것만 (안개 규칙: 안 보이는 유닛의 필요한 숫자·확률·결과는 화면·로그에 쓰지 않음). area = hc.dice.area, vis = 시야 Set */
 const diceAreaVisible = (area, vis) => area.filter((x) => vis.has(idx(x.r, x.c)));
 
-/** 이 계산에 dice 규칙을 쓰는가: 규칙 세트가 dice 이고, 직접 사격 병종이 실제 유닛(대상 있음)을 쏠 때 */
-const usesDiceHit = (attacker, defender) => isDiceRules() && !!attacker && !!defender && isDirectType(attacker.type);
+/** 이 계산에 주사위 규칙을 쓰는가: 직접 사격 병종이 실제 유닛(대상 있음)을 쏠 때 */
+const usesDiceHit = (attacker, defender) => !!attacker && !!defender && isDirectType(attacker.type);
 
 /**
  * (dice) from 에서 쏠 수 있는 직접 사격 대상 목록 [{ r, c, dist, id }]. 네 방향 각각 가장 가까운 유닛 하나.
@@ -252,7 +247,7 @@ function diceRollAll(rng, count, need) {
 
 if (typeof module !== 'undefined' && module.exports) {
   Object.assign(module.exports, {
-    getIncomingSide, trenchAlongSides, getSandbagFacing, protectedSidesAt, getTerrainDefenseBonus, rulesetOf, setRuleset, isDiceRules, isDirectType, isIndirectDiceType, diceIndirectNeed, diceIndirectArea, diceIndirectChance, diceAreaVisible, diceRollFaces, diceStatsOf, diceMaxRange, diceStatsErrors, diceCount, diceDefense, diceTerrainBonus, diceDistanceBonus, diceOneP, diceHitP, diceFaceOk,
+    getIncomingSide, trenchAlongSides, getSandbagFacing, protectedSidesAt, getTerrainDefenseBonus, assertDiceStats, isDirectType, isIndirectDiceType, diceIndirectNeed, diceIndirectArea, diceIndirectChance, diceAreaVisible, diceRollFaces, diceStatsOf, diceMaxRange, diceStatsErrors, diceCount, diceDefense, diceTerrainBonus, diceDistanceBonus, diceOneP, diceHitP, diceFaceOk,
     diceBreakdown, diceTargetsFrom, diceRollAll,
   });
 }

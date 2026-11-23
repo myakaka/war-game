@@ -204,15 +204,12 @@ function threatMap(state, side, defType, K, records = null, resting = null) {
       const R = fireRange(state, enemy, e.type);
       const slack = e.radius + (et.moveFire ? et.move : 0);
       const lo = Math.max(0, R.min - slack), hi = R.max + slack;
-      const f = firesOf(state, enemy);
-      const pen = f && f[e.type] && f[e.type].indirectPenalty ? f[e.type].indirectPenalty : 0;
       const amount = et.fixedDamage != null ? et.fixedDamage : calcDamage(att, def);
-      const memo = new Map();
       for (let r = Math.max(0, e.r - hi); r <= Math.min(N - 1, e.r + hi); r++) for (let c = 0; c < N; c++) {
         const d = Math.abs(r - e.r) + Math.abs(c - e.c);
         if (d < lo || d > hi) continue;
         const i = r * N + c;
-        const p = (isDiceRules() ? diceIndirectChance(att, def, terrainAt(r, c), d) : hitOf(att, !!et.moveFire && d > R.max, pen, memo, r, c)) * w;   // 데모 2: 주사위 규칙 (거리 d 가 필요한 숫자에 들어감)
+        const p = diceIndirectChance(att, def, terrainAt(r, c), d) * w;   // 데모 2: 주사위 규칙 (거리 d 가 필요한 숫자에 들어감)
         dmg[i] += p * amount;
         if (et.splash !== false) artyP[i] += p;
       }

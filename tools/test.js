@@ -13,9 +13,6 @@ const loadEngine = require('./load-engine');
 
 const { E, run, ctx, ROOT } = loadEngine({ quiet: true });
 const C = () => E.GAME_CONFIG;
-const DEFAULT_RULESET = E.rulesetOf();   // v15: 표준은 주사위 규칙. 아래 옛 규칙 시험은 단계 2에서 지울 때까지 classic 을 명시해 계속 돈다
-E.setRuleset('classic');
-const asDice = (fn) => () => { E.setRuleset('dice'); try { return fn(); } finally { E.setRuleset('classic'); } };   // v15: 튜토리얼은 주사위 규칙. 옛 규칙 시험은 단계 2c 에서 지울 때까지 classic
 const SCEN_IDS = E.SCENARIOS.map((s) => s.id);
 /** AI 가 실제로 두는 시나리오 (튜토리얼 실습판은 AI 가 움직이지 않으므로 AI 안개 시험에서 뺌. 연습 판은 포함) */
 const AI_SCEN_IDS = E.SCENARIOS.filter((s) => !s.tutorialSteps).map((s) => s.id);
@@ -429,10 +426,10 @@ test('fires: 안개 속 칸 사격 가능, 시야 밖 감점은 진영 시야 �
   const e = put(st, { id: 'A90', side: other(side), type: 'infantry', r: far.r, c: far.c });
   assert.ok(E.getAttackableTiles(st, a.id).some((p) => p.r === far.r && p.c === far.c), '안개 속 칸도 목표');
   let hc = E.computeHitChance(st, a.id, far);
-  assert.ok(hc.fogged && hc.parts.some((x) => x.key === 'fog' && x.value === C().COMBAT.fogPenalty));
+  assert.ok(hc.fogged && hc.dice.blind && hc.dice.blindBonus === C().DICE_RULES.blindPenalty);
   put(st, { id: 'D90', side, type: 'recon', r: far.r + 1, c: far.c });   // 아군 정찰이 관측
   hc = E.computeHitChance(st, a.id, far);
-  assert.ok(!hc.fogged && !hc.parts.some((x) => x.key === 'fog'));
+  assert.ok(!hc.fogged && !hc.dice.blind);
   assert.ok(e);
 });
 
@@ -485,7 +482,7 @@ test('fires: 박격포는 이동 후 사격 가능, 한 칸만 고정 피해, �
   const nb = put(st, { id: 'D93', side: other(side), type: 'infantry', r: tgt.r + 1, c: tgt.c });
   put(st, { id: 'A92', side, type: 'recon', r: tgt.r, c: tgt.c + 1 });   // 관측
   const hc = E.computeHitChance(st, m.id, tgt);
-  assert.ok(hc.movedAttack && hc.parts.some((x) => x.key === 'moved'));
+  assert.ok(hc.indirect && hc.dice, '이동 뒤에도 같은 주사위 판정');
   assert.equal(hc.damage, T.fixedDamage);
   const used = st.act ? st.act.used : null;
   const ev = E.resolveAttack(st, m.id, tgt, () => 0);
@@ -1046,7 +1043,7 @@ test('validateTutorialSteps: 22자 넘는 hint, 28자 넘는 sub, 지도 밖 tar
   assert.equal(run('getLang')(), 'ko', '검사 뒤 언어 복원');
 });
 
-test('튜토리얼: 허용된 입력만으로 모든 단계를 끝까지 진행 (엔진을 실제로 돌림), 게임이 끝나지 않음, 모든 beat 도달', asDice(() => {
+test('튜토리얼: 허용된 입력만으로 모든 단계를 끝까지 진행 (엔진을 실제로 돌림), 게임이 끝나지 않음, 모든 beat 도달', () => {
   for (const step of tutSteps()) {
     const r = tutPlay(step, TUT_SOLUTION[step.id]);
     assert.deepEqual(r.refused, [], `${step.id} 거부된 입력`);
@@ -1054,9 +1051,9 @@ test('튜토리얼: 허용된 입력만으로 모든 단계를 끝까지 진행 
     assert.equal(r.prog.done.length, step.beats.length, step.id);
     assert.equal(r.st.winner, null, step.id);
   }
-}));
+});
 
-test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중으로 점유, 8단계 아군도 포병 파편에 맞음·다음 턴 쿨다운) + 결과 말풍선이 결과에 맞게 고름', asDice(() => {
+test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중으로 점유, 8단계 아군도 포병 파편에 맞음·다음 턴 쿨다운) + 결과 말풍선이 결과에 맞게 고름', () => {
   const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
   const rolls = (r) => r.events.filter((e) => e.type === 'diceRoll');
   const two = tutPlay(by.attack, TUT_SOLUTION.attack);
@@ -1090,7 +1087,7 @@ test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중�
   assert.equal(tutPlay(by.retreat, [['endTurn']]).events.filter((e) => e.type === 'diceRoll').length, 1);
   // 모든 단계의 마지막 beat 는 결과 말풍선이 있음 (다음 단계로 넘어가기 전 한 줄)
   for (const s of Object.values(by)) assert.ok(tutPlay(s, TUT_SOLUTION[s.id]).results.some((r) => r.beat === s.beats.length - 1), `${s.id} 마지막 결과`);
-}));
+});
 
 test('튜토리얼: 허용되지 않은 입력은 거부되고 상태가 그대로 (beat 순서대로만, 단계가 끝난 뒤에도 상태 변화 없음)', () => {
   const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
@@ -1591,7 +1588,7 @@ test('소리 난수·데이터: Math.random 을 쓰지 않고 시드 결과가 �
 });
 
 /* ---------------- 후퇴·제압 (규칙 v12, 모든 시나리오 공통) ---------------- */
-const HIT = () => 0, MISS = () => 0.999;
+const HIT = () => 0, MISS = () => 0.1;   // 주사위 규칙: 눈 0 은 항상 성공, 눈 1 은 필요한 숫자가 2 이상이면 실패
 const evOf = (ev, type) => [...ev].filter((e) => e.type === type);   // vm 안 배열 → 일반 배열
 const pos = (u) => `${u.r},${u.c}`;
 const RT_SCENS = ['symmetric', 'hostomel', 'chuncheon', 'vuhledar'];
@@ -2468,9 +2465,8 @@ test('[편성] 문구: ko/en 모두에 있고, 엔진·시나리오 파일에 �
 
 /* ---------------- 데모 2 (규칙 세트 dice): js/combat.js ---------------- */
 // 사격 시험용 판: 춘천 지도 위에 유닛을 직접 놓는다. spec = [id, side(역할 순서 0/1), type, r, c]
-function diceBoard(spec, ruleset = 'dice') {
+function diceBoard(spec) {
   E.loadScenario('chuncheon');
-  E.setRuleset(ruleset);
   const st = E.createInitialState();
   const sides = C().ROUND_ORDER;
   st.units = spec.map(([id, k, type, r, c]) => ({ id, side: sides[k], type, r, c, hp: C().MAX_HP, moved: false, acted: false }));
@@ -2480,7 +2476,6 @@ function diceBoard(spec, ruleset = 'dice') {
   return st;
 }
 const targetsOf = (st, id) => E.getAttackableTiles(st, id).map((p) => `${p.r},${p.c}`).sort();
-const withRuleset = (r, fn) => { try { E.setRuleset(r); return fn(); } finally { E.setRuleset('classic'); } };
 /** 일직선으로 놓기 좋은 평지 가로 구간 (r, c): c..c+6 이 모두 평지 */
 function plainRun() {
   E.loadScenario('chuncheon');
@@ -2524,7 +2519,6 @@ test('[데모2] 대상: 네 방향 직선의 첫 유닛만, 아군·적군 모�
   });
   st = diceBoard([['S1', 0, 'infantry', r, c], ['N1', 1, 'infantry', r, c + 4]]);
   jsonEq(targetsOf(st, 'S1'), [], '안 보이는 적은 대상이 아님');
-  E.setRuleset('classic');
 });
 
 const DS = () => C().DICE_STATS;
@@ -2532,7 +2526,7 @@ const DS = () => C().DICE_STATS;
 function withStats(patch, fn) {
   const saved = JSON.parse(JSON.stringify(DS()));
   for (const [k, v] of Object.entries(patch)) Object.assign(DS()[k], v);
-  try { return fn(); } finally { for (const k of Object.keys(DS())) delete DS()[k]; Object.assign(DS(), saved); E.setRuleset('classic'); }
+  try { return fn(); } finally { for (const k of Object.keys(DS())) delete DS()[k]; Object.assign(DS(), saved) ; }
 }
 const chanceOf = (spec, att, d, hp = {}) => {   // att(공격 병종)가 평지 거리 d 의 대상 병종을 쏠 때의 hc.dice
   const { r, c } = plainRun();
@@ -2540,7 +2534,6 @@ const chanceOf = (spec, att, d, hp = {}) => {   // att(공격 병종)가 평지 
   if (hp.att != null) st.units[0].hp = hp.att;
   if (hp.def != null) st.units[1].hp = hp.def;
   const hc = E.computeHitChance(st, 'S1', { r, c: c + d });
-  E.setRuleset('classic');
   return hc;
 };
 
@@ -2564,8 +2557,7 @@ test('[데모2] 수치 표: 모든 병종에 값이 있고 검사 통과, 빠진
   ];
   for (const [patch, where] of bads) withStats(patch, () => assert.ok([...E.diceStatsErrors()].some((m) => m.includes(where)), where));
   const row = DS().mortar; delete DS().mortar;
-  try { assert.ok([...E.diceStatsErrors()].some((m) => m.includes('mortar'))); assert.throws(() => E.setRuleset('dice')); } finally { DS().mortar = row; E.setRuleset('classic'); }
-  assert.equal(E.rulesetOf(), 'classic');
+  try { assert.ok([...E.diceStatsErrors()].some((m) => m.includes('mortar'))); assert.throws(() => E.assertDiceStats()); } finally { DS().mortar = row; }
 });
 
 test('[데모2] 확률: 표의 수치에서 문서의 값 (보병 84·75·51, 기갑 88·49, 대전차→기갑 94·59, 정찰→보병 60)', () => {
@@ -2612,7 +2604,6 @@ test('[데모2] 체력 보정과 최소 1개: max(1, 체력보정(attack + bonus
   const st = diceBoard([['S1', 0, 'signal', r, c], ['N1', 1, 'infantry', r, c + 1]]);
   jsonEq(targetsOf(st, 'S1'), []);
   assert.equal(E.diceCount({ type: 'signal', hp: 4 }, 'infantry'), null);
-  E.setRuleset('classic');
 });
 
 test('[데모2] 사거리: maxRange 밖은 후보에서 빠지고 안은 거리 보정, 표를 바꾸면 같이 바뀜', () => {
@@ -2626,7 +2617,6 @@ test('[데모2] 사거리: maxRange 밖은 후보에서 빠지고 안은 거리 
   st = board('recon', 5);
   jsonEq(targetsOf(st, 'S1'), [], '정찰 시야 5 안이지만 maxRange 3 밖');
   withStats({ recon: { maxRange: null } }, () => { const s2 = board('recon', 5); jsonEq(targetsOf(s2, 'S1'), [`${r},${c + 5}`], 'null 이면 무제한'); });
-  E.setRuleset('classic');
 });
 
 test('[데모2] 표를 바꾸면 판정·시트용 값·AI 평가가 같은 값을 씀 (한 곳의 데이터)', () => {
@@ -2635,11 +2625,9 @@ test('[데모2] 표를 바꾸면 판정·시트용 값·AI 평가가 같은 값�
     const after = chanceOf(0, ['infantry', 'infantry'], 1);
     assert.equal(after.dice.count, 5); assert.equal(after.dice.need, 2);
     // 같은 계산 함수를 AI 평가(calcHitBreakdown)도 부름
-    E.setRuleset('dice');
     const calc = run('calcHitBreakdown')({ attacker: { type: 'infantry', hp: 4 }, defender: { type: 'infantry', hp: 4 }, terrain: { hitMod: 0, key: 'plain' }, signal: false, fogged: false });
     assert.equal(Math.round(calc.chance * 10), Math.round(after.chance * 10));
     assert.equal(calc.dice.count, 5);
-    E.setRuleset('classic');
   });
   assert.equal(chanceOf(0, ['infantry', 'infantry'], 1).dice.count, before.count);
 });
@@ -2649,7 +2637,6 @@ test('[데모2] 판정: 주사위 개수만큼 굴려 기록, 하나라도 성�
   const play = (seed) => {
     const st = diceBoard([['S1', 0, 'armor', r, c], ['N1', 1, 'infantry', r, c + 1]]);
     const ev = E.resolveAttack(st, 'S1', { r, c: c + 1 }, E.createSeededRng(seed));
-    E.setRuleset('classic');
     return ev;
   };
   let hits = 0;
@@ -2678,15 +2665,13 @@ const indBoard = (spec) => diceBoard([...spec, ['SP', 0, 'recon', spec[0][3] - 1
 
 test('[데모2·간접] 확률: 박격포 A=2 (방어 5) 거리 2·3·4 = 75·64·51, 포병 A=3 거리 2 = 88, 방어 6 거리 5 = 27, 맹사격 +2 = 51', () => {
   const { r, c } = plainRun();
-  const pct = (att, d, tgt = 'infantry') => { const v = Math.round(E.computeHitChance(indBoard([['S1', 0, att, r, c], ['N1', 1, tgt, r, c + d]]), 'S1', { r, c: c + d }).chance); E.setRuleset('classic'); return v; };
+  const pct = (att, d, tgt = 'infantry') => { const v = Math.round(E.computeHitChance(indBoard([['S1', 0, att, r, c], ['N1', 1, tgt, r, c + d]]), 'S1', { r, c: c + d }).chance); return v; };
   assert.equal(pct('mortar', 2), 75); assert.equal(pct('mortar', 3), 64); assert.equal(pct('mortar', 4), 51);
   assert.equal(pct('artillery', 2), 88);
   assert.equal(pct('artillery', 5, 'armor'), 27, '방어 6, 거리 5 → N=10');
-  E.setRuleset('dice');
   const n = E.diceIndirectNeed({ type: 'infantry', hp: 4 }, { hitMod: 0, key: 'plain' }, 2, true);
   assert.equal(n.need, 8); assert.equal(n.blindBonus, GAME().DICE_RULES.blindPenalty);
   assert.equal(Math.round(E.diceHitP(2, n.need) * 100), 51, '맹사격 박격포 A=2, 방어 5, 거리 2');
-  E.setRuleset('classic');
 });
 
 test('[데모2·간접] 시야 밖 조준 = 맹사격 +blindPenalty (범위 안 모두 같은 값), 시야 안이면 0', () => {
@@ -2698,7 +2683,6 @@ test('[데모2·간접] 시야 밖 조준 = 맹사격 +blindPenalty (범위 안 
   d = E.computeHitChance(st, 'S1', { r, c: c + 3 }).dice;
   assert.equal(d.blind, true); assert.equal(d.blindBonus, GAME().DICE_RULES.blindPenalty);
   for (const x of d.area) assert.equal(x.need, x.def + x.terrain + 2 + GAME().DICE_RULES.blindPenalty, '거리 3 → +2, 맹사격 +blindPenalty');
-  E.setRuleset('classic');
 });
 
 test('[데모2·간접] 한 세트 굴림: 범위 안 유닛이 같은 눈으로 각자 N 비교 (눈 {3,8}: N=7 명중, N=9 빗나감), 빗나간 유닛은 피해·후퇴 없음', () => {
@@ -2706,7 +2690,6 @@ test('[데모2·간접] 한 세트 굴림: 범위 안 유닛이 같은 눈으로
   const spec1 = [['S1', 0, 'artillery', r, c], ['N1', 1, 'infantry', r, c + 3], ['N2', 1, 'armor', r, c + 2], ['SP', 0, 'recon', r - 1, c]];
   boardWithTerrain(spec1, r, c + 2, 'f', (st) => {
     const ev = E.resolveAttack(st, 'S1', { r, c: c + 3 }, seqRng([3, 8, 1]));
-    E.setRuleset('classic');
     const roll = ev.find((e) => e.type === 'diceRoll');
     jsonEq(roll.rolls, [3, 8, 1]); assert.equal(roll.diceCount, 3); assert.equal(roll.rule, 'dice');
     jsonEq(ev.filter((e) => e.type === 'diceUnit').map((e) => [e.unitId, e.need, e.hit]), [['N1', 7, true], ['N2', 9, false]]);
@@ -2724,7 +2707,6 @@ test('[데모2·간접] 중심이 빗나가도 이웃이 명중하면 피해와 
   const spec2 = [['S1', 0, 'artillery', r, c], ['N1', 1, 'armor', r, c + 3], ['N2', 1, 'infantry', r, c + 4], ['S2', 0, 'infantry', r, c + 2], ['SP', 0, 'recon', r - 1, c]];
   boardWithTerrain(spec2, r, c + 3, 'f', (st) => {
     const ev = E.resolveAttack(st, 'S1', { r, c: c + 3 }, seqRng([8, 1, 1]));
-    E.setRuleset('classic');
     assert.ok(!ev.some((e) => e.unitId === 'N1' && ['damage', 'suppressed', 'retreat'].includes(e.type)), '중심 빗나감');
     assert.ok(ev.some((e) => e.type === 'splashDamage' && e.unitId === 'N2'));
     assert.ok(ev.some((e) => e.type === 'retreat' && e.unitId === 'N2'), '이웃 명중 → 후퇴');
@@ -2734,7 +2716,6 @@ test('[데모2·간접] 중심이 빗나가도 이웃이 명중하면 피해와 
   });
   const st2 = indBoard([['S1', 0, 'mortar', r, c]]);
   const ev2 = E.resolveAttack(st2, 'S1', { r, c: c + 3 }, seqRng([5, 5]));
-  E.setRuleset('classic');
   assert.equal(ev2.find((e) => e.type === 'diceRoll').rolls.length, 2);
   assert.equal(ev2.filter((e) => e.type === 'diceUnit').length, 0);
   assert.ok(ev2.some((e) => e.type === 'miss')); assert.equal(st2.units.find((u) => u.id === 'S1').acted, true);
@@ -2748,35 +2729,24 @@ test('[데모2·간접] 박격포는 중심 한 칸만, 체력이 줄면 주사�
   st.units.find((u) => u.id === 'S1').hp = 1;
   d = E.computeHitChance(st, 'S1', { r, c: c + 3 }).dice;
   assert.equal(d.count, 1); assert.equal(d.minApplied, true);
-  E.setRuleset('classic');
-  for (const k of ['mortar', 'artillery']) {
-    const tiles = (rs) => withRuleset(rs, () => E.getAttackableTiles(indBoard([['S1', 0, k, r, c]]), 'S1').map((p) => `${p.r},${p.c}`).sort());
-    jsonEq(tiles('dice'), tiles('classic'), k);
-    assert.ok(tiles('dice').length > 0);
-  }
-  assert.equal(E.rulesetOf(), 'classic');
-  assert.equal(E.setRuleset('이상한값'), 'classic');
 });
 
 test('[데모2·간접] 안개: 범위 안 목록은 보는 쪽 시야 안 유닛만 (안 보이는 유닛의 필요한 숫자·확률은 화면에 내지 않음)', () => {
   const { r, c } = plainRun();
-  E.setRuleset('dice');
   const st = diceBoard([['S1', 0, 'artillery', r, c], ['S2', 0, 'infantry', r, c + 1], ['S3', 0, 'artillery', r, c + 2], ['N1', 1, 'infantry', r, c + 3], ['N2', 1, 'infantry', r, c + 4]]);
   const hc = E.computeHitChance(st, 'S1', { r, c: c + 3 });
   const vis = E.getVisibleTiles(st, st.units[0].side);
   assert.equal(hc.dice.blind, false);
   assert.ok(hc.dice.area.some((x) => x.id === 'N2'), '엔진 값에는 있음 (화면이 걸러야 함)');
   jsonEq(E.diceAreaVisible(hc.dice.area, vis).map((x) => x.id).sort(), ['N1', 'S3'], '시야 밖 N2 는 목록에서 빠짐');
-  E.setRuleset('classic');
 });
 
 test('[데모2] simulateGames: 모든 시나리오가 dice 로 끝까지 돌고 같은 시드는 같은 결과, 규칙 세트는 되돌아옴', () => {
   for (const s of E.SCENARIOS.filter((x) => !x.hidden)) {
-    const a = E.simulateGames(2, { scenario: s.id, ruleset: 'dice', quiet: true });
-    const b = E.simulateGames(2, { scenario: s.id, ruleset: 'dice', quiet: true });
+    const a = E.simulateGames(2, { scenario: s.id, quiet: true });
+    const b = E.simulateGames(2, { scenario: s.id, quiet: true });
     assert.equal(a.errors, 0, s.id);
     assert.equal(JSON.stringify(a), JSON.stringify(b), `${s.id} 결정적`);
-    assert.equal(E.rulesetOf(), 'classic');
   }
 });
 
@@ -2820,7 +2790,6 @@ test('[주사위연출] 멈추는 눈과 성공 표시는 엔진 결과와 항�
     for (let seed = 1; seed <= 60; seed++) {
       const st = diceBoard([['S1', 0, att, r, c], ['N1', 1, def, r, c + d]]);
       const ev = E.resolveAttack(st, 'S1', { r, c: c + d }, E.createSeededRng(seed * 31 + d));
-      E.setRuleset('classic');
       const roll = ev.find((e) => e.type === 'diceRoll');
       const fx = E.diceFxFaces(roll.rolls, roll.dice.need);
       jsonEq(fx.faces.map((f) => f.value), roll.rolls, '멈추는 눈 = 엔진이 굴린 값');
@@ -2881,7 +2850,7 @@ test('[주사위연출] 연출은 엔진·AI·시뮬레이션 경로에서 쓰�
     assert.ok(!/diceFx|DICE_FX/.test(fs.readFileSync(path.join(ROOT, f), 'utf8')), `${f} 에서 연출을 부르지 않음`);
   }
   // 같은 시드의 시뮬레이션은 연출 코드가 로드돼 있어도 같은 결과 (난수 호출 순서가 같음)
-  const a = E.simulateGames(2, { scenario: 'chuncheon', ruleset: 'dice', quiet: true }), b = E.simulateGames(2, { scenario: 'chuncheon', ruleset: 'dice', quiet: true });
+  const a = E.simulateGames(2, { scenario: 'chuncheon', quiet: true }), b = E.simulateGames(2, { scenario: 'chuncheon', quiet: true });
   assert.equal(JSON.stringify(a), JSON.stringify(b));
   assert.equal(E.diceFxDeco(5) === E.diceFxDeco(5), true, '장식용 숫자는 게임 난수를 쓰지 않는 해시');
   // 소리 이름이 audio 데이터에 있고 파일이 없어도 됨(빈 목록)
@@ -2926,17 +2895,17 @@ test('[목표표시] goalInfo 는 게임 상태를 받지 않음 (안 보이는 
 const unitOf = (st, id) => st.units.find((x) => x.id === id);
 test('[정찰] 통신이 지점을 고르면 3x3 칸이 시야로 취급되고, 보이는 적은 시야 밖 감점 없이 대상이 됨', () => {
   const { r, c } = plainRun();
-  const st = diceBoard([['S1', 0, 'signal', r, c], ['S2', 0, 'infantry', r, c + 1], ['N1', 1, 'infantry', r, c + 5]], 'classic');
+  const st = diceBoard([['S1', 0, 'signal', r, c], ['S2', 0, 'infantry', r, c + 1], ['N1', 1, 'infantry', r, c + 5]]);
   const me = C().ROUND_ORDER[0], foe = C().ROUND_ORDER[1];
   const key = (rr, cc) => rr * C().MAP.length + cc;
   assert.equal(E.getVisibleTiles(st, me).has(key(r, c + 5)), false, '정찰 전에는 안 보임');
-  assert.equal(E.computeHitChance(st, 'S2', { r, c: c + 5 }).fogged, true);
+  assert.equal(E.getAttackableTiles(st, 'S2').some((p) => p.r === r && p.c === c + 5), false, '정찰 전에는 시야 밖이라 대상이 아님');
   assert.ok(E.canUnitScout(st, unitOf(st, 'S1')));
   const ev = E.scoutArea(st, 'S1', { r, c: c + 5 });
   assert.equal(ev.length, 1); assert.equal(ev[0].type, 'scout'); assert.equal(ev[0].tiles.length, 9);
   const vis = E.getVisibleTiles(st, me);
   for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) assert.ok(vis.has(key(r + dr, c + 5 + dc)), `3x3 ${dr},${dc}`);
-  assert.equal(E.computeHitChance(st, 'S2', { r, c: c + 5 }).fogged, false, '정찰한 칸은 시야 안');
+  assert.equal(E.getAttackableTiles(st, 'S2').some((p) => p.r === r && p.c === c + 5), true, '정찰한 칸은 시야 안이라 대상이 됨');
   assert.equal(E.getVisibleTiles(st, foe).has(key(r, c + 5)), true, '상대 시야는 상대 유닛이 있는 곳이라 그대로(자기 유닛 칸)');
   assert.equal(E.getScoutTiles(st, foe).size, 0, '상대 진영에는 정찰 칸이 없음');
   assert.ok(st.memory[me]['N1'], '정찰로 본 적은 목격 기억에 남음');
@@ -2946,7 +2915,7 @@ test('[정찰] 통신이 지점을 고르면 3x3 칸이 시야로 취급되고, 
 });
 test('[정찰] 거리 제한, 이동 뒤 정찰, 자기 턴이 끝나면 사라짐, 행동 제한 1회 소모', () => {
   const { r, c } = plainRun();
-  const st = diceBoard([['S1', 0, 'signal', r, c], ['S2', 0, 'infantry', r, c + 1], ['N1', 1, 'infantry', r, c + 6]], 'classic');
+  const st = diceBoard([['S1', 0, 'signal', r, c], ['S2', 0, 'infantry', r, c + 1], ['N1', 1, 'infantry', r, c + 6]]);
   const R = C().SCOUT.range;
   assert.throws(() => E.scoutArea(st, 'S1', { r, c: c + R + 1 }), /./, '거리 밖');
   assert.throws(() => E.scoutArea(st, 'S2', { r, c: c + 1 }), /./, '통신이 아닌 유닛은 못 함');
@@ -3061,7 +3030,7 @@ test('[소형 전장] 12라운드 종료: 남은 총 체력 → 생존 유닛 �
 
 /* ---------------- 참호전 은폐 규칙 (시나리오 concealment, 소형 전장) ---------------- */
 function trenchBoard(spec) {   // spec: [id, 진영 index(0=ru,1=ua), 병종, r, c]
-  E.loadScenario('skirmish'); E.setRuleset('dice');
+  E.loadScenario('skirmish');
   const st = E.createInitialState(), sides = C().ROUND_ORDER;
   st.units = spec.map(([id, k, type, r, c]) => ({ id, side: sides[k], type, r, c, hp: C().MAX_HP, moved: false, acted: false }));
   st.pending = []; st.turn = sides[0]; E.startTurn(st);
@@ -3108,7 +3077,7 @@ test('[참호전] 숨은 유닛이 직선 사격을 막아 대신 맞고, 사격
   assert.ok(unitById(st, 'r1').exposed, 'ru 의 노출은 ru 다음 턴 시작까지 유지');
   E.endTurn(st);
   assert.equal(unitById(st, 'r1').exposed, undefined);
-  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+  E.loadScenario(SCEN_IDS[0]);
 });
 test('[참호전] 박격포는 지형 방어 보너스를 무시하고, 직접 사격은 그대로 적용', () => {
   const st = trenchBoard([['r4', 0, 'mortar', 0, 4], ['r1', 0, 'infantry', 3, 0], ['u1', 1, 'infantry', 3, 3], ['u2', 1, 'infantry', 4, 6]]);   // u1 참호(+4), u2 평지
@@ -3118,7 +3087,7 @@ test('[참호전] 박격포는 지형 방어 보너스를 무시하고, 직접 �
   assert.equal(x.need, x.def + x.distBonus + x.blindBonus);
   const direct = E.computeHitChance(st, 'r1', { r: 3, c: 3 });
   assert.ok(direct.dice === undefined || direct.dice.terrain === 4 || direct.targetId === 'u1');
-  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+  E.loadScenario(SCEN_IDS[0]);
 });
 test('[참호전] 제압된 유닛은 어떤 공격이든 명중하면 즉사하고, 제압은 내 턴 → 상대 턴 → 내 턴을 지나 상대 턴 시작에 풀림', () => {
   assert.equal((E.loadScenario('skirmish'), C().SUPPRESS_KILL), true);
@@ -3139,7 +3108,7 @@ test('[참호전] 제압된 유닛은 어떤 공격이든 명중하면 즉사하
   assert.equal(unitById(st, 'u1').suppressed, 1, '내 다음 턴에도 제압 유지');
   E.endTurn(st);   // ua 턴 시작: 해제
   assert.equal(unitById(st, 'u1').suppressed, undefined, '상대 턴이 시작되면 풀림');
-  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+  E.loadScenario(SCEN_IDS[0]);
 });
 test('[참호전] 맵·배치가 180도 점대칭이고 양쪽 편성이 같음 (보병 3·정찰 2·박격포 1)', () => {
   assert.deepEqual([...E.validateScenario(E.SCENARIOS.find((s) => s.id === 'skirmish'))], []);
@@ -3148,18 +3117,6 @@ test('[참호전] 맵·배치가 180도 점대칭이고 양쪽 편성이 같음 
   assert.equal(comp('ru'), comp('ua'));
   assert.deepEqual(C().DEPLOYMENT.ru.reduce((o, d) => ({ ...o, [d.type]: (o[d.type] || 0) + 1 }), {}), { infantry: 3, recon: 2, mortar: 1 });
   E.loadScenario(SCEN_IDS[0]);
-});
-test('[소형 전장] 시나리오가 주사위 규칙 세트를 고정: simulateGames 는 그 규칙으로 돌고 끝나면 되돌림, 다른 시나리오는 영향 없음', () => {
-  E.loadScenario('skirmish');
-  assert.equal(C().SCENARIO_RULESET, 'dice');
-  E.setRuleset('classic');
-  const a = E.simulateGames(2, { seed: 7 });
-  assert.equal(E.rulesetOf(), 'classic', '끝나면 원래 규칙 세트');
-  const b = E.simulateGames(2, { seed: 7, ruleset: 'classic' });
-  assert.notEqual(JSON.stringify(a.combat && a.combat.attacksByType), JSON.stringify(b.combat && b.combat.attacksByType), '고정 시나리오는 주사위 규칙으로 돌았음');
-  E.loadScenario(SCEN_IDS[0]);
-  assert.equal(C().SCENARIO_RULESET, null);
-  assert.ok(E.validateScenario({ ...E.SCENARIOS.find((s) => s.id === 'skirmish'), ruleset: 'x' }).length > 0, '알 수 없는 ruleset 은 오류');
 });
 
 /* ---------------- 맵 만들기 (js/custom-map.js: 내 맵 → 시나리오) ---------------- */
@@ -3243,12 +3200,14 @@ test('[방향성 엄폐] 참호 통로·모래주머니 정면·구덩이·수�
   E.loadScenario('symmetric');
   assert.equal(C().DIRECTIONAL, null);
   assert.equal(E.getTerrainDefenseBonus({ r: 0, c: 0 }, { r: 5, c: 0 }, 'infantry').reason, E.getTerrainDefenseBonus({ r: 0, c: 0 }, null, 'infantry').reason);
-  E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+  E.loadScenario(SCEN_IDS[0]);
 });
 
 /* ---------------- v15: 주사위 규칙이 표준 ---------------- */
-test('v15: 기본 규칙 세트는 dice, 데모 2 메뉴 문구는 없음', () => {
-  assert.equal(DEFAULT_RULESET, 'dice');
+test('v15: 규칙 세트 전환 API 는 없어지고 주사위 규칙만 남음, 데모 2 메뉴 문구는 없음', () => {
+  assert.equal(E.setRuleset, undefined);
+  assert.equal(E.rulesetOf, undefined);
+  assert.equal(C().RULESET, undefined);
   assert.ok(C().RULES_VERSION >= 15);
   const ko = fs.readFileSync(path.join(ROOT, 'js', 'strings.js'), 'utf8');
   assert.ok(!/menu\.demo2|dice2\.badge|dice2\.introNote/.test(ko), '데모 2 메뉴·배지·안내 문구 제거');

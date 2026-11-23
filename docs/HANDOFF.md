@@ -1,3 +1,23 @@
+# HANDOFF (2026-11-24) — 주사위 규칙 표준 2단계: 튜토리얼 재작성 + 옛 규칙 전환 코드 삭제 (rulesVersion 15)
+
+## 끝난 것
+- 직사 사격선(`ui.js fireLines`)을 모든 시나리오로 확대.
+- 튜토리얼이 주사위 규칙으로 돈다: 시드 attack 14·retreat 1(결과 의도 유지), 문구 `tr.forest/tr.fog/tc.terrain.2/tc.fog.4` 재작성, `tutorialParams`의 forest/plain/city는 방어 보너스, fog는 `DICE_RULES.blindPenalty`.
+- 규칙 세트 개념 삭제: `RULES.RULESET`, `setRuleset/rulesetOf/isDiceRules`(combat.js), 시나리오 `ruleset` 필드·검증·`SCENARIO_RULESET`·`simulateGames` 규칙 인자, 문구 `scenErr.ruleset`. 엔진·AI·화면의 classic 분기(`getAttackableTiles`, AI 후보·위험도·포병 위험 지도, 유닛 카드·규칙 화면·병종 표)를 주사위 쪽만 남김. 새 함수 `assertDiceStats()`(수치 표 오류면 판 시작 거부, `newGame`·`simulateGames`).
+- 죽은 문구·함수 정리: `introHitRuleHtml`, `intro.hit*`, `rules.dmg`, `stat.atkSoft/atkArmor`, `rules.th.atk`, `rules.dice.tut`.
+- 시험: 옛 규칙 전용 시험 삭제·개조(규칙 세트 API, 시나리오 규칙 고정), `MISS`를 주사위용(0.1)으로, 안개·박격포·정찰 시험은 주사위 필드로 판정. test.js 301건 통과 278·실패 0.
+- 시드: 삭제 전후 빠른 지문(시나리오 5종 x 2프로필 x 6판) 동일, `check.js` 전체 35건 모두 SAME(기준선 v15 그대로, 1054초).
+
+## 확정한 결정
+- 퍼센트 명중률 계산(`calcHitBreakdown`의 classic 식, `COMBAT.baseHit` 등)과 `unitStats.classic` 키 이름은 남김: 주사위 규칙이 같은 필드(이동·시야·사거리)를 UNIT_TYPES에서 읽고, 대상이 없는 계산 호출이 이 식으로 떨어질 수 있어 지우면 동작이 바뀔 위험. rules.md에 `classic`은 옛 키 이름이라고 적음.
+- 이동 후 공격의 명중 감점은 주사위 규칙에 원래 없었음(문서를 사실대로 고침).
+
+## 알려진 문제 / 다음
+- 남은 옛 코드(동작에는 영향 없음): `ENABLE_MOVE_ATTACK`·`DICE_SIDES`·`COMBAT` 퍼센트 필드, UI의 `hit.min/max/clamp100` 줄(퍼센트 분해 표시). 쓰이는지 확인하면서 천천히 지울 것.
+- 튜토리얼 말풍선을 사람이 처음부터 끝까지 눌러 본 확인은 안 함(자동 시험은 통과).
+- 영어 문구는 새로 쓴 것만 검토.
+
+---
 # HANDOFF (2026-11-23, 뒤) — 주사위 규칙을 표준으로 (rulesVersion 15, 1단계 · 미커밋)
 
 ## 끝난 것
