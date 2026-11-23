@@ -13,7 +13,8 @@
 - 이동 후 공격의 명중 감점은 주사위 규칙에 원래 없었음(문서를 사실대로 고침).
 
 ## 알려진 문제 / 다음
-- 남은 옛 코드(동작에는 영향 없음): `ENABLE_MOVE_ATTACK`·`DICE_SIDES`·`COMBAT` 퍼센트 필드, UI의 `hit.min/max/clamp100` 줄(퍼센트 분해 표시). 쓰이는지 확인하면서 천천히 지울 것.
+- 옛 퍼센트 코드 정리(화면만, 시드 비교 생략): 안 쓰이는 퍼센트 명중률 미리보기(`attackPreviewHtml` 뒷부분, `hitHeadline`, `hitFormulaLine`, `partLabel` 옛 항목)와 문구 27개 삭제, `tutorialParams`의 base/per/mv/min/max/dice 삭제, 이동 후 공격 "명중률 −10%"라고 거짓으로 알리던 문구(`tip.moveAtkOk`, `legend.hl.moveAtk`, `intro.maPenalty`, `status.movedCanAttack`, `status.mortarMoveFire`) 수정.
+- **남긴 것과 이유**: 엔진의 퍼센트 식(`calcHitBreakdown` 옛 식, `COMBAT.baseHit/perPoint/fogPenalty/minHit*`, `MOVE_ATTACK_PENALTY`, `DICE_SIDES`)은 AI의 `aiRetreatRisk`(ai-intel.js 551행)가 적 박격포·포병의 위협을 추정할 때 지금도 부른다(탐침으로 확인: 시뮬레이션 호출 26000여 번 모두 박격포·포병). 지우거나 주사위 식으로 바꾸면 AI 평가가 달라져 시드 결과가 바뀐다(AI 변경이라 요청이 있을 때만). `ENABLE_MOVE_ATTACK`은 이동 후 공격 허용 여부 규칙 플래그라 그대로.
 - 튜토리얼 말풍선을 사람이 처음부터 끝까지 눌러 본 확인은 안 함(자동 시험은 통과).
 - 영어 문구는 새로 쓴 것만 검토.
 

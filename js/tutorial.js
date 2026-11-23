@@ -200,8 +200,8 @@ function tutorialParams() {
   const fire = (type, k, d) => (F[type] && F[type][k] != null ? F[type][k] : d);
   return {
     act: act ?? '-',
-    base: CB.baseHit, per: CB.perPoint, fog: C.DICE_RULES.blindPenalty, mv: Math.abs(C.MOVE_ATTACK_PENALTY),   // fog: 시야 밖 조준 시 필요한 숫자 가산 (주사위 규칙)
-    min: CB.minHitD10, max: CB.maxHitD10, dice: C.DICE_SIDES, steps: C.RETREAT.STEPS,
+    fog: C.DICE_RULES.blindPenalty,   // fog: 시야 밖 조준 시 필요한 숫자 가산 (주사위 규칙)
+    steps: C.RETREAT.STEPS,
     forest: Math.abs(ter('f').hitMod) / C.DICE_RULES.terrainDivisor, plain: Math.abs(ter('.').hitMod) / C.DICE_RULES.terrainDivisor, city: Math.abs(ter('#').hitMod) / C.DICE_RULES.terrainDivisor,   // 지형 방어 보너스 (주사위 규칙)
     mMin: UT.mortar.rangeMin, mRange: fire('mortar', 'range', UT.mortar.rangeMax), mCd: fire('mortar', 'cooldown', 0), mDmg: UT.mortar.fixedDamage,
     aMin: UT.artillery.rangeMin, aRange: fire('artillery', 'range', UT.artillery.rangeMax), aCd: fire('artillery', 'cooldown', 0), splash: CB.splashDamage,

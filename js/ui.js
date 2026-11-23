@@ -1623,14 +1623,14 @@
     } else if (u.moved && MA) {
       const reason = moveAttackBlockReason(u);
       chip = reason ? { text: t('card.moved'), cls: 'chip' } : { text: t('card.movedCan'), cls: 'chip blue' };
-      note = reason ? t('status.movedBlocked', { reason: { t: reason.k, p: reason.p } }) : t('status.movedCanAttack', { left: moveLeftOf(u), cost: attackCost(u.type), pen: GAME_CONFIG.MOVE_ATTACK_PENALTY });
+      note = reason ? t('status.movedBlocked', { reason: { t: reason.k, p: reason.p } }) : t('status.movedCanAttack', { left: moveLeftOf(u), cost: attackCost(u.type) });
     } else if (u.moved) {
       chip = { text: t('card.moved'), cls: 'chip' };
       note = ((ty.indirect && !ty.moveFire) || !GAME_CONFIG.ATTACK_AFTER_MOVE) ? t('status.movedNoAttack') : t('status.movedLegacy');
     } else {
       chip = { text: t('card.ready'), cls: 'chip green' };
       if (MA && !ty.indirect && ty.canAttack) note = t('status.idleMA', { cost: attackCost(u.type) });
-      else if (ty.indirect && ty.moveFire) note = t('status.idleArty', { range: rangeText(ty, u) }) + (MA ? t('status.mortarMoveFire', { cost: attackCost(u.type), pen: GAME_CONFIG.MOVE_ATTACK_PENALTY }) : '');
+      else if (ty.indirect && ty.moveFire) note = t('status.idleArty', { range: rangeText(ty, u) }) + (MA ? t('status.mortarMoveFire', { cost: attackCost(u.type) }) : '');
       else if (ty.indirect) note = t('status.idleArty', { range: rangeText(ty, u) }) + (MA ? t('status.artyNoFireAfterMove') : '');
       else note = t('status.idle');
     }
@@ -2729,36 +2729,9 @@
   }
 
   /* ---------- 명중률 표시 (계산은 computeHitChance 하나만 사용) ---------- */
-  /** 명중률 큰 글씨: d10 "명중 7/10 (70%)", d100 "명중률 70%" */
-  function hitHeadline(hc) {
-    return hc.sides === 10 ? t('hit.headD10', { need: hc.need, pct: hc.chance }) : t('hit.headD100', { pct: hc.chance });
-  }
   /** 보정 항목의 이름 (긴 이름 / 한 줄 내역용 짧은 이름) */
   function partLabel(x, short = false) {
-    switch (x.key) {
-      case 'atkDiff': return short ? t('part.atkDiff.short') : t('part.atkDiff', x.p);
-      case 'terrain': return short ? t('terrain.' + x.p.terrain) : t('part.terrain', { terrain: TR(x.p.terrain) });
-      case 'signal': return t(short ? 'part.signal.short' : 'part.signal');
-      case 'moved': return t(short ? 'part.moved.short' : 'part.moved');
-      default: return t('part.' + x.key);
-    }
-  }
-  /** 한 줄 내역 (반올림 전 값) + 최종 결과. 예: "기본 50 + 공격차 10 - 숲 10 - 이동 후 10 = 40 → 4/10" */
-  function hitFormulaLine(hc) {
-    const C = GAME_CONFIG.COMBAT;
-    let s = '';
-    hc.parts.forEach((x, k) => {
-      const v = x.value;
-      s += k === 0 ? `${partLabel(x, true)} ${v}` : ` ${v < 0 ? '-' : '+'} ${partLabel(x, true)} ${Math.abs(v)}`;
-    });
-    s += ` = ${hc.raw}`;
-    if (hc.sides === 10) {
-      s += ` → ${hc.need}/10`;
-      const rounded = Math.floor((hc.raw + 5) / 10) * 10;
-      if (rounded < C.minHitD10) s += ' ' + t('hit.min', { n: C.minHitD10 });
-      else if (rounded > C.maxHitD10) s += ' ' + t('hit.max', { n: C.maxHitD10 });
-    } else if (hc.raw !== hc.chance) s += ` → ${hc.chance}%`;
-    return s;
+    return t('part.' + x.key);
   }
   /** 주사위 결과 문구: "7 ≤ 9 ✓ 명중" / "8 > 7 ✗ 빗나감". hideNeed: 시야 밖 사격처럼 명중 기준을 보여 주면 안 될 때 */
   function rollLine(ev, hideNeed = false) {
@@ -2830,7 +2803,7 @@
       default:   // 하이라이트 9종 (2단계)
         html += item(sw(mini(plainBg + bare(unitSvg(DEF(), 'infantry', { noHp: true, selected: true })))), t('legend.hl.selected'));
         html += item(sw(mini(plainBg + regionSvg(one, moveStyle()))), t('legend.hl.move'));
-        html += item(sw(mini(plainBg + regionSvg(one, moveStyle()) + regionSvg(one, moveAtkStyle('lg-hatch')), 'lg-hatch')), t('legend.hl.moveAtk', { n: GAME_CONFIG.MOVE_ATTACK_PENALTY }));
+        html += item(sw(mini(plainBg + regionSvg(one, moveStyle()) + regionSvg(one, moveAtkStyle('lg-hatch')), 'lg-hatch')), t('legend.hl.moveAtk'));
         html += item(sw(mini(plainBg + bare(unitSvg(ATT(), 'infantry', { noHp: true })) + targetRing(20, 19))), t('legend.hl.target'));
         html += item(sw(mini(plainBg + regionSvg(one, artyStyle()))), t('legend.hl.arty'));
         html += item(sw(mini(plainBg + `<rect x="1.2" y="1.2" width="37.6" height="37.6" fill="${H.impact.centerFill}" stroke="${H.impact.line}" stroke-width="${H.impact.centerW}"/>`)), t('legend.hl.impact'));
@@ -2912,7 +2885,7 @@
             const cost = attackCost(selU.type);
             const ok = left >= cost;
             const ter = terrainAt(p.r, p.c);
-            const msg = ok ? t('tip.moveAtkOk', { n: GAME_CONFIG.MOVE_ATTACK_PENALTY })
+            const msg = ok ? t('tip.moveAtkOk')
               : (ter.consumesAll ? t('tip.moveAtkTerrain', { terrain: TR(ter.key) }) : t('tip.moveAtkNo', { left, cost }));
             pre = `<div><b>${esc(t('tip.moveLeft', { left, cost }))}</b></div>
               <div class="${ok ? 'hint' : 'warn'}">${esc(msg)}</div>
@@ -2937,43 +2910,7 @@
   function attackPreviewHtml(st, sel, p, me) {
     const ty = GAME_CONFIG.UNIT_TYPES[sel.type];
     const hc = computeHitChance(st, sel.id, p);
-    if (hc.dice) return diceTipHtml(hc, p, sel.type);
-    const C = GAME_CONFIG.COMBAT;
-    let html = '';
-    if (hc.fogged) {
-      html += `<div class="big">${esc(t('hit.unknown'))}</div><div class="hint">${esc(t('hit.fogNote', { n: C.fogPenalty }))}</div>`;
-      if (hc.movedAttack) html += `<div class="warn">${esc(t('hit.movedWarn', { n: GAME_CONFIG.MOVE_ATTACK_PENALTY }))}</div>`;
-      const ip = hc.parts.find((x) => x.key === 'indirect');   // 간접 사격 추가 감점 (고정값이라 안개와 무관)
-      if (ip) html += `<div class="warn">${esc(t('hit.indirectWarn', { n: ip.value }))}</div>`;
-      if (ty.fixedDamage != null) html += `<div class="hint">${esc(t('tgt.fixedDmg', { n: ty.fixedDamage }))}</div>`;
-    } else {
-      html += `<div class="big">${esc(hitHeadline(hc))}</div>`;
-      html += `<div class="hint">${esc(hitFormulaLine(hc))}</div>`;
-      if (hc.movedAttack) html += `<div class="warn">${esc(t('hit.movedWarn', { n: GAME_CONFIG.MOVE_ATTACK_PENALTY }))}</div>`;
-      html += hc.parts.map((x) => `<div class="row"><span>${esc(partLabel(x))}</span><span>${x.value > 0 ? '+' : ''}${x.value}</span></div>`).join('');
-      if (hc.sides !== 10 && hc.raw !== hc.chance) html += `<div class="row"><span>${esc(t('hit.clamp100', { min: C.minHit, max: C.maxHit }))}</span><span></span></div>`;
-      const target = getUnitAt(st, p.r, p.c);
-      if (target) {
-        html += `<div style="margin-top:4px">${esc(t('tgt.label', { who: REL(target.side === me, target.type), hp: target.hp }))}</div>`;
-        html += `<div>${esc(t('tgt.dmg', { dmg: hc.damage, hp: Math.max(0, target.hp - hc.damage) }))}${hc.damage >= target.hp ? esc(t('tgt.kill')) : ''}</div>`;
-        html += `<div class="hint">${esc(t('tgt.expected', { v: (hc.chance / 100 * Math.min(hc.damage, target.hp)).toFixed(2) }))}</div>`;
-      } else {
-        html += `<div style="margin-top:4px" class="hint">${esc(t('tgt.empty'))}</div>`;
-      }
-    }
-    if (ty.indirect && ty.splash === false) html += `<div class="hint">${esc(t('mortar.single'))}</div>`;
-    else if (ty.indirect) {
-      html += `<div class="hint">${esc(t('arty.splash', { n: C.splashDamage }))}</div>`;
-      const friendly = [];   // 오폭 경고는 자기 유닛만 (상대 정보 없음)
-      const center = getUnitAt(st, p.r, p.c);
-      if (center && center.side === me) friendly.push(t('arty.center', { unit: U(center.type) }));
-      for (const [dr, dc] of DIRS) {
-        const o = getUnitAt(st, p.r + dr, p.c + dc);
-        if (o && o.side === me) friendly.push(typeName(o.type));
-      }
-      if (friendly.length) html += `<div class="warn">${esc(t('arty.ff', { list: friendly.join(t('list.sep')) }))}</div>`;
-    }
-    return html;
+    return hc.dice ? diceTipHtml(hc, p, sel.type) : '';   // v15: 직접·간접 사격 모두 주사위 판정이라 dice 정보가 항상 있음
   }
 
   /* ---------- 데모 2 (주사위 개수 방식) 표시 ---------- */
@@ -4013,7 +3950,7 @@
     if (!C.ENABLE_MOVE_ATTACK) return `<li>${t('intro.moveLegacy')}</li>`;
     const costs = Object.keys(C.UNIT_TYPES).filter((k) => C.UNIT_TYPES[k].canAttack && !C.UNIT_TYPES[k].indirect)
       .map((k) => t('intro.costItem', { unit: U(k), n: attackCost(k) })).join(t('intro.listSep'));
-    return `<li>${t('intro.moveMA', { costs })}</li><li>${t('intro.maPenalty', { pen: C.MOVE_ATTACK_PENALTY })}</li>`;
+    return `<li>${t('intro.moveMA', { costs })}</li><li>${t('intro.maPenalty')}</li>`;
   }
   const langButtonsHtml = () => `<div class="seg" role="group" aria-label="${esc(t('lang.label'))}">${['ko', 'en'].map((l) => `<button data-lang="${l}" lang="${l}" class="${getLang() === l ? 'active' : ''}" aria-pressed="${getLang() === l}">${l.toUpperCase()}</button>`).join('')}</div>`;
 
