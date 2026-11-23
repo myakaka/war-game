@@ -1221,12 +1221,12 @@
   }
   /** 상태 하이라이트 층 (아래: 영역 채움·사선·윤곽 / 위: 링·배지) */
   /**
-   * 직사 사격선 (소형 전장처럼 시나리오가 주사위 규칙을 고정한 판 전용): 선택한 내 유닛의 현재 칸에서 상하좌우로 직사 사거리만큼.
+   * 직사 사격선 (주사위 규칙 판, v15부터 모든 시나리오): 선택한 내 유닛의 현재 칸에서 상하좌우로 직사 사거리만큼.
    * 끊김: 지도 끝 · 아군 유닛(막음, 그 칸은 제외) · 시야 안의 적(그 칸까지 포함). 안 보이는 적은 끊지 않음 (존재가 새지 않게). 사거리 끝 칸은 end 로 따로 반환
    */
   function fireLines(st, me, sel) {
     const out = { set: new Set(), ends: [] };
-    if (!sel || sel.side !== me || !GAME_CONFIG.SCENARIO_RULESET || !isDiceRules() || !isDirectType(sel.type) || sel.acted || sel.suppressed > 0) return out;
+    if (!sel || sel.side !== me || !isDiceRules() || !isDirectType(sel.type) || sel.acted || sel.suppressed > 0) return out;
     const max = diceMaxRange(sel.type), vis = visOf(st, me);
     for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       for (let k = 1; k <= max; k++) {
