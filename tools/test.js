@@ -15,6 +15,7 @@ const { E, run, ctx, ROOT } = loadEngine({ quiet: true });
 const C = () => E.GAME_CONFIG;
 const DEFAULT_RULESET = E.rulesetOf();   // v15: 표준은 주사위 규칙. 아래 옛 규칙 시험은 단계 2에서 지울 때까지 classic 을 명시해 계속 돈다
 E.setRuleset('classic');
+const asDice = (fn) => () => { E.setRuleset('dice'); try { return fn(); } finally { E.setRuleset('classic'); } };   // v15: 튜토리얼은 주사위 규칙. 옛 규칙 시험은 단계 2c 에서 지울 때까지 classic
 const SCEN_IDS = E.SCENARIOS.map((s) => s.id);
 /** AI 가 실제로 두는 시나리오 (튜토리얼 실습판은 AI 가 움직이지 않으므로 AI 안개 시험에서 뺌. 연습 판은 포함) */
 const AI_SCEN_IDS = E.SCENARIOS.filter((s) => !s.tutorialSteps).map((s) => s.id);
@@ -1045,7 +1046,7 @@ test('validateTutorialSteps: 22자 넘는 hint, 28자 넘는 sub, 지도 밖 tar
   assert.equal(run('getLang')(), 'ko', '검사 뒤 언어 복원');
 });
 
-test('튜토리얼: 허용된 입력만으로 모든 단계를 끝까지 진행 (엔진을 실제로 돌림), 게임이 끝나지 않음, 모든 beat 도달', () => {
+test('튜토리얼: 허용된 입력만으로 모든 단계를 끝까지 진행 (엔진을 실제로 돌림), 게임이 끝나지 않음, 모든 beat 도달', asDice(() => {
   for (const step of tutSteps()) {
     const r = tutPlay(step, TUT_SOLUTION[step.id]);
     assert.deepEqual(r.refused, [], `${step.id} 거부된 입력`);
@@ -1053,9 +1054,9 @@ test('튜토리얼: 허용된 입력만으로 모든 단계를 끝까지 진행 
     assert.equal(r.prog.done.length, step.beats.length, step.id);
     assert.equal(r.st.winner, null, step.id);
   }
-});
+}));
 
-test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중으로 점유, 8단계 아군도 포병 파편에 맞음·다음 턴 쿨다운) + 결과 말풍선이 결과에 맞게 고름', () => {
+test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중으로 점유, 8단계 아군도 포병 파편에 맞음·다음 턴 쿨다운) + 결과 말풍선이 결과에 맞게 고름', asDice(() => {
   const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
   const rolls = (r) => r.events.filter((e) => e.type === 'diceRoll');
   const two = tutPlay(by.attack, TUT_SOLUTION.attack);
@@ -1089,7 +1090,7 @@ test('튜토리얼: 정해 둔 시드 결과 (2단계 빗나감, 6단계 명중�
   assert.equal(tutPlay(by.retreat, [['endTurn']]).events.filter((e) => e.type === 'diceRoll').length, 1);
   // 모든 단계의 마지막 beat 는 결과 말풍선이 있음 (다음 단계로 넘어가기 전 한 줄)
   for (const s of Object.values(by)) assert.ok(tutPlay(s, TUT_SOLUTION[s.id]).results.some((r) => r.beat === s.beats.length - 1), `${s.id} 마지막 결과`);
-});
+}));
 
 test('튜토리얼: 허용되지 않은 입력은 거부되고 상태가 그대로 (beat 순서대로만, 단계가 끝난 뒤에도 상태 변화 없음)', () => {
   const by = Object.fromEntries(tutSteps().map((s) => [s.id, s]));
@@ -1155,8 +1156,8 @@ test('튜토리얼 문구의 수치는 데이터에서 읽음 (사거리·쿨다
   assert.equal(txt('tb.mortar.2s'), '사거리 2~4칸');
   assert.equal(txt('tb.artillery.2s'), '사거리 2~5칸');
   assert.ok(txt('tr.act.sub').includes('3'));
-  assert.ok(txt('tr.forest').includes('10%'));
-  assert.ok(txt('tr.fog').includes('50%'));
+  assert.ok(txt('tr.forest').includes('+1'), txt('tr.forest'));
+  assert.ok(txt('tr.fog').includes('+2'), txt('tr.fog'));
   assert.ok(txt('tr.cooling').includes('1턴'));
   E.loadScenario('tutorial', { fires: { mortar: { range: 3 }, artillery: { range: 6, cooldown: 2 } }, activations: { def: 4, att: 4 } });
   assert.equal(txt('tb.mortar.2s'), '사거리 2~3칸');

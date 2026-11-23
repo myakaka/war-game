@@ -51,7 +51,7 @@ const TUTORIAL_STEPS = [
     ],
   },
   {
-    id: 'attack', seed: 2,
+    id: 'attack', seed: 14,
     setup: { units: [
       { side: 'ally', type: 'infantry', pos: [4, 3] },
       { side: 'enemy', type: 'infantry', pos: [3, 3] }, { side: 'enemy', type: 'infantry', pos: [0, 6] },
@@ -158,8 +158,8 @@ const TUTORIAL_STEPS = [
     ],
   },
   {
-    // 후퇴와 제압: 엔진 판정 그대로. 상대는 정해진 사격만 (턴 종료 세 번: 밀려남 → 뒤가 막혀 격파 → 박격포 정중앙 제압). 시드 15 에서 세 발 모두 명중
-    id: 'retreat', seed: 15,
+    // 후퇴와 제압: 엔진 판정 그대로. 상대는 정해진 사격만 (턴 종료 세 번: 밀려남 → 뒤가 막혀 격파 → 박격포 정중앙 제압). 시드 1 에서 세 발 모두 명중
+    id: 'retreat', seed: 1,
     setup: { units: [
       { side: 'ally', type: 'infantry', pos: [4, 3] }, { side: 'ally', type: 'infantry', pos: [7, 6] }, { side: 'ally', type: 'infantry', pos: [4, 6] },
       { side: 'enemy', type: 'infantry', pos: [3, 3] }, { side: 'enemy', type: 'infantry', pos: [6, 6] }, { side: 'enemy', type: 'mortar', pos: [1, 6] },

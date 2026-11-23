@@ -4787,7 +4787,7 @@
   }
   /** 튜토리얼 시작 (k 단계). 원래 시나리오·모드는 기억했다가 종료할 때 되돌림 (저장된 시나리오 선택은 건드리지 않음) */
   function startTutorial(k = 0) {
-    setRuleset('classic');   // 튜토리얼은 기본 규칙 전용
+    setRuleset('dice');
     if (!ui.tut && !ui.practice) { ui.tutBack = GAME_CONFIG.SCENARIO_ID; ui.tutMode = ui.mode; }
     ui.practice = false;
     ui.mode = 'ai';
@@ -5072,7 +5072,7 @@
   /** 처음 화면(모드 선택)으로. 진행 중이던 게임·연출은 버리고, 화면 정보도 지움 */
   function goMenu() {
     if (ui.tut || ui.practice) tutCleanup();
-    setRuleset('classic');
+    setRuleset('dice');
     ui.gameId++;
     ui.busy = false;
     clearFx();
