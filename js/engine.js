@@ -368,7 +368,7 @@ function loadScenario(id = DEFAULT_SCENARIO_ID, overrides = null) {
   // 방향성 엄폐 (시나리오 directionalCover): 엄폐물·참호의 방어 보너스가 사격이 들어오는 방향에 따라 붙거나 빠짐 (js/combat.js getTerrainDefenseBonus). 없으면 null → 다른 시나리오 동작 그대로
   C.DIRECTIONAL = s.directionalCover && s.terrainRules ? { rules: JSON.parse(JSON.stringify(s.terrainRules)), cells: JSON.parse(JSON.stringify(s.coverCells || {})), defaultCover: s.defaultCover || 'crater' } : null;
   C.MORTAR_IGNORES_TERRAIN = !!s.mortarIgnoresTerrain;   // 박격포 판정에서 지형 방어 보너스를 0 으로 (고각 사격)
-  C.SCENARIO_RULESET = s.ruleset === 'dice' ? 'dice' : null;   // 시나리오가 규칙 세트를 고정하면 'dice' (데모 2 수치). 없으면 메뉴에서 고른 규칙 세트
+  C.SCENARIO_RULESET = (s.ruleset === 'dice' || s.ruleset === 'classic') ? s.ruleset : null;   // 시나리오가 규칙 세트를 고정하면 'dice' (데모 2 수치). 없으면 메뉴에서 고른 규칙 세트
   // 점수제 (시나리오 objectivePoints 가 있을 때만): 점유한 거점의 점수가 쌓임. 다른 시나리오는 null → 상태·결과 변화 없음
   C.OBJECTIVE_POINTS = s.objectivePoints ? { ...s.objectivePoints } : null;
   C.SCORE_TIMING = s.scoreTiming === 'roundEnd' ? 'roundEnd' : 'ownTurnEnd';

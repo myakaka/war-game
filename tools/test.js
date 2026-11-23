@@ -13,6 +13,8 @@ const loadEngine = require('./load-engine');
 
 const { E, run, ctx, ROOT } = loadEngine({ quiet: true });
 const C = () => E.GAME_CONFIG;
+const DEFAULT_RULESET = E.rulesetOf();   // v15: 표준은 주사위 규칙. 아래 옛 규칙 시험은 단계 2에서 지울 때까지 classic 을 명시해 계속 돈다
+E.setRuleset('classic');
 const SCEN_IDS = E.SCENARIOS.map((s) => s.id);
 /** AI 가 실제로 두는 시나리오 (튜토리얼 실습판은 AI 가 움직이지 않으므로 AI 안개 시험에서 뺌. 연습 판은 포함) */
 const AI_SCEN_IDS = E.SCENARIOS.filter((s) => !s.tutorialSteps).map((s) => s.id);
@@ -3241,4 +3243,12 @@ test('[방향성 엄폐] 참호 통로·모래주머니 정면·구덩이·수�
   assert.equal(C().DIRECTIONAL, null);
   assert.equal(E.getTerrainDefenseBonus({ r: 0, c: 0 }, { r: 5, c: 0 }, 'infantry').reason, E.getTerrainDefenseBonus({ r: 0, c: 0 }, null, 'infantry').reason);
   E.setRuleset('classic'); E.loadScenario(SCEN_IDS[0]);
+});
+
+/* ---------------- v15: 주사위 규칙이 표준 ---------------- */
+test('v15: 기본 규칙 세트는 dice, 데모 2 메뉴 문구는 없음', () => {
+  assert.equal(DEFAULT_RULESET, 'dice');
+  assert.ok(C().RULES_VERSION >= 15);
+  const ko = fs.readFileSync(path.join(ROOT, 'js', 'strings.js'), 'utf8');
+  assert.ok(!/menu\.demo2|dice2\.badge|dice2\.introNote/.test(ko), '데모 2 메뉴·배지·안내 문구 제거');
 });

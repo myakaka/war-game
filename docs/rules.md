@@ -1,4 +1,6 @@
-# 규칙서 (rulesVersion 13)
+# 규칙서 (rulesVersion 15)
+
+> **v15:** 주사위 규칙(옛 '데모 2')이 모든 시나리오의 표준이다. 아래 '명중률 (classic)'·'주사위 (classic)' 줄과 병종 수치의 classic 값은 **튜토리얼만** 쓰는 옛 규칙이며, 직접·간접 사격 판정은 맨 아래 '주사위 규칙' 절이 정한다(단계 2에서 옛 규칙 서술을 지울 예정). 메인 메뉴의 '데모 2' 항목은 없어졌다.
 
 현재 코드 기준. 수치의 원본은 `js/rules.js`, `js/ai-config.js`, `js/scenarios/*.js`. 규칙을 바꾸면 이 문서도 같이 고친다.
 
@@ -97,8 +99,8 @@
 - 진단: `node tools/retreat-diag.js <시나리오> <난이도> [판 수]`(같은 시드), `node tools/retreat-sim-snapshot.js <json>`(simulateGames 스냅샷). 규칙을 바꾸기 전 결과는 `tools/retreat-before-*.json`, 바꾼 뒤는 `tools/retreat-after-*.json`. 값은 사람이 정한다.
 - **옛 저장 판:** 저장 때 `rulesVersion`을 함께 기록하고, 불러올 때 `upgradeSavedState`가 새 필드(제압)를 기본값(없음)으로 두고 `upgraded`를 돌려준다(원본은 안 바꿈, 읽을 수 없는 값도 오류 없이 `state: null`). 메뉴 저장 요약의 `rulesUpdated`와 `rulesNoticeNeeded`가 '규칙이 업데이트되어 후퇴와 제압이 적용됩니다' 안내를 한 번만 보이게 한다. 진행 중인 판 저장·이어하기 자체는 아직 없다(`savedGame` 키만 예약).
 
-## 데모 2 규칙 세트 (주사위, 선택 규칙 — 메인 메뉴 '데모 2')
-메뉴에서 고른 판만 `ruleset: 'dice'`로 돌아간다. 기본(`classic`)과 튜토리얼은 위 규칙 그대로이며, 시드 결과도 같다. 수치는 모두 `RULES.DICE_STATS`, `RULES.DICE_RULES`에 있다.
+## 주사위 규칙 (표준, v15 — 옛 '데모 2')
+모든 시나리오가 `ruleset: 'dice'`(기본값 `RULES.RULESET`)로 돌아간다. 튜토리얼은 시작할 때 `classic`을 고정한다. 수치는 모두 `RULES.DICE_STATS`, `RULES.DICE_RULES`에 있다.
 - **직접 사격:** 쏘는 쪽이 `max(1, 주사위 수 + 병종 보너스 − 체력 보정)`개의 d10(눈 0~9)을 굴린다. 눈이 0이거나 `N` 이상이면 성공이고, 하나라도 성공하면 명중이다. `N = 방어 + 선 칸의 지형 보너스 + (거리 − 1)×distanceStep`이다. 방어는 체력 보정만큼 깎인다(최소 0). 사거리는 `DICE_STATS.maxRange`, 대상은 네 방향에서 처음 만나는 유닛이다.
 - **간접 화력(박격포·포병):** 사거리, 쿨다운, 대상 칸(빈 칸·시야 밖 포함)은 classic과 같다. 달라지는 것은 판정이다.
   - 한 번 쏠 때 주사위를 **한 번만** 굴린다. 개수는 `max(1, 공격 − 체력 보정)`(박격포 2, 포병 3)이다.

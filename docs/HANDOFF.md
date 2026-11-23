@@ -1,3 +1,22 @@
+# HANDOFF (2026-11-23, 뒤) — 주사위 규칙을 표준으로 (rulesVersion 15, 1단계 · 미커밋)
+
+## 끝난 것
+- `RULES.RULESET` 기본값 `'dice'`, `RULES_VERSION` 15. 모든 시나리오가 주사위 규칙(옛 '데모 2')으로 시작. `ui.js` `setRuleset(SCENARIO_RULESET || 'dice')`.
+- 메뉴에서 '데모 2' 항목·시나리오 선택 배지/안내·HUD 배지(`hud-demo2`, index.html)·`ui.demo2` 상태 제거. 문구 `menu.demo2*`, `dice2.badge*`, `dice2.introNote`(ko/en) 삭제.
+- engine.js `SCENARIO_RULESET`가 `'classic'`도 받음. 튜토리얼·연습 판은 `startTutorial`/`startPractice`에서 `setRuleset('classic')` 그대로(옛 규칙 코드가 아직 필요한 이유).
+- `docs/rules.md` 제목 v15, 맨 위 안내, '주사위 규칙 (표준, v15)'로 개명.
+- 검증: test.js 302건 중 279 통과·실패 0(옛 규칙 시험은 파일 맨 위 `E.setRuleset('classic')`로 유지, 기본값 시험 1건 추가). 소형 전장 시드 결과 SAME(trace 해시만 규칙 버전 때문에 DIFF). 새 기준선 `tools/baseline.json` 35건 저장. 헤드리스로 메뉴(3항목, v15)·춘천 판 시작 확인.
+
+## 확정한 결정
+- 규칙 수치와 AI 가중치는 그대로(요청 범위 밖). 춘천·호스토멜·우글레다르·대칭 전장의 밸런스는 직접 플레이로 판단.
+- 한 번에 지우지 않고 1단계(표준 전환) 후 확인, 2단계(옛 규칙 코드 삭제)로 분리.
+
+## 알려진 문제 / 다음
+- 2단계 전에 정할 것: 튜토리얼 문구·단계가 옛 규칙(명중률 %)으로 쓰여 있음. 새 규칙으로 다시 쓸지, 튜토리얼만 옛 규칙으로 남길지.
+- 2단계 범위: classic 분기(`isDiceRules`/`rulesetOf` 약 30곳), `unitStats.classic`, `DICE_SIDES`·`ENABLE_MOVE_ATTACK`, 퍼센트 명중률 UI, 옛 규칙 시험, rules.md의 classic 서술. 지운 뒤 시드 결과가 지우기 전과 같아야 함.
+- 직사 사격선 표시(`ui.js` 1229행)는 아직 `SCENARIO_RULESET`가 있는 시나리오(소형 전장)에서만 나옴. 모든 시나리오로 넓힐지 확인 필요.
+
+---
 # HANDOFF (2026-11-23) — 올리브 상황실 테마 + 메인 메뉴 레이더 (커밋 a2ea4d7, 화면만)
 
 ## 끝난 것

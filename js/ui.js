@@ -1501,11 +1501,10 @@
     const W = ui.wide;
     renderGoalBar();
     if (ui.screen === 'start' || ui.screen === 'curtain' || !me || !st) {   // 가림막·빈 화면: 게임 정보 없음
-      for (const id of ['hud-round', 'hud-turn', 'hud-demo2', 'hud-act', 'hud-goal', 'hud-units', 'hud-reinf']) setChip(id, null);
+      for (const id of ['hud-round', 'hud-turn', 'hud-act', 'hud-goal', 'hud-units', 'hud-reinf']) setChip(id, null);
       $('#hud-objs').innerHTML = '';
       return;
     }
-    setChip('hud-demo2', isDiceRules() ? txSpan(t('dice2.badge')) : null, t('dice2.badgeTip'), 'chip orange');   // 데모 2 규칙 세트 표시 (항상 보임)
     if (ui.deploy) { renderDeployHud(); fitHud(); return; }
     const max = GAME_CONFIG.MAX_ROUNDS;
     const roundFull = t('hud.round', { n: st.round, max });
@@ -3683,7 +3682,7 @@
   /** 새 게임: 직접 배치를 고르면 배치 단계 (AI 모드는 국군만, 2인 모드는 라운드 순서대로 양쪽), 아니면 기본 배치로 바로 시작 */
   function newGame() {
     ui.gameId++;
-    setRuleset(GAME_CONFIG.SCENARIO_RULESET || (ui.demo2 ? 'dice' : 'classic'));   // 규칙 세트는 판을 시작할 때 고정 (게임 도중 바꾸지 않음). 시나리오가 고정한 규칙 세트가 우선
+    setRuleset(GAME_CONFIG.SCENARIO_RULESET || 'dice');   // 규칙 세트는 판을 시작할 때 고정 (게임 도중 바꾸지 않음). 시나리오가 고정한 규칙 세트가 우선
     const admin = hotseat() ? null : loadForces();   // 관리자 편성 (AI 대전만). 있으면 직접 편성보다 우선
     if (GAME_CONFIG.DRAFT) {   // 직접 편성: 고른 편성을 시작 부대로 (기본 편성이면 기본 배치로 되돌림)
       try { setDraft(admin ? null : ui.draftComps || null); } catch (err) { console.error(err); ui.draftComps = null; setDraft(null); }
@@ -4088,7 +4087,6 @@
     const DEF_ITEM = {
       new: { el: 'menu-new', ic: '▶', title: t('menu.new'), desc: t('menu.newDesc') },
       tutorial: { el: 'menu-tut', ic: '✦', title: t('menu.tutorial'), desc: t('menu.tutorialDesc', { n: tutScen ? tutScen.tutorialSteps.length : 0 }) },
-      demo2: { el: 'menu-demo2', ic: '⚀', title: t('menu.demo2'), desc: t('menu.demo2Desc') },
       mapedit: { el: 'menu-mapedit', ic: '✎', title: t('menu.mapEdit'), desc: t('menu.mapEditDesc') },   // 맵 만들기 (항상 맨 아래)   // 데모 2 규칙 세트로 새 게임 (메뉴 모델과 별개: 항상 맨 아래)
     };
     const item = (it) => {
@@ -4100,15 +4098,14 @@
       <div class="radar-blips" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <button class="mute-btn menu-mute" data-mute aria-pressed="false"></button>
       <div class="menu-head"><h1 class="start-title">${esc(t('gameTitle'))}</h1><div class="start-sub">${esc(t('gameSubtitle'))}</div></div>
-      <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${[...model.items, { id: 'demo2', primary: false }, { id: 'mapedit', primary: false }].map(item).join('')}</nav>
+      <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${[...model.items, { id: 'mapedit', primary: false }].map(item).join('')}</nav>
       <div class="menu-two"><button id="menu-rules">${esc(t('menu.rules'))}</button><button id="menu-set">${esc(t('menu.settings'))}</button></div>
       <div class="menu-foot"><span class="lang-inline" role="group" aria-label="${esc(t('lang.label'))}">${langs}</span><span>${esc(t('menu.aiAssets'))}</span><span>v${GAME_CONFIG.RULES_VERSION}</span></div>
     </div>`, () => showMenu(null, false), 'start');
     const modal = $('#modal');
     modal.querySelectorAll('[data-lang]').forEach((b) => { b.onclick = () => setLanguage(b.dataset.lang); });
     renderAudioSettings();
-    if ($('#menu-new')) $('#menu-new').onclick = () => { ui.demo2 = false; showIntro(); };
-    if ($('#menu-demo2')) $('#menu-demo2').onclick = () => { ui.demo2 = true; showIntro(); };
+    if ($('#menu-new')) $('#menu-new').onclick = () => { showIntro(); };
     if ($('#menu-mapedit')) $('#menu-mapedit').onclick = () => showMapEdit();
     if ($('#menu-tut')) $('#menu-tut').onclick = () => startTutorial(0);
     $('#menu-set').onclick = () => showMenuSettings();
@@ -4284,7 +4281,6 @@
       $('#me-play').onclick = () => {
         const rec = save();
         if (!rec) return;
-        ui.demo2 = false;
         applyScenario(rec.id);
         render();
         showIntro(true);
@@ -4470,8 +4466,7 @@
       </section>`;
       showOverlay(`<div class="start-card scen-page${fade ? ' menu-fade' : ''}${sel.open ? ' sheet-open' : ''}">
         <div class="start-top"><button class="link back" id="btn-menu-back">${esc(t('btn.backShort'))}</button>${langButtonsHtml()}</div>
-        <h2 class="start-title">${esc(t('scen.pick'))}${ui.demo2 ? ` <span class="chip orange sm"><span class="tx">${esc(t('dice2.badge'))}</span></span>` : ''}</h2>
-        ${ui.demo2 ? `<div class="hint">${esc(t('dice2.introNote'))}</div>` : ''}
+        <h2 class="start-title">${esc(t('scen.pick'))}</h2>
         <div class="scen-grid" role="radiogroup" aria-label="${esc(t('scen.pick'))}">${SCENARIOS.filter((x) => !x.hidden).map((x) => scenCardHtml(x, sel.open && x.id === sc.id)).join('')}</div>
         ${sheet}
       </div>`, () => draw(), 'start');
@@ -4792,7 +4787,6 @@
   }
   /** 튜토리얼 시작 (k 단계). 원래 시나리오·모드는 기억했다가 종료할 때 되돌림 (저장된 시나리오 선택은 건드리지 않음) */
   function startTutorial(k = 0) {
-    ui.demo2 = false;
     setRuleset('classic');   // 튜토리얼은 기본 규칙 전용
     if (!ui.tut && !ui.practice) { ui.tutBack = GAME_CONFIG.SCENARIO_ID; ui.tutMode = ui.mode; }
     ui.practice = false;
@@ -4851,7 +4845,6 @@
   }
   /** 연습 판: 일반 규칙·AI 그대로 (중립 AI 쉬움). 말풍선 없음, 위쪽 '?' 로 규칙 */
   function startPractice() {
-    ui.demo2 = false;
     if (!ui.tut && !ui.practice) { ui.tutBack = GAME_CONFIG.SCENARIO_ID; ui.tutMode = ui.mode; }
     tutStopTimer();
     ui.tut = null;
@@ -5079,7 +5072,6 @@
   /** 처음 화면(모드 선택)으로. 진행 중이던 게임·연출은 버리고, 화면 정보도 지움 */
   function goMenu() {
     if (ui.tut || ui.practice) tutCleanup();
-    ui.demo2 = false;
     setRuleset('classic');
     ui.gameId++;
     ui.busy = false;

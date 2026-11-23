@@ -460,7 +460,6 @@ const STRINGS = {
     'goal.scene.def': '이 거점을 지키는 게 목표', 'goal.scene.def.s': '적이 차지하지 못하게 막으세요', 'aria.goalScene': '목표 안내. 아무 곳이나 누르면 닫힙니다',
     'tut.bar': '튜토리얼 {n}/{max}', 'aria.tutProgress': '튜토리얼 {n}/{max} 단계',
     // 데모 2 (주사위 개수 방식 직접 사격, js/combat.js)
-    'dice2.badge': '데모 2', 'dice2.badgeTip': '데모 2 규칙: 직접 사격과 간접 화력이 주사위 개수 방식입니다',
     'dice2.head': '주사위 {n}개{note}, {need} 이상이면 성공 (0은 항상 성공)', 'dice2.noteBonus': '{unit} +{n}', 'dice2.noteMin': '최소',
     'stat.dice': '주사위', 'stat.diceBonus': '보너스', 'rules.th.dice': '주사위', 'rules.th.dbonus': '보너스', 'rules.th.drange': '최대 사거리',
     'err.diceStats': '데모 2 수치 표(DICE_STATS) 오류: {where} — {why}', 'err.diceStats.missing': '이 병종의 줄이 없음', 'err.diceStats.int': '0 이상의 정수여야 함',
@@ -471,8 +470,6 @@ const STRINGS = {
     'dice2.ind.head': '주사위 {n}개{note} · 한 번 굴려서 범위 안 모두에게 적용', 'dice2.ind.row': '{who}: {need} 이상 · 약 {p}%', 'dice2.ind.blind': '안 보이는 칸 (+{n})', 'dice2.ind.none': '보이는 유닛이 범위 안에 없습니다',
     'dicelog.diceInd': '주사위 {rolls}', 'res.land': '착탄', 'log.diceUnit': '{who} {pos}: {res}', 'log.diceUnitFull': '{who} {pos}: {res}',
     'dicelog.dice': '주사위 {rolls} (필요 {need}↑)',
-    'menu.demo2': '데모 2', 'menu.demo2Desc': '주사위 개수 방식 직접 사격 규칙으로 시작합니다',
-    'dice2.introNote': '데모 2: 직접 사격과 간접 화력이 주사위 개수 방식입니다. 튜토리얼은 기본 규칙 전용입니다.',
     'rules.dice.1': '직접 사격은 상하좌우 직선만 쏠 수 있고, 각 방향에서 가장 가까운 유닛 하나만 대상입니다. 사이에 유닛(아군·적군)이 있으면 막히고, 지형은 막지 않습니다. 보이는 적만 쏠 수 있습니다.',
     'rules.dice.2': '필요한 숫자 = 방어력 + 지형 보너스({terr}) + 거리 보정(인접 0, 거리가 한 칸 늘 때마다 +{step}).',
     'rules.dice.3': '병종마다 표에 정해진 개수의 주사위(0~{max})를 굴립니다. {bonus}체력이 줄면 개수가 줄지만 최소 1개입니다. 하나라도 0이거나 필요한 숫자 이상이면 명중하고, 0은 항상 성공이며 성공이 여러 개여도 피해는 같습니다.', 'rules.dice.bonusItem': '{unit}은(는) {target}을(를) 쏠 때 +{n}개.',
@@ -1018,7 +1015,6 @@ const STRINGS = {
     'goal.scene.def': 'Hold this stronghold', 'goal.scene.def.s': "Don't let the enemy take it", 'aria.goalScene': 'Goal hint. Press anywhere to close',
     'tut.bar': 'Tutorial {n}/{max}', 'aria.tutProgress': 'Tutorial step {n} of {max}',
     // Demo 2 (dice-count direct fire, js/combat.js)
-    'dice2.badge': 'Demo 2', 'dice2.badgeTip': 'Demo 2 rules: direct fire and indirect fire use a dice-count roll',
     'dice2.head': '{n} dice{note}, {need}+ succeeds (0 always succeeds)', 'dice2.noteBonus': '{unit} +{n}', 'dice2.noteMin': 'minimum',
     'stat.dice': 'Dice', 'stat.diceBonus': 'Bonus', 'rules.th.dice': 'Dice', 'rules.th.dbonus': 'Bonus', 'rules.th.drange': 'Max range',
     'err.diceStats': 'Demo 2 stats table (DICE_STATS) error: {where} - {why}', 'err.diceStats.missing': 'no row for this unit type', 'err.diceStats.int': 'must be an integer of 0 or more',
@@ -1029,8 +1025,6 @@ const STRINGS = {
     'dice2.ind.head': '{n} dice{note} · rolled once for everything in the blast', 'dice2.ind.row': '{who}: {need}+ · about {p}%', 'dice2.ind.blind': 'Unseen tile (+{n})', 'dice2.ind.none': 'No visible units in the blast',
     'dicelog.diceInd': 'dice {rolls}', 'res.land': 'landed', 'log.diceUnit': '{who} {pos}: {res}', 'log.diceUnitFull': '{who} {pos}: {res}',
     'dicelog.dice': 'dice {rolls} (need {need}+)',
-    'menu.demo2': 'Demo 2', 'menu.demo2Desc': 'Start with the dice-count direct fire rules',
-    'dice2.introNote': 'Demo 2: direct fire and indirect fire use a dice-count roll. The tutorial covers the basic rules only.',
     'rules.dice.1': 'Direct fire goes in straight lines only (up, down, left, right). Only the nearest unit in each direction can be targeted. Any unit (friend or foe) in between blocks the line; terrain does not. You can only fire at enemies you can see.',
     'rules.dice.2': 'Needed number = defense + terrain bonus ({terr}) + distance (adjacent 0, +{step} for each extra tile).',
     'rules.dice.3': 'Each unit type rolls the number of dice set in its table row (0-{max}). {bonus}Fewer dice when damaged, but never fewer than 1. If any die shows 0 or at least the needed number, it hits. 0 always succeeds, and several successes do not add damage.', 'rules.dice.bonusItem': '{unit} rolls +{n} dice against {target}.',
