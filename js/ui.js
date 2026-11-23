@@ -4097,6 +4097,7 @@
     };
     const langs = ['ko', 'en'].map((l) => `<button class="link" data-lang="${l}" lang="${l}" aria-pressed="${getLang() === l}">${l.toUpperCase()}</button>`).join('<span aria-hidden="true">·</span>');
     showOverlay(`<div class="start-card menu-card${fade ? ' menu-fade' : ''}">
+      <div class="radar-blips" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <button class="mute-btn menu-mute" data-mute aria-pressed="false"></button>
       <div class="menu-head"><h1 class="start-title">${esc(t('gameTitle'))}</h1><div class="start-sub">${esc(t('gameSubtitle'))}</div></div>
       <nav class="menu-list" aria-label="${esc(t('gameTitle'))}">${[...model.items, { id: 'demo2', primary: false }, { id: 'mapedit', primary: false }].map(item).join('')}</nav>
