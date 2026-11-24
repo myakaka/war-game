@@ -460,7 +460,9 @@ const RICH_MAP = (() => {
     if (o.art.cover) {
       const files = o.art.cover.files, CV = VIS.cover || {};
       const skins = ['crater', 'bush', 'sandbag'];
-      if (skins.every((k) => decorImg[files[k]])) {
+      const need = new Set(skins);   // 시나리오가 칸에 지정한 새 종류(바위·담장 등)도 그림이 있어야 그림으로 그림 (하나라도 없으면 기호 표시)
+      for (const cell of Object.values(o.art.cover.cells || {})) if (cell.skin) need.add(cell.skin);
+      if ([...need].every((k) => decorImg[files[k]])) {
         used.cover = true;
         for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
           if (key(r, c) !== 'cover') continue;

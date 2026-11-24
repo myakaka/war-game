@@ -27,6 +27,12 @@ SCENARIOS.push({
     sandbag: { defense: 2, conceal: true,  directional: 'facing' },
     crater:  { defense: 2, conceal: true,  directional: 'all' },
     bush:    { defense: 1, conceal: true,  directional: 'all' },
+    // 새 엄폐물 종류 (그림 파일 준비 뒤 coverCells 에 지정해 쓴다). rotation 0 = 위쪽(N)이 정면, 시계 방향
+    rock:    { defense: 3, conceal: true,  directional: 'facing' },   // 바위: 단단한 정면 엄폐
+    wreck:   { defense: 3, conceal: true,  directional: 'facing' },   // 부서진 차
+    wall:    { defense: 2, conceal: true,  directional: 'facing' },   // 담장
+    ditch:   { defense: 2, conceal: true,  directional: 'all' },      // 도랑
+    rubble:  { defense: 2, conceal: true,  directional: 'all' },      // 잔해
   },
   coverCells: SKIRMISH_COVER_CELLS,   // 엄폐물 칸별 종류·방향. 지정이 없는 칸은 defaultCover
   defaultCover: 'crater',

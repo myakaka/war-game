@@ -89,6 +89,8 @@ const TERRAIN_TYPES = {
   // 참호전 시나리오용 (concealment 시나리오에서 conceals 칸의 유닛이 은폐됨). 방어 보너스(주사위) = -hitMod / terrainDivisor: 엄폐물 +2, 참호 +4. 이동 비용은 평지와 같음
   'e': { key: 'cover',    moveCost: 1, hitMod: -20, conceals: true, nameKey: 'terrain.cover', symbol: 'cover' },
   'T': { key: 'trench',   moveCost: 1, hitMod: -40, conceals: true, nameKey: 'terrain.trench', symbol: 'trench' },
+  // 철조망: 방어·은폐 없음, 지나가려면 이동력 3 (길을 막고 돌아가게 만드는 장애물). 바위·잔해·담장·도랑·부서진 차는 엄폐물 'e' 의 종류(skin)라 시나리오 terrainRules 에서 정함
+  'x': { key: 'wire',     moveCost: 3, hitMod: 0, nameKey: 'terrain.wire', symbol: 'wire' },
 };
 
 /*

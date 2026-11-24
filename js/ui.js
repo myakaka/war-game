@@ -32,6 +32,7 @@
       city:     { bg: '#D2C6B2', mark: '#A59580' },
       cover:    { bg: '#E3DCBD', mark: '#8C7A55', fill: '#B8A67C' },
       trench:   { bg: '#CDBE9B', mark: '#6B573A', fill: '#8E7A55' },
+      wire:     { bg: '#DDD5B5', mark: '#5A5648', fill: '#8A8574' },
     },
     grid: { thin: 'rgba(110,90,60,0.22)', thinW: 0.6, thick: 'rgba(110,90,60,0.5)', thickW: 1.3, every: 4 },
     tipOffset: 16,   // 툴팁: 커서에서 떨어지는 거리 (px)
@@ -105,12 +106,18 @@
     overlay: { runway: { fill: '#9C9A92', edge: '#7E7C75', line: '#FFFFFF', lineW: 1.6, dash: '5 4', halfW: 11 } },
     /* 확대 중 미니맵: 지도 짧은 변 대비 크기, 지형 색(윤곽용), 중립 거점, 보이는 영역 사각형 */
     minimap: { frac: 0.2, neutral: '#8a8f99', view: '#ffd34d',
-      terrain: { plain: '#e3dcbd', city: '#a39886', mountain: '#8d826c', river: '#7fa6c4', forest: '#88a46a', paddy: '#b3c79e', cover: '#b8a67c', trench: '#8e7a55' } },
+      terrain: { plain: '#e3dcbd', city: '#a39886', mountain: '#8d826c', river: '#7fa6c4', forest: '#88a46a', paddy: '#b3c79e', cover: '#b8a67c', trench: '#8e7a55', wire: '#8a8574' } },
     scenMap: 76,
     scenPrev: { w: 480, h: 270, period: 8 },   // 시나리오 카드 미리보기 canvas 크기, 지형 그림 한 장이 덮는 칸 수   // 시나리오 카드의 지도 미리보기 크기 (px)
     /* PC 리치 테마 (그림 세트가 있는 시나리오, 넓은 화면만). 길이 단위: 칸 */
     rich: {
       maxBgPx: 4096,   // 지도 바탕 canvas 한 변 상한 (확대 배율 × dpr 반영)
+      // 일반 지형 칸 위 유닛 표시 (은폐 규칙과 무관, 연출만). scale 크기 · dark 밝기 · alpha 투명도 · fade 아래쪽 사라짐 비율(물에 잠김). 참호·엄폐물은 시나리오 art.visual.units 가 따로 정함
+      terrainLook: {
+        forest: { scale: 0.92, dark: 0.9, alpha: 0.92 }, city: { scale: 0.92, dark: 0.9 }, mountain: { scale: 0.94, dark: 0.95 },
+        paddy: { fade: 0.1 }, river: { fade: 0.25, alpha: 0.92 },
+      },
+      settleMs: 280,   // 이동을 마치고 칸 표시로 바뀌는 시간 (ms, 배속 반영)
       // by: 'h' 높이 / 'w' 폭 기준으로 size 칸 (비율 유지). ring: 링 반지름
       units: {
         armor: { img: 'armor', by: 'h', size: 1.19, ring: 0.61 },
@@ -325,6 +332,9 @@
         break;
       case 'trench':   // 참호: 지그재그 도랑
         g += `<path d="M5 14h10v12h10V14h10" fill="none" stroke="${T.fill}" stroke-width="7" stroke-linejoin="miter"/><path d="M5 14h10v12h10V14h10" fill="none" stroke="${T.mark}" stroke-width="1.4" stroke-dasharray="3 2.5"/>`;
+        break;
+      case 'wire':   // 철조망: 가시 달린 지그재그 선 두 줄
+        for (const y of [14, 26]) g += `<path d="M5 ${y}l5-5 5 10 5-10 5 10 5-10 5 5" fill="none" stroke="${T.mark}" stroke-width="1.3" stroke-linejoin="round"/>`;
         break;
       default: break;
     }
@@ -750,17 +760,25 @@
   const coverOf = (u) => (terrainAt(u.r, u.c).key === 'cover' ? RICH_MAP.coverChoice(scenArt(), u.r, u.c) : null);
   /** u 가 은폐 지형 위에 있는가: 'trench' | 'crater' | 'bush' | 'sandbag' | null */
   function coverKindOf(u) {
-    if (!GAME_CONFIG.CONCEALMENT || !rich.on) return null;
+    if (!rich.on) return null;
     const key = terrainAt(u.r, u.c).key;
-    if (key === 'trench') return 'trench';
-    if (key === 'cover') { const c = coverOf(u); return c ? c.skin : 'crater'; }
-    return null;
+    if (GAME_CONFIG.CONCEALMENT) {
+      if (key === 'trench') return 'trench';
+      if (key === 'cover') { const c = coverOf(u); return c ? c.skin : 'crater'; }
+    }
+    return DESIGN.rich.terrainLook[key] ? key : null;   // 숲·도시·산·논·강: 은폐 규칙과 무관한 표시만
   }
   /** concealed: 은폐 표현 / 아니면 노출 표현. 해당 없으면 LOOK0 (visual.units 가 없으면 아무것도 안 바꿈) */
   function richUnitLook(u) {
-    const V = ((scenArt() || {}).visual || {}).units, kind = coverKindOf(u);
-    if (!V || !kind) return LOOK0;
+    const V = ((scenArt() || {}).visual || {}).units;
+    let kind = coverKindOf(u);
+    if (!kind) return LOOK0;
+    const TL = DESIGN.rich.terrainLook[kind];
+    if (TL) return { ...LOOK0, scale: TL.scale ?? 1, dark: TL.dark ?? 1, alpha: TL.alpha ?? 1, fade: TL.fade ?? 0 };
+    if (!V) return LOOK0;
     const ring = !!u.exposed;   // 노출은 위치가 드러난 것일 뿐이라 은폐 때의 그림은 그대로, 붉은 테두리만 추가
+    const own = kind;
+    kind = { rock: 'sandbag', wall: 'sandbag', wreck: 'sandbag', ditch: 'crater', rubble: 'crater' }[kind] || kind;   // 새 엄폐물 종류는 비슷한 기존 표시를 빌림 (바위·담장·차: 뒤에 숨기, 도랑·잔해: 낮게 파고들기)
     const scale = { trench: V.scaleInTrench, crater: V.scaleInCrater, bush: V.scaleInBush, sandbag: V.scaleInSandbag }[kind] ?? 1;
     const dark = kind === 'trench' || kind === 'crater' ? (V.darkenInTrench ?? 1) : 1;
     const L = { ...LOOK0, scale, dark };
@@ -777,7 +795,7 @@
     if (kind === 'crater') L.fade = V.fadeBottomCrater ?? 0;
     if (kind === 'bush') { L.alpha = V.bushUnitAlpha ?? 1; L.ov = V.bushOverlayAlpha ?? 0; }
     if (kind === 'sandbag') {
-      L.ov = V.sandbagOverlayAlpha ?? 1;   // 유닛 위에 덮는 모래주머니 투명도 (0 이면 덮지 않음)
+      L.ov = own === 'sandbag' ? (V.sandbagOverlayAlpha ?? 1) : 0;   // 유닛 위에 덮는 모래주머니 투명도 (0 이면 덮지 않음). 바위·담장·차는 덮개 없음
       const c = coverOf(u), off = V.sandbagOffset ?? 0, th = ((c ? c.rot : 0) * Math.PI) / 180;
       L.dx = -Math.sin(th) * off; L.dy = Math.cos(th) * off;   // 오목한 쪽 = rotation 0 이면 아래(S), 시계 방향으로 따라 돎
     }
@@ -829,6 +847,15 @@
       ul.style.cssText = lookStyle(L, R);
       if (ov) ov.style.opacity = String(Math.max(0, L.ov));
     }, token);
+  }
+  /** 이동을 마친 유닛이 칸 표시(참호·숲·도시 등)로 부드럽게 바뀜 (연출만. 평지거나 보이지 않으면 아무것도 안 함) */
+  async function settleLook(id) {
+    const u = ui.view && getUnit(ui.view, id);
+    if (!u || !rich.on || ui.reduceMotion) return;
+    const L = richUnitLook(u);
+    if (L === LOOK0) return;
+    render();
+    await lookTween(u, LOOK0, L, DESIGN.rich.settleMs);
   }
   const richSvg = (inner, aria = 'aria-hidden="true"') => `<svg viewBox="0 0 40 40" ${aria} focusable="false" overflow="visible">${inner}</svg>`;
   /** 연출 층 유닛 (이동·등장·파괴) */
@@ -2674,6 +2701,8 @@
       await animateMove({ side: b0.side, type: b0.type, hp: b0.hp, full: [mv.from, ...travelledPath(reach, mv.to)], seen: () => true, own: true });
       if (token !== ui.gameId) return;
       ui.anim.hideUnits.delete(id);
+      await settleLook(id);
+      if (token !== ui.gameId) return;
       const cap = events.find((e) => e.type === 'captured');
       if (cap) await captureFx(cap, st);
       if (token !== ui.gameId) return;
@@ -3380,6 +3409,8 @@
           await animateMove({ side: u0.side, type: u0.type, hp: u0.hp, full: [mv.from, ...travelledPath(reach, mv.to)], seen: (p) => visPrev.has(idx(p.r, p.c)), own: false });
           if (token !== ui.gameId) return;
           ui.anim.hideUnits.delete(a.unitId);
+          await settleLook(a.unitId);
+          if (token !== ui.gameId) return;
         }
         const cap = moveEvents.find((e) => e.type === 'captured');
         if (cap && visPrev.has(idx(cap.pos.r, cap.pos.c))) await captureFx(cap, a.moveSnapshot);
