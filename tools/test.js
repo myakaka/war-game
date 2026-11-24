@@ -3050,7 +3050,7 @@ test('[참호전] 엄폐물·참호 안의 적은 보이지 않고, 정찰 2칸�
   assert.equal(E.isHiddenFrom(st, 'ua', st.units[0]), false, '평지의 r1 은 숨지 않음');
   st.units.push({ id: 'r2', side: 'ru', type: 'recon', r: 5, c: 3, hp: 4, moved: false, acted: false });   // (5,3)→(3,3) = 2
   assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '정찰 2칸 안');
-  st.units[3].r = 6;   // 거리 3
+  st.units[3].r = 0;   // 거리 3 ((0,3) 평지. v16 에서 (6,3) 이 도랑이 되어 바꿈)
   assert.equal(E.isHiddenFrom(st, 'ru', u1), true, '정찰 2칸 밖 (3칸은 안 보임)');
   st.units[0].c = 2;   // 보병 r1 이 (3,2)로 → (3,3) 과 인접 (1칸)
   assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '다른 병종은 인접(1칸)에서 보임');

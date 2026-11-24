@@ -563,7 +563,7 @@ body[data-screen="start"] #stage, body[data-screen="curtain"] #stage { align-ite
 .conceal-badge > span { background: #3F5F3A; }                 /* 은폐 표식: 내 유닛 */
 .conceal-badge.exposed > span { background: #B45309; }         /* 노출 표식: 사격·막은 뒤 소유자 다음 턴 시작까지 (적 유닛도 표시) */
 #board.rich .cell .ter.ter-cover, #board.rich .cell .ter.ter-trench { display: block; }
-#board.rich.art-trench .cell .ter.ter-trench, #board.rich.art-cover .cell .ter.ter-cover { display: none; }   /* 그림이 실제로 그려졌으면 기호 타일은 숨김 */
+#board.rich.art-trench .cell .ter.ter-trench, #board.rich.art-cover .cell .ter.ter-cover, #board.rich.art-wire .cell .ter.ter-wire { display: none; }   /* 그림이 실제로 그려졌으면 기호 타일은 숨김 */
 .dbg-cell { position: absolute; left: 1px; top: 1px; z-index: 30; pointer-events: none; font: 700 10px/1.1 system-ui, sans-serif; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; white-space: nowrap; }
 .dbg-cell i { display: block; font-style: normal; font-weight: 600; color: #ffe08a; }   /* 리치 지도에 엄폐물·참호 그림이 없어 기호 타일을 그대로 보임 */
 .supp-badge > span { background: #7F1D1D; }   /* 제압 표식: 시야 안의 유닛 */

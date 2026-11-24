@@ -449,7 +449,7 @@ const RICH_MAP = (() => {
     }
 
     // 6c. 참호·엄폐물 그림 (art.trench / art.cover 가 있는 시나리오만). 규칙과 무관한 바탕 그림. 그림이 없으면 건너뜀 → 기호 표시가 남음
-    const used = { trench: false, cover: false };
+    const used = { trench: false, cover: false, wire: false };
     const VIS = o.art.visual || {};
     const ovr = (r, c) => (VIS.cellOverrides || {})[`${r},${c}`] || {};
     const tuneOf = (base, o2) => Object.assign({ dx: 0, dy: 0, scale: 1 }, base, o2.dx != null || o2.dy != null || o2.scale != null ? { dx: o2.dx || 0, dy: o2.dy || 0, scale: o2.scale == null ? 1 : o2.scale } : null);
@@ -518,6 +518,20 @@ const RICH_MAP = (() => {
         }
       } else warnOnce('엄폐물 그림 파일이 모두 있지 않아 기호 표시로 대체');
     }
+    // 6d. 철조망 그림 (art.wire { file, scale }): 철조망 칸마다 한 장, 가로·세로는 칸 좌표 해시로 (항상 같은 모양). 없으면 기호 표시
+    if (o.art.wire && decorImg[o.art.wire.file]) {
+      const im = decorImg[o.art.wire.file], ar = (im.naturalWidth || im.width) / (im.naturalHeight || im.height), w = Math.round(cellPx * (o.art.wire.scale || 1.1)), hh = Math.round(w / ar), layer = shrunk(im, w, hh);
+      used.wire = true;
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        if (key(r, c) !== 'wire') continue;
+        const h = cellHash(r * 5 + 1, c * 11 + 2);
+        ctx.save();
+        ctx.translate((c + 0.5) * cellPx, (r + 0.5) * cellPx);
+        ctx.rotate(((h >>> 3) % 2 ? 0 : 180) * Math.PI / 180);
+        ctx.drawImage(layer, -layer.width / 2, -layer.height / 2);
+        ctx.restore();
+      }
+    }
     o.used = used;
 
     // 7. 활주로 (규칙상 표식일 뿐: 이동·지형·시야와 무관)
@@ -569,6 +583,7 @@ const RICH_MAP = (() => {
     }
     for (const v of art.groundPatches || []) if (v && v.src && !seen.has(v.src)) { seen.add(v.src); out.push({ kind: 'decor', key: v.src, src: v.src, optional: true }); }   // 땅 질감 섞기: 없으면 건너뜀
     for (const src of Object.values((art.decals && art.decals.files) || {})) if (!seen.has(src)) { seen.add(src); out.push({ kind: 'decor', key: src, src, optional: true }); }   // 전장 흔적: 없으면 건너뜀
+    if (art.wire && art.wire.file && !seen.has(art.wire.file)) { seen.add(art.wire.file); out.push({ kind: 'decor', key: art.wire.file, src: art.wire.file, optional: true }); }
     for (const grp of [art.trench, art.cover]) {   // 참호·엄폐물 그림 (참호전): 없으면 건너뛰고 기호 표시 (optional)
       for (const src of Object.values((grp && grp.files) || {})) if (!seen.has(src)) { seen.add(src); out.push({ kind: 'decor', key: src, src, optional: true }); }
     }

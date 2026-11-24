@@ -1,16 +1,22 @@
 'use strict';
 /* =====================================================================
    시나리오: 소형 전장 (참호전, 가상)
-   10×10 칸, 양쪽 6기(보병 3·정찰 2·박격포 1). 지형은 평지·엄폐물(e, 방어 +2)·참호(T, 방어 +4). 거점 없음.
+   10×10 칸, 양쪽 6기(보병 3·정찰 2·박격포 1). 지형은 평지·엄폐물(e, 종류별 방어 +1~+3)·참호(T, 방어 +4)·철조망(x, 이동 3). 거점 없음.
    concealment: 엄폐물·참호 칸의 유닛은 적에게 보이지 않음(은폐). 정찰 시야 반경 안이거나 사격해서 노출된 때만 보임.
    12라운드가 끝났을 때 남은 총 체력이 많은 쪽이 이기고, 같으면 생존 유닛이 많은 쪽 (victory: roundLimitAttrition). 전멸하면 즉시 종료.
    symmetric: true — 지형·배치·승리 조건이 180도 회전 대칭 (칸 (r,c) ↔ (9-r, 9-c), 좌표는 0부터).
    ===================================================================== */
-// 엄폐물 칸의 종류·방향 (규칙과 그림이 같이 읽음). skin: crater | bush | sandbag, rotation: 0/90/180/270 시계 방향. 모래주머니는 rotation 0 에서 위쪽(N)으로 볼록 = 정면
+// 엄폐물 칸의 종류·방향 (규칙과 그림이 같이 읽음). skin: crater | bush | sandbag | rock | wreck | wall | rubble | ditch, rotation: 0/90/180/270 시계 방향. 모래주머니는 rotation 0 에서 위쪽(N)으로 볼록 = 정면
 const SKIRMISH_COVER_CELLS = {
   '2,1': { skin: 'sandbag', rotation: 180 }, '7,8': { skin: 'sandbag', rotation: 0 },
   '2,6': { skin: 'bush', rotation: 0 }, '7,3': { skin: 'bush', rotation: 90 },
   '4,7': { skin: 'crater', rotation: 0 }, '5,2': { skin: 'crater', rotation: 180 },
+  // v16 새 종류: 점대칭 쌍 (r,c) ↔ (9-r,9-c), 방향은 180도 돌린 값
+  '3,7': { skin: 'rock', rotation: 180 }, '6,2': { skin: 'rock', rotation: 0 },
+  '4,5': { skin: 'wreck', rotation: 180 }, '5,4': { skin: 'wreck', rotation: 0 },
+  '4,1': { skin: 'wall', rotation: 180 }, '5,8': { skin: 'wall', rotation: 0 },
+  '2,8': { skin: 'rubble', rotation: 0 }, '7,1': { skin: 'rubble', rotation: 180 },
+  '3,6': { skin: 'ditch', rotation: 0 }, '6,3': { skin: 'ditch', rotation: 180 },
 };
 SCENARIOS.push({
   id: 'skirmish',
@@ -57,12 +63,12 @@ SCENARIOS.push({
   map: [
     '..........',
     '..........',
-    '.e....e...',
-    '..TT......',
-    '...TT..e..',
-    '..e..TT...',
-    '......TT..',
-    '...e....e.',
+    '.e....e.e.',
+    '..TTxxee..',
+    '.e.TTe.e..',
+    '..e.eTT.e.',
+    '..eexxTT..',
+    '.e.e....e.',
     '..........',
     '..........',
   ],
@@ -110,6 +116,7 @@ SCENARIOS.push({
     terrain: {
       plain: 'assets/terrain/ground_base.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
     },
+    wire: { file: 'assets/terrain/wire.png', scale: 1.55 },   // 철조망 칸 그림 (없으면 기호)
     // 땅 질감 섞기: 기본 회갈색 흙 위에 자갈·그을린 땅·옛 초록 풀밭을 노이즈 무늬로 (share = 평지 면적 비율, period = 무늬 크기 배율)
     groundPatches: [
       { src: 'assets/terrain/ground_gravel.jpg', share: 0.22, period: 1.3 },
@@ -137,7 +144,7 @@ SCENARIOS.push({
     visual: {
       trench: { edgeFeather: true, featherRatio: 0.22, tiles: { straight_a: { dx: 0, dy: 0, scale: 1 }, straight_b: { dx: 0, dy: 0, scale: 1 }, straight_v: { dx: 0, dy: 0, scale: 1 }, corner: { dx: 0, dy: 0, scale: 1 }, end: { dx: 0, dy: 0, scale: 1 } } },
       cover: { crater: { dx: 0, dy: 0, scale: 1 }, bush: { dx: 0, dy: 0, scale: 1 }, sandbag: { dx: 0, dy: 0, scale: 1.25 },
-        rock: { dx: 0, dy: 0, scale: 1 }, rubble: { dx: 0, dy: 0, scale: 1.05 }, wall: { dx: 0, dy: 0, scale: 1.1 }, ditch: { dx: 0, dy: 0, scale: 1.05 }, wreck: { dx: 0, dy: 0, scale: 0.4 } },   // wreck: 그림이 세로로 긴 모양(폭 기준 크기라 작게)
+        rock: { dx: 0, dy: 0, scale: 1 }, rubble: { dx: 0, dy: 0, scale: 1.05 }, wall: { dx: 0, dy: 0, scale: 1.5 }, ditch: { dx: 0, dy: 0, scale: 1.05 }, wreck: { dx: 0, dy: 0, scale: 1.25 } },
       // 참호·엄폐물 칸 위 내 유닛의 표시 (은폐 중일 때. 노출되면 평지처럼 원래 크기). 체력·배지는 그대로, 클릭 영역도 그대로
       //  scaleIn* 배율 · darkenInTrench 밝기 · fadeBottom* 아래쪽을 사라지게 하는 비율 · sandbagOffset 모래주머니 오목한 쪽으로 치우침(칸 크기 배) · sandbagOverlayAlpha 유닛 위에 덮는 모래주머니 투명도(0~1) · trenchOffset 참호 그림 종류별 통로 중심(그림이 돈 만큼 같이 돎)
       //  bushUnitAlpha 덤불 속 유닛 투명도 · bushOverlayAlpha 유닛 위에 덮는 덤불 투명도 · popup 사격할 때 튀어오름(up/down 초, firstRevealPulse 처음 드러날 때 깜빡임)

@@ -647,6 +647,7 @@
     // 참호·엄폐물 그림이 실제로 그려졌을 때만 그 칸의 기호 타일을 숨김 (그림이 없으면 기호가 남음)
     boardEl.classList.toggle('art-trench', !!(po.used && po.used.trench));
     boardEl.classList.toggle('art-cover', !!(po.used && po.used.cover));
+    boardEl.classList.toggle('art-wire', !!(po.used && po.used.wire));
   }
   /** 화면 배치가 바뀌었을 때: 테마 판정이 달라졌으면 전환, 아니면 바탕만 (연속 변화는 0.2초 뒤 한 번) */
   function themeOnLayout() {

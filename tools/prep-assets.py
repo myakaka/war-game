@@ -15,6 +15,7 @@ GROUND_PX = 768  # 땅 질감 한 변 (plain.jpg 와 같은 크기)
 SPRITES = ['assets/cover/cover_rock.png', 'assets/cover/cover_rubble.png', 'assets/cover/cover_wall.png',
            'assets/cover/cover_ditch.png', 'assets/cover/cover_wreck.png', 'assets/terrain/wire.png',
            'assets/decal/decal_scorch.png', 'assets/decal/decal_crater.png', 'assets/decal/decal_tracks.png', 'assets/decal/decal_debris.png']
+ROTATE = {'assets/cover/cover_wreck.png': 90}   # 세로로 긴 부서진 차를 가로로 (담장처럼 위쪽이 정면)
 GROUNDS = ['assets/terrain/ground_base.png', 'assets/terrain/ground_gravel.png', 'assets/terrain/ground_dark.png']
 
 
@@ -44,6 +45,7 @@ def do_sprite(rel: str):
     im = key_magenta(Image.open(RAW / p.relative_to(ROOT / 'assets')).convert('RGB'))
     bb = im.getchannel('A').point(lambda v: 255 if v > 8 else 0).getbbox()
     if bb: im = im.crop(bb)
+    if rel in ROTATE: im = im.rotate(ROTATE[rel], expand=True)   # 기본 방향(rotation 0)에서 정면이 위쪽(N)이 되도록 눕힘
     s = MAXPX / max(im.size)
     if s < 1: im = im.resize((round(im.width * s), round(im.height * s)), Image.LANCZOS)
     im.save(p, optimize=True)
