@@ -108,7 +108,18 @@ SCENARIOS.push({
   overlays: [],
   art: {
     terrain: {
-      plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
+      plain: 'assets/terrain/ground_base.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
+    },
+    // 땅 질감 섞기: 기본 회갈색 흙 위에 자갈·그을린 땅·옛 초록 풀밭을 노이즈 무늬로 (share = 평지 면적 비율, period = 무늬 크기 배율)
+    groundPatches: [
+      { src: 'assets/terrain/ground_gravel.jpg', share: 0.22, period: 1.3 },
+      { src: 'assets/terrain/ground_dark.jpg', share: 0.07, period: 0.7 },
+      { src: 'assets/terrain/plain.jpg', share: 0.08, period: 1.6 },
+    ],
+    // 전장 흔적 장식 (평지 칸에만, 규칙과 무관). sizes = 칸 폭의 배수, density = 평지 칸 중 놓이는 비율
+    decals: {
+      files: { scorch: 'assets/decal/decal_scorch.png', crater: 'assets/decal/decal_crater.png', tracks: 'assets/decal/decal_tracks.png', debris: 'assets/decal/decal_debris.png' },
+      sizes: { scorch: 0.75, crater: 0.55, tracks: 1.4, debris: 1.1 }, density: 0.13, alpha: 0.78,   // 진짜 엄폐물 구덩이로 오해하지 않게 작고 흐리게
     },
     // 참호·엄폐물 그림 (PC 리치 테마 전용 장식, 규칙과 무관). 파일이 없으면 기호 표시로 대체. 칸 좌표는 화면과 같은 0부터 (행,열)
     trench: { files: {
@@ -116,13 +127,17 @@ SCENARIOS.push({
       corner: 'assets/terrain/trench_corner_left_bottom.png', end: 'assets/terrain/trench_end_open_top.png',
     } },
     cover: {
-      files: { crater: 'assets/cover/cover_crater.png', bush: 'assets/cover/cover_bush.png', sandbag: 'assets/cover/cover_sandbag.png' },
+      files: {
+        crater: 'assets/cover/cover_crater.png', bush: 'assets/cover/cover_bush.png', sandbag: 'assets/cover/cover_sandbag.png',
+        rock: 'assets/cover/cover_rock.png', rubble: 'assets/cover/cover_rubble.png', wall: 'assets/cover/cover_wall.png', ditch: 'assets/cover/cover_ditch.png', wreck: 'assets/cover/cover_wreck.png',
+      },
       cells: SKIRMISH_COVER_CELLS,   // 규칙 데이터(coverCells)와 같은 객체: 그림과 방향성 엄폐 규칙이 같은 종류·방향을 읽음
     },
     // 그림 보정: dx·dy = 칸 크기 비율 이동, scale = 배율. cellOverrides 는 '행,열' 칸만 덮어씀 { dx, dy, scale, rotation, tint: 'rgba(...)' }
     visual: {
-      trench: { edgeFeather: true, tiles: { straight_a: { dx: 0, dy: 0, scale: 1 }, straight_b: { dx: 0, dy: 0, scale: 1 }, straight_v: { dx: 0, dy: 0, scale: 1 }, corner: { dx: 0, dy: 0, scale: 1 }, end: { dx: 0, dy: 0, scale: 1 } } },
-      cover: { crater: { dx: 0, dy: 0, scale: 1 }, bush: { dx: 0, dy: 0, scale: 1 }, sandbag: { dx: 0, dy: 0, scale: 1.25 } },
+      trench: { edgeFeather: true, featherRatio: 0.22, tiles: { straight_a: { dx: 0, dy: 0, scale: 1 }, straight_b: { dx: 0, dy: 0, scale: 1 }, straight_v: { dx: 0, dy: 0, scale: 1 }, corner: { dx: 0, dy: 0, scale: 1 }, end: { dx: 0, dy: 0, scale: 1 } } },
+      cover: { crater: { dx: 0, dy: 0, scale: 1 }, bush: { dx: 0, dy: 0, scale: 1 }, sandbag: { dx: 0, dy: 0, scale: 1.25 },
+        rock: { dx: 0, dy: 0, scale: 1 }, rubble: { dx: 0, dy: 0, scale: 1.05 }, wall: { dx: 0, dy: 0, scale: 1.1 }, ditch: { dx: 0, dy: 0, scale: 1.05 }, wreck: { dx: 0, dy: 0, scale: 0.4 } },   // wreck: 그림이 세로로 긴 모양(폭 기준 크기라 작게)
       // 참호·엄폐물 칸 위 내 유닛의 표시 (은폐 중일 때. 노출되면 평지처럼 원래 크기). 체력·배지는 그대로, 클릭 영역도 그대로
       //  scaleIn* 배율 · darkenInTrench 밝기 · fadeBottom* 아래쪽을 사라지게 하는 비율 · sandbagOffset 모래주머니 오목한 쪽으로 치우침(칸 크기 배) · sandbagOverlayAlpha 유닛 위에 덮는 모래주머니 투명도(0~1) · trenchOffset 참호 그림 종류별 통로 중심(그림이 돈 만큼 같이 돎)
       //  bushUnitAlpha 덤불 속 유닛 투명도 · bushOverlayAlpha 유닛 위에 덮는 덤불 투명도 · popup 사격할 때 튀어오름(up/down 초, firstRevealPulse 처음 드러날 때 깜빡임)

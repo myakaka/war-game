@@ -325,6 +325,35 @@ const RICH_MAP = (() => {
       drawMasked(ctx, layer, alphaCanvas(al, W, W, [0, 0, 0]), S);
     }
 
+    // 1c. 땅 질감 섞기 (art.groundPatches [{ src, share, period }]): 질감 여러 장을 노이즈 무늬로 평지 위에 섞어 단조로움을 깸. share = 평지 면적 비율, period = 무늬 크기 배율
+    for (const gp of o.art.groundPatches || []) {
+      const im = decorImg[gp.src];
+      if (!im) continue;
+      const nz = noise2(W, W, K.dry.period * (gp.period || 1) * R, rnd), t = quantileIn(nz, plainMask, gp.share == null ? 0.2 : gp.share), al = new Float32Array(W * W);
+      for (let i = 0; i < al.length; i++) al[i] = smooth(t - K.dry.edge, t + K.dry.edge, nz[i]) * plainSoft[i];
+      drawMasked(ctx, mirrored(im, S, tileOf('plain'), offOf('plain')), alphaCanvas(al, W, W, [0, 0, 0]), S);
+    }
+
+    // 1d. 전장 흔적 장식 (art.decals { files: {종류: 파일}, sizes: {종류: 칸 폭 배}, density, alpha }): 평지 칸에만, 칸 좌표 해시로 정해 항상 같은 모양. 규칙·시야와 무관한 바탕 그림
+    const DC = o.art.decals;
+    if (DC && DC.files) {
+      const kinds = Object.keys(DC.files).filter((k) => decorImg[DC.files[k]]), cache = {};
+      for (let r = 0; kinds.length && r < n; r++) for (let c = 0; c < n; c++) {
+        if (key(r, c) !== 'plain' || inPatch(r, c)) continue;
+        const h = cellHash(r * 7 + 3, c * 13 + 5);
+        if ((h % 1000) / 1000 >= (DC.density == null ? 0.12 : DC.density)) continue;
+        const kind = kinds[(h >>> 10) % kinds.length], im = decorImg[DC.files[kind]], ar = (im.naturalWidth || im.width) / (im.naturalHeight || im.height);
+        const w = Math.round(cellPx * ((DC.sizes || {})[kind] || 1)), hh = Math.round(w / ar);
+        const layer = cache[kind] || (cache[kind] = shrunk(im, w, hh));
+        ctx.save();
+        ctx.globalAlpha = DC.alpha == null ? 0.9 : DC.alpha;
+        ctx.translate((c + 0.5 + (((h >>> 6) % 100) / 100 - 0.5) * 0.5) * cellPx, (r + 0.5 + (((h >>> 14) % 100) / 100 - 0.5) * 0.5) * cellPx);
+        ctx.rotate(((h >>> 18) % 360) * Math.PI / 180);
+        ctx.drawImage(layer, -layer.width / 2, -layer.height / 2);
+        ctx.restore();
+      }
+    }
+
     // 2. 습지
     const paddy = cellMask(n, R, (r, c) => key(r, c) === 'paddy');
     if (paddy.some((v) => v)) drawMasked(ctx, mirrored(tex('paddy'), S, tileOf('paddy'), offOf('paddy')), alphaCanvas(blur(paddy, W, W, K.blur.paddy * R), W, W, [0, 0, 0]), S);
@@ -428,7 +457,7 @@ const RICH_MAP = (() => {
       const files = o.art.trench.files, need = ['straight_a', 'straight_b', 'straight_v', 'corner', 'end'];
       if (need.every((k) => decorImg[files[k]])) {
         used.trench = true;
-        const TV = VIS.trench || {}, feather = TV.edgeFeather !== false, fpx = Math.max(2, cellPx * 0.04);
+        const TV = VIS.trench || {}, feather = TV.edgeFeather !== false, fpx = Math.max(2, cellPx * (TV.featherRatio == null ? 0.04 : TV.featherRatio));   // featherRatio: 참호가 아닌 이웃 쪽 가장자리를 번지게 하는 폭 (칸 비율)
         for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
           if (key(r, c) !== 'trench') continue;
           const isT = (rr, cc) => rr >= 0 && rr < n && cc >= 0 && cc < n && key(rr, cc) === 'trench';
@@ -538,6 +567,8 @@ const RICH_MAP = (() => {
     for (const v of [art.dryField, ...(art.fields || []), ...(art.decor || [])]) {
       if (v && v.src && !seen.has(v.src)) { seen.add(v.src); out.push({ kind: 'decor', key: v.src, src: v.src }); }
     }
+    for (const v of art.groundPatches || []) if (v && v.src && !seen.has(v.src)) { seen.add(v.src); out.push({ kind: 'decor', key: v.src, src: v.src, optional: true }); }   // 땅 질감 섞기: 없으면 건너뜀
+    for (const src of Object.values((art.decals && art.decals.files) || {})) if (!seen.has(src)) { seen.add(src); out.push({ kind: 'decor', key: src, src, optional: true }); }   // 전장 흔적: 없으면 건너뜀
     for (const grp of [art.trench, art.cover]) {   // 참호·엄폐물 그림 (참호전): 없으면 건너뛰고 기호 표시 (optional)
       for (const src of Object.values((grp && grp.files) || {})) if (!seen.has(src)) { seen.add(src); out.push({ kind: 'decor', key: src, src, optional: true }); }
     }
