@@ -1021,7 +1021,8 @@ body.goal-scene .tut-layer { visibility: hidden; }
 .menu-card::before, .menu-card::after { content: ""; position: absolute; width: 18px; height: 18px; border: 2px solid var(--mil); pointer-events: none; }
 .menu-card::before { left: -10px; top: -10px; border-right: 0; border-bottom: 0; }
 .menu-card::after { right: -10px; bottom: -10px; border-left: 0; border-top: 0; }
-.menu-card .menu-head { padding: 10px 0 6px; border-bottom: 1px solid #3c4326; }
+.menu-card .menu-head { padding: 10px 54px 6px; border-bottom: 1px solid #3c4326; }
+html[lang="en"] .menu-card .menu-head .start-title { font-size: 38px; letter-spacing: 0.12em; padding-left: 0.12em; }
 .menu-card .menu-head .start-title { font-size: 44px; letter-spacing: 0.35em; padding-left: 0.35em; color: var(--mil); text-shadow: 0 0 14px rgba(140, 170, 76, 0.35); }
 .menu-card .start-sub { font: 12px/1.4 ui-monospace, Consolas, monospace; letter-spacing: 0.22em; color: #94a56a; margin-top: 8px; }
 .menu-card .menu-item, .menu-card .menu-two > button {
@@ -1044,6 +1045,7 @@ body.goal-scene .tut-layer { visibility: hidden; }
 .menu-card button:focus-visible { outline: 2px solid var(--mil); outline-offset: 2px; }
 @media (max-width: 520px) {
   .menu-card .menu-head .start-title { font-size: 34px; letter-spacing: 0.28em; padding-left: 0.28em; }
+  html[lang="en"] .menu-card .menu-head .start-title { font-size: 30px; letter-spacing: 0.1em; padding-left: 0.1em; }
   .menu-card::before { left: -4px; top: -4px; } .menu-card::after { right: -4px; bottom: -4px; }
 }
 
