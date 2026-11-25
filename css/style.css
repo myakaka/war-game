@@ -997,6 +997,9 @@ body.goal-scene .tut-layer { visibility: hidden; }
 .map-edit .me-plain { background: #5c6b45; }
 .map-edit .me-cover { background: #7b6a48; }
 .map-edit .me-trench { background: #4a3b2e; }
+.map-edit .me-wire { background: #5d5d5a; }
+.map-edit .me-rock, .map-edit .me-wreck, .map-edit .me-wall, .map-edit .me-rubble { background: #7b6a48; }
+.map-edit .me-ditch { background: #5a4a36; }
 .map-edit .me-zone-ua { box-shadow: inset 0 0 0 2px rgba(30, 136, 229, 0.55); }
 .map-edit .me-zone-ru { box-shadow: inset 0 0 0 2px rgba(229, 57, 53, 0.55); }
 .map-edit .me-glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: calc(var(--me-cell) * 0.55); color: rgba(255, 255, 255, 0.5); pointer-events: none; }

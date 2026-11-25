@@ -4088,7 +4088,7 @@
      게임 규칙은 소형 전장과 같고, 저장한 맵은 새 게임 시나리오 목록의 '내 맵'으로 나옴. 편집 중에는 게임 상태를 만들지 않음 (소형 전장만 불러 둠: 유닛 기호·진영 이름용)
      ===================================================================== */
   const getLS = () => localStorage;
-  const ME_TERRAIN = { '.': 'plain', e: 'cover', T: 'trench' }, ME_GLYPH = { '.': '', e: '▣', T: '≋' };
+  const ME_TERRAIN = { '.': 'plain', e: 'cover', T: 'trench', x: 'wire', R: 'rock', W: 'wreck', L: 'wall', D: 'ditch', B: 'rubble' }, ME_GLYPH = { '.': '', e: '▣', T: '≋', x: '✕', R: '◆', W: '▬', L: '▤', D: '∪', B: '▲' };
   function showMapEdit(initial = null) {
     if (ui.screen !== 'start') setScreen('start');
     if (GAME_CONFIG.SCENARIO_ID !== CUSTOM_MAP.TEMPLATE) applyScenario(CUSTOM_MAP.TEMPLATE, false);

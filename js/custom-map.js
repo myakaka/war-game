@@ -1,7 +1,7 @@
 'use strict';
 /* =====================================================================
    내 맵 (맵 만들기): 사용자가 만든 10×10 맵을 시나리오로 바꾸는 순수 로직. DOM 없음, 화면은 ui.js 의 showMapEdit.
-   - 맵 기록 rec = { v: 1, id: 'my_…', name, map: [10줄 문자열: '.' 평지 · 'e' 엄폐물 · 'T' 참호], units: { ua: [{ type, r, c }], ru: [...] } }
+   - 맵 기록 rec = { v: 1, id: 'my_…', name, map: [10줄 문자열: '.' 평지 · 'e' 엄폐물(구덩이·수풀·모래주머니 자동) · 'T' 참호 · 'x' 철조망 · R 바위 · W 부서진 차 · L 담장 · D 도랑 · B 잔해], units: { ua: [{ type, r, c }], ru: [...] } }
    - 규칙은 소형 전장(skirmish)을 틀로 그대로 물려받음: 주사위 규칙, 은폐, 12라운드, 남은 체력 승리. 맵(지형)과 시작 배치만 다름
    - 유닛은 자기 진영 쪽 끝 3줄(우크라이나군 7~9행, 러시아군 0~2행)에만 놓을 수 있음 (직접 배치 구역과 같음)
    - 저장: localStorage 한 키. 파일로 내보내기·가져오기는 JSON 문자열 (customMapToFile / parseCustomMapFile)
@@ -10,7 +10,7 @@
 const CUSTOM_MAP_KEY = 'chuncheon1950.customMaps';
 const CUSTOM_MAP = Object.freeze({
   SIZE: 10, MAX_UNITS: 6, NAME_MAX: 20, MAX_MAPS: 12, FILE_MAX: 20000,
-  TERRAIN: '.eT', TYPES: Object.freeze(['infantry', 'recon', 'mortar']), SIDES: Object.freeze(['ua', 'ru']),
+  TERRAIN: '.eTxRWLDB', COVER_KIND: Object.freeze({ R: 'rock', W: 'wreck', L: 'wall', D: 'ditch', B: 'rubble' }), TYPES: Object.freeze(['infantry', 'recon', 'mortar']), SIDES: Object.freeze(['ua', 'ru']),
   ZONE: Object.freeze({ ua: Object.freeze([7, 9]), ru: Object.freeze([0, 2]) }),   // [첫 행, 끝 행]
   TEMPLATE: 'skirmish',
 });
@@ -60,9 +60,9 @@ function customMapProblems(rec) {
 /** 엄폐물 칸 종류·방향 자동 지정 (칸 좌표만으로 정해져 같은 맵은 항상 같음). 방향성 엄폐 규칙과 그림이 같이 읽음 */
 function customCoverCells(map) {
   const cells = {}, skins = ['crater', 'bush', 'sandbag'];
-  map.forEach((row, r) => { for (let c = 0; c < row.length; c++) if (row[c] === 'e') {
+  map.forEach((row, r) => { for (let c = 0; c < row.length; c++) if (row[c] === 'e' || CUSTOM_MAP.COVER_KIND[row[c]]) {
     let h = (r * 73856093) ^ (c * 19349663); h = Math.imul(h ^ (h >>> 13), 0x5bd1e995); h = (h ^ (h >>> 15)) >>> 0;
-    cells[`${r},${c}`] = { skin: skins[h % 3], rotation: [0, 90, 180, 270][(h >>> 4) % 4] };
+    cells[`${r},${c}`] = { skin: CUSTOM_MAP.COVER_KIND[row[c]] || skins[h % 3], rotation: [0, 90, 180, 270][(h >>> 4) % 4] };
   } });
   return cells;
 }
@@ -77,7 +77,7 @@ function buildCustomScenario(rec) {
   s.tags = ['custom', 'twoPlayer'];
   s.custom = true;
   s.symmetric = false;
-  s.map = rec.map.slice();
+  s.map = rec.map.map((row) => row.replace(/[RWLDB]/g, 'e'));   // 새 엄폐물 글자는 규칙상 엄폐물('e'), 종류는 coverCells 가 정함
   s.deployments = [];
   for (const side of CUSTOM_MAP.SIDES) for (const u of rec.units[side]) s.deployments.push({ round: 0, side, type: u.type, pos: [u.r, u.c] });
   // 소형 전장의 칸별 엄폐물 종류·방향은 그 맵 좌표용 → 내 맵은 엄폐물 칸마다 종류(구덩이·수풀·모래주머니)와 방향을 칸 좌표로 정해 규칙(coverCells)과 그림(art.cover.cells)이 같은 값을 읽게 함
