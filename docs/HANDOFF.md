@@ -9,6 +9,14 @@
 - 다음 후보: 맵 만들기 편집기에 새 엄폐물 종류·철조망 고르기, 도시·숲 방어 정립(규칙 변경, 기준선 다시 저장), 병종 추가(마지막), 다른 시나리오 땅 톤(회색빛), 툴팁에 엄폐물 종류 이름(지금은 전부 '엄폐물')
 
 ---
+# HANDOFF (2026-11-25 추가 2) — 소형 전장 화면 다듬기 (규칙 변경 없음)
+- `rich-map.js`: 엄폐물·철조망 그림자(`K.objShadow`), 흔적 장식 변형(뒤집기·크기·번짐·뭉침, `decals.weights/alphas/soften`), 참호 타일 이음매 블렌딩(`visual.trench.blendRatio`). 참호 PNG 풀색 보정(원본 `assets/_raw/trench_before_v2/`).
+- 연기·잔불: `ui.js smokeLayerHtml`, css `.smoke-puff/.ember/.spark`, 데이터 `skirmish.js art.smoke`(소형 전장만, 연출 줄이기 지원). 유닛(z7) 아래 z6.
+- 검증: `check.js --only skirmish` 전부 SAME(190초), PC 화면 확인. 연기 움직임은 헤드리스로 못 찍어 직접 확인 필요.
+- 알려진 문제: 그림자는 `art.cover/wire` 있는 모든 시나리오에 적용됨(소형 전장 외 해당 여부 미확인), 연기 위치가 내 맵에도 같은 좌표로 뜰 수 있음.
+- 다음 후보: 엄폐물 툴팁 종류 이름·정면 방향 표시, 구름 그림자/안개 층.
+
+---
 # HANDOFF (2026-11-25 추가) — 맵 만들기 편집기에 새 지형
 - 팔레트에 철조망(`x`)·바위(`R`)·부서진 차(`W`)·담장(`L`)·도랑(`D`)·잔해(`B`) 추가. 규칙 변경 없음(rulesVersion 16 그대로), 시드 비교 해당 없음.
 - `custom-map.js`: `CUSTOM_MAP.TERRAIN`·`COVER_KIND`, `customCoverCells`가 새 글자를 종류로 지정, `buildCustomScenario`가 R/W/L/D/B를 `e`로 바꿔 규칙에 넘김. 예전엔 `x`가 저장 때 평지로 바뀌었으나 이제 유지.

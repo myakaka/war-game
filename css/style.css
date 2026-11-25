@@ -192,6 +192,24 @@ button.active, button[aria-pressed="true"], button[aria-selected="true"], button
 .hl-under { z-index: 4; }
 .hl-over { z-index: 8; }
 .hl-hover { z-index: 9; }
+.smoke-layer { display: none; position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }   /* 연기: 유닛(7) 아래, 엄폐 표시 위 */
+#board.rich .smoke-layer { display: block; }
+.smoke-puff { position: absolute; border-radius: 50%; transform: translate(-50%, -50%) scale(0.4); opacity: 0;
+  background: radial-gradient(circle, rgba(46, 44, 42, 0.7) 0%, rgba(56, 54, 51, 0.4) 42%, rgba(60, 58, 55, 0) 70%); animation: smoke-rise 7s linear infinite; }
+/* 잔불: 불씨 빛이 깜빡이고 작은 불똥이 가끔 위로 떠오름 (장식). 연기보다 아래 */
+.ember { position: absolute; border-radius: 50%; transform: translate(-50%, -50%); opacity: 0.6;
+  background: radial-gradient(circle, rgba(255, 170, 70, 0.7) 0%, rgba(230, 100, 30, 0.35) 40%, rgba(200, 70, 20, 0) 72%); animation: ember-flicker 1.6s ease-in-out infinite; }
+.spark { position: absolute; width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px; border-radius: 50%; background: #ffb457; box-shadow: 0 0 4px 1px rgba(255, 140, 50, 0.7); opacity: 0; animation: spark-rise 4.5s linear infinite; }
+@keyframes ember-flicker { 0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(0.85); } 30% { opacity: 0.85; transform: translate(-50%, -50%) scale(1.1); } 55% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.95); } 78% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.15); } }
+@keyframes spark-rise { 0% { opacity: 0; transform: translate(0, 0); } 8% { opacity: 0.9; } 100% { opacity: 0; transform: translate(10px, -34px); } }
+body.reduce-motion .ember { animation: none; opacity: 0.55; }
+body.reduce-motion .spark { display: none; }
+@keyframes smoke-rise {
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  15% { opacity: 0.85; }
+  100% { transform: translate(calc(-50% + var(--sx, 0.2) * 100%), calc(-50% - 170%)) scale(1.9); opacity: 0; }
+}
+body.reduce-motion .smoke-puff { animation: none; opacity: 0.35; transform: translate(-50%, -80%) scale(1.1); }
 .fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; overflow: visible; }
 .fx-layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .fx-unit { position: absolute; left: 0; top: 0; pointer-events: none; }

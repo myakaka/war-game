@@ -911,6 +911,25 @@
     rich.angle.clear();
   }
 
+  /** 피어오르는 연기 장식 층 (시나리오 art.smoke 가 있고 리치 테마일 때만 CSS 로 보임). 지도 좌표(%)라 확대·이동을 따름. 유닛 아래층, 게임 상태와 무관 */
+  function smokeLayerHtml() {
+    const art = scenArt(), list = (art && art.smoke) || [];
+    if (!list.length) return '';
+    let out = '';
+    for (const sm of list) for (let i = 0; i < (sm.n || 2); i++) {
+      const x = ((sm.at[1] + (sm.dx == null ? 0.5 : sm.dx)) / N) * 100, y = ((sm.at[0] + (sm.dy == null ? 0.5 : sm.dy)) / N) * 100, sz = (sm.size || 0.8) * 100 / N, ms = sm.ms || 7000;
+      out += `<i class="smoke-puff" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;width:${sz.toFixed(2)}%;height:${sz.toFixed(2)}%;--sx:${((i % 2 ? 1 : -1) * (0.15 + 0.1 * i)).toFixed(2)};animation-duration:${ms}ms;animation-delay:${-Math.round(ms * i / (sm.n || 2))}ms"></i>`;
+    }
+    let em = '', k = 0;   // 잔불: 깜빡이는 주황빛 + 가끔 떠오르는 불씨. 깜빡임 시작·주기를 덩이마다 달리해 한꺼번에 깜빡이지 않게
+    for (const sm of list) for (const [ex, ey] of sm.ember || []) {
+      const x = ((sm.at[1] + ex) / N) * 100, y = ((sm.at[0] + ey) / N) * 100, g = 100 * 0.22 / N, d = 1300 + (k * 370) % 900, dl = -((k * 530) % 2000);
+      em += `<i class="ember" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;width:${g.toFixed(2)}%;height:${g.toFixed(2)}%;animation-duration:${d}ms;animation-delay:${dl}ms"></i>`
+        + `<i class="spark" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%;animation-duration:${3600 + (k * 700) % 2400}ms;animation-delay:${-((k * 1100) % 4000)}ms"></i>`;
+      k++;
+    }
+    return `<div class="smoke-layer" aria-hidden="true">${em}${out}</div>`;
+  }
+
   /* ---------- 보드 생성 ---------- */
   function buildBoard() {
     const cl = $('#col-labels'), rl = $('#row-labels');
@@ -945,7 +964,7 @@
       cells.push({ el, dyn: el.lastChild });
     }
     const layer = (cls) => `<svg class="hl-layer ${cls}" viewBox="0 0 ${VB} ${VB}" preserveAspectRatio="none" aria-hidden="true" focusable="false"></svg>`;
-    boardEl.insertAdjacentHTML('beforeend', gridLayerSvg() + layer('hl-under') + layer('hl-over') + layer('hl-hover') + '<div class="fx-layer"></div>');
+    boardEl.insertAdjacentHTML('beforeend', gridLayerSvg() + layer('hl-under') + layer('hl-over') + layer('hl-hover') + '<div class="fx-layer"></div>' + smokeLayerHtml());
     hlUnder = boardEl.querySelector('.hl-under');
     hlOver = boardEl.querySelector('.hl-over');
     hlHover = boardEl.querySelector('.hl-hover');

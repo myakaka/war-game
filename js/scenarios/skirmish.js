@@ -123,6 +123,12 @@ SCENARIOS.push({
       { src: 'assets/terrain/ground_dark.jpg', share: 0.07, period: 0.7 },
       { src: 'assets/terrain/plain.jpg', share: 0.08, period: 1.6 },
     ],
+    // 피어오르는 연기 (장식 전용·규칙 무관, 점대칭). at=[행,열], dx/dy=칸 안 위치(0.5=중앙), n=연기 덩이 수, ember=잔불 위치들 [[칸 안 가로,세로]], size=칸 폭 배, ms=한 덩이 주기
+    smoke: [
+      { at: [4, 5], dx: 0.3, dy: 0.2, n: 3, size: 0.9, ms: 6500, ember: [[0.3, 0.5], [0.62, 0.45]] }, { at: [5, 4], dx: 0.7, dy: 0.2, n: 3, size: 0.9, ms: 6500, ember: [[0.7, 0.5], [0.38, 0.55]] },
+      { at: [2, 8], dx: 0.5, dy: 0.5, n: 2, size: 0.7, ms: 7500, ember: [[0.45, 0.55]] }, { at: [7, 1], dx: 0.5, dy: 0.5, n: 2, size: 0.7, ms: 7500, ember: [[0.55, 0.45]] },
+      { at: [1, 3], dx: 0.5, dy: 0.5, n: 2, size: 0.6, ms: 8200 }, { at: [8, 6], dx: 0.5, dy: 0.5, n: 2, size: 0.6, ms: 8200 },
+    ],
     // 전장 흔적 장식 (평지 칸에만, 규칙과 무관). sizes = 칸 폭의 배수, density = 평지 칸 중 놓이는 비율
     decals: {
       files: { scorch: 'assets/decal/decal_scorch.png', crater: 'assets/decal/decal_crater.png', tracks: 'assets/decal/decal_tracks.png', debris: 'assets/decal/decal_debris.png' },

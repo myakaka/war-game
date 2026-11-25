@@ -486,17 +486,27 @@ const RICH_MAP = (() => {
           const draw = shrunk(decorImg[files[ch.tile]], sz * tune.scale, sz * tune.scale);
           g.save(); g.translate(sz / 2 + tune.dx * cellPx, sz / 2 + tune.dy * cellPx); g.rotate(rot * Math.PI / 180); g.drawImage(draw, -draw.width / 2, -draw.height / 2); g.restore();
           if (o2.tint) { g.globalCompositeOperation = 'source-atop'; g.fillStyle = o2.tint; g.fillRect(0, 0, sz, sz); g.globalCompositeOperation = 'source-over'; }
-          if (feather) {   // 평지와 맞닿은 변(참호가 아닌 이웃 쪽)만 1~3px 부드럽게
-            g.globalCompositeOperation = 'destination-in';
+          // 이웃 참호와 이어지는 변: 가장자리 픽셀을 ov 만큼 바깥으로 늘려 겹치고, 나중에 그려지는 쪽(위·왼쪽 이웃과의 변)은 그 겹침 구간에서 서서히 나타나게 해 타일 이음매를 없앰
+          const ov = Math.max(2, Math.round(cellPx * (TV.blendRatio == null ? 0.12 : TV.blendRatio))), L = sz + ov * 2, pc = newCanvas(L, L), pg = pc.getContext('2d');
+          pg.drawImage(cv, ov, ov);
+          if (nb.W) pg.drawImage(cv, 0, 0, 1, sz, 0, ov, ov, sz);
+          if (nb.E) pg.drawImage(cv, sz - 1, 0, 1, sz, ov + sz, ov, ov, sz);
+          if (nb.N) pg.drawImage(cv, 0, 0, sz, 1, ov, 0, sz, ov);
+          if (nb.S) pg.drawImage(cv, 0, sz - 1, sz, 1, ov, ov + sz, sz, ov);
+          pg.globalCompositeOperation = 'destination-in';
+          const rampL = (x0, x1, horiz) => { const gr = horiz ? pg.createLinearGradient(x0, 0, x1, 0) : pg.createLinearGradient(0, x0, 0, x1); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)'); return gr; };
+          if (nb.W) { pg.fillStyle = rampL(0, ov * 2, true); pg.fillRect(0, 0, L, L); }
+          if (nb.N) { pg.fillStyle = rampL(0, ov * 2, false); pg.fillRect(0, 0, L, L); }
+          if (feather) {   // 평지와 맞닿은 변(참호가 아닌 이웃 쪽)만 부드럽게
             for (const [side, has] of [['N', nb.N], ['E', nb.E], ['S', nb.S], ['W', nb.W]]) {
               if (has) continue;
-              const gr = side === 'W' ? g.createLinearGradient(0, 0, fpx, 0) : side === 'E' ? g.createLinearGradient(sz, 0, sz - fpx, 0) : side === 'N' ? g.createLinearGradient(0, 0, 0, fpx) : g.createLinearGradient(0, sz, 0, sz - fpx);
+              const gr = side === 'W' ? pg.createLinearGradient(ov, 0, ov + fpx, 0) : side === 'E' ? pg.createLinearGradient(ov + sz, 0, ov + sz - fpx, 0) : side === 'N' ? pg.createLinearGradient(0, ov, 0, ov + fpx) : pg.createLinearGradient(0, ov + sz, 0, ov + sz - fpx);
               gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
-              g.fillStyle = gr; g.fillRect(0, 0, sz, sz);
+              pg.fillStyle = gr; pg.fillRect(0, 0, L, L);
             }
-            g.globalCompositeOperation = 'source-over';
           }
-          ctx.drawImage(cv, Math.floor(c * cellPx), Math.floor(r * cellPx));
+          pg.globalCompositeOperation = 'source-over';
+          ctx.drawImage(pc, Math.floor(c * cellPx) - ov, Math.floor(r * cellPx) - ov);
         }
       } else warnOnce('참호 그림 파일이 모두 있지 않아 기호 표시로 대체');
     }
