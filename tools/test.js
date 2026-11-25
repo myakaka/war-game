@@ -3061,6 +3061,23 @@ test('[참호전] 엄폐물·참호 안의 적은 보이지 않고, 정찰 2칸�
   E.loadScenario(SCEN_IDS[0]);
   assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '은폐 규칙이 없는 시나리오는 언제나 false');
 });
+test('[참호전] 통신 정찰 3x3 안은 은폐 유닛도 보이고(v17), 밖은 그대로 숨으며, 정찰한 진영 턴이 끝나면 다시 숨음', () => {
+  E.loadScenario('skirmish');
+  let st = trenchBoard([['r1', 0, 'infantry', 0, 1], ['u1', 1, 'infantry', 3, 3], ['u2', 1, 'infantry', 6, 6]]);   // (3,3) 참호, (6,6) 평지가 아닐 수 있어 은폐 여부를 먼저 본다
+  st.units.push({ id: 'r9', side: 'ru', type: 'signal', r: 1, c: 3, hp: 4, moved: false, acted: false });
+  const u1 = st.units.find((u) => u.id === 'u1');
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), true, '정찰 전에는 숨음');
+  E.scoutArea(st, 'r9', { r: 3, c: 3 });
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), false, '정찰 3x3 안은 은폐 유닛도 보임');
+  assert.equal(E.getVisibleTiles(st, 'ru').has(tileOf(3, 3)), true);
+  assert.equal(E.isHiddenFrom(st, 'ua', st.units.find((u) => u.id === 'r1')), false, '상대 진영에는 영향 없음');
+  st.scout.tiles = st.scout.tiles.filter((i) => i !== tileOf(3, 3));
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), true, '정찰 칸 밖이면 그대로 숨음');
+  st.scout.tiles.push(tileOf(3, 3));
+  E.endTurn(st);
+  assert.equal(st.scout, undefined);
+  assert.equal(E.isHiddenFrom(st, 'ru', u1), true, '정찰이 끝나면 다시 숨음');
+});
 test('[참호전] 숨은 유닛이 직선 사격을 막아 대신 맞고, 사격한 유닛과 함께 노출되며, 소유자 다음 턴 시작에 다시 은폐', () => {
   let st = trenchBoard([['r1', 0, 'infantry', 3, 1], ['r3', 0, 'recon', 6, 4], ['u1', 1, 'infantry', 3, 3], ['u2', 1, 'infantry', 3, 4]]);
   jsonEq(targetsOf(st, 'r1'), ['3,4'], '보이는 u2 만 대상 (숨은 u1 은 목록에 없음)');

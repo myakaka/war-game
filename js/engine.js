@@ -1205,12 +1205,13 @@ function computeHitChance(state, attackerId, targetPos) {
 /* =========================== 5. 시야 / 기억 =========================== */
 /**
  * 은폐 (시나리오 concealment): u 가 side 의 적이고, 은폐 지형(엄폐물·참호) 위에 있고, 노출되지 않았고(u.exposed: 사격·막은 뒤 소유자 다음 턴 시작까지),
- * side 의 살아 있는 유닛이 반경(정찰 reconRadius, 다른 병종 otherRadius, 맨해튼) 안에 없으면 side 에게 안 보임. concealment 가 없으면 항상 false.
+ * side 의 살아 있는 유닛이 반경(정찰 reconRadius, 다른 병종 otherRadius, 맨해튼) 안에 없으면 side 에게 안 보임 (단 side 의 통신 정찰 칸 안이면 보임, v17). concealment 가 없으면 항상 false.
  */
 function isHiddenFrom(state, side, u) {
   const K = GAME_CONFIG.CONCEALMENT;
   if (!K || u.side === side || u.exposed) return false;
   if (!terrainAt(u.r, u.c).conceals) return false;
+  if (state.scout && state.scout.side === side && state.scout.tiles.includes(idx(u.r, u.c))) return false;   // v17: 통신 정찰 3x3 칸 안은 은폐 유닛도 보임 (그 정찰이 끝나는 자기 턴 끝까지)
   return !state.units.some((s) => s.side === side && manhattan(s, u) <= (s.type === 'recon' ? K.reconRadius : K.otherRadius));
 }
 /** 진영의 시야 (칸 인덱스 Set). 은폐 중인 적이 선 칸은 빠진다 (유닛 존재 판단용: 보이는 적·사격 대상·기억·AI 모두 이 집합을 씀). 칸 자체의 가시성(안개 덮개·맹사격)은 getTerrainVisibleTiles */
