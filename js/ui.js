@@ -1629,6 +1629,7 @@
   const nameColor = (side) => (ROLE(side) === 'def' ? 'var(--def-text)' : 'var(--att-text)');
   const symHtml = (side, type) => `<span class="uc-sym" aria-hidden="true">${unitSvg(side, type, { noHp: true })}</span>`;
   /** 방어 보정 = 이 칸에 선 유닛을 노리는 공격의 명중률 보정의 반대 부호 (도심 -20% → 방어 +20) */
+  const defModTextAt = (r, c, ter) => { const dr = typeof directionalRuleAt === 'function' ? directionalRuleAt(r, c) : null; return dr ? `+${dr.defense}` : defModText(ter); };   // 방향성 엄폐는 종류별 실제 방어 값
   const defModText = (ter) => { const d = -ter.hitMod; return d ? `${d > 0 ? '+' : ''}${d}` : '0'; };
   const rangeText = (ty, u = null) => {
     if (!ty.canAttack) return t('stat.rangeNone');
@@ -1712,7 +1713,7 @@
     const { chip, note } = unitStatus(u, sel);
     let h = `<div class="uc-head">${symHtml(u.side, u.type)}<div class="uc-id">
         <div class="uc-name tx" style="color:${nameColor(u.side)}">${esc(whoName(u.side, u.type))}</div>
-        <div class="uc-pos tx">${esc(t('card.pos', { pos: P(u), terrain: TR(ter.key) }))}</div></div>
+        <div class="uc-pos tx">${esc(t('card.pos', { pos: P(u), terrain: { t: cellTerrainNameKey(u.r, u.c) } }))}</div></div>
         <span class="${chip.cls}"><span class="tx">${esc(chip.text)}</span></span></div>`;
     if (note) h += `<div class="uc-note">${esc(note)}</div>`;
     h += `<div class="uc-row"><span class="uc-lbl">${esc(t('stat.hp'))}</span>${pipsHtml(u.hp, u.side)}<span class="uc-val">${u.hp} / ${max}</span></div>`;
@@ -1724,7 +1725,7 @@
     }
     const actLine = actCardText(u);
     if (actLine) h += `<div class="uc-row"><span class="uc-lbl">${esc(t('card.actLbl'))}</span><span class="tx">${esc(actLine)}</span></div>`;
-    h += `<div class="box tx" title="${esc(t('ter.hitMod'))} ${ter.hitMod}%">${esc(t('card.terrain', { terrain: TR(ter.key), def: defModText(ter), cost: ter.moveCost }))}</div>`;
+    h += `<div class="box tx" title="${esc(t('ter.hitMod'))} ${ter.hitMod}%">${esc(t('card.terrain', { terrain: { t: cellTerrainNameKey(u.r, u.c) }, def: defModTextAt(u.r, u.c, ter), cost: ter.moveCost }))}</div>`;
     if (u.side === me && GAME_CONFIG.COMBAT.signalBonus) {   // v13: 통신 보너스 줄 없음
       const sg = signalState(u), n = GAME_CONFIG.COMBAT.signalBonus;
       h += `<div class="box tx ${sg === 'on' ? 'on' : ''}">${esc(t(sg === 'on' ? 'card.sigOn' : sg === 'off' ? 'card.sigOff' : 'card.sigNA', { n }))}</div>`;
@@ -1767,12 +1768,12 @@
       const mv = moveInfo(u);
       bits.push(t('card.sumMove', { left: mv.left, max: mv.max }));
       if (mv.cost != null) bits.push(t('card.cost', { n: mv.cost }));
-      bits.push(terName(ter));
+      bits.push(t(cellTerrainNameKey(u.r, u.c)));
       const sg = signalState(u);
       if (sg !== 'na' && GAME_CONFIG.COMBAT.signalBonus) bits.push(t(sg === 'on' ? 'card.sumSigOn' : 'card.sumSigOff', { n: GAME_CONFIG.COMBAT.signalBonus }));
       if (!u.acted && activationBlocked(ui.view, u)) bits.unshift(t('card.actSpent'));
       if (u.suppressed > 0) bits.unshift(t('card.suppressed'));
-    } else bits.push(P(u), terName(ter));
+    } else bits.push(P(u), t(cellTerrainNameKey(u.r, u.c)));
     return `${symHtml(u.side, u.type)}<span class="sum-main"><span class="sum-top"><span class="uc-name tx" style="font-size:14px;color:${nameColor(u.side)}">${esc(whoName(u.side, u.type))}</span>${pipsHtml(u.hp, u.side)}</span>`
       + `<span class="sum-sub tx">${esc(bits.join(' · '))}</span></span><span class="chev" aria-hidden="true">▲</span>`;
   }
@@ -2804,13 +2805,37 @@
       notes,
     };
   }
+  /** 방향성 엄폐 칸이면 그 칸의 종류·방어·보호 방향 (규칙 값을 읽기만 함). 아니면 null */
+  const coverRuleHere = (r, c) => { try { const ru = typeof directionalRuleAt === 'function' ? directionalRuleAt(r, c) : null; return ru && ru.kind !== 'trench' ? ru : null; } catch (e) { return null; } };
+  /** 칸의 지형 이름 문구 키: 엄폐물은 종류(바위·담장·구덩이…) 이름, 나머지는 기존 이름 */
+  const cellTerrainNameKey = (r, c) => { const ru = coverRuleHere(r, c); return ru && STRINGS.ko['terrain.' + ru.kind] ? 'terrain.' + ru.kind : terrainNameKey(terrainAt(r, c)); };
+  function coverNoteHtml(r, c) {
+    const ru = coverRuleHere(r, c);
+    if (!ru) return '';
+    const sides = protectedSidesAt(r, c), how = ru.directional === 'facing' && sides ? t('cover.facing', { dir: t('cover.dir.' + sides.sides[0]) }) : t(ru.directional === 'axis' ? 'cover.axis' : 'cover.all');
+    return `<div class="hint">${esc(how)}</div>`;
+  }
+  /** 호버 중인 방향성 엄폐 칸에서 막아 주는 쪽 변을 굵게 표시 (정면이 한 방향인 종류만) */
+  function coverFacingSvg(p) {
+    const ru = coverRuleHere(p.r, p.c);
+    if (!ru || ru.directional !== 'facing') return '';
+    // 단순한 표식: 막아 주는 변을 따라 선 하나 + 바깥을 가리키는 꺾쇠 하나. 빛바랜 진한 붉은색, 가장자리만 살짝 거칠게
+    const side = protectedSidesAt(p.r, p.c).sides[0], x = cellX(p), y = cellY(p), m = 3, ink = '#8a2822', shade = '#1c0e0b';
+    const [dx, dy] = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] }[side], px = -dy, py = dx;   // dx,dy = 막아 주는(사격이 오는) 쪽
+    const cx = x + CS / 2 + dx * (CS / 2 - m), cy = y + CS / 2 + dy * (CS / 2 - m), half = CS / 2 - m - 2, f = (v) => v.toFixed(1);
+    const bx = cx + dx * 6, by = cy + dy * 6;
+    const body = `<path d="M${f(cx + px * half)} ${f(cy + py * half)}L${f(cx - px * half)} ${f(cy - py * half)}M${f(bx - dx * 4 + px * 6)} ${f(by - dy * 4 + py * 6)}L${f(bx)} ${f(by)}L${f(bx - dx * 4 - px * 6)} ${f(by - dy * 4 - py * 6)}" fill="none" stroke-linecap="round" stroke-linejoin="round"`;
+    return `<g class="cover-facing" pointer-events="none" opacity="0.95"><filter id="worn-ink" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="1.2"/></filter>`
+      + `<g filter="url(#worn-ink)">${body} stroke="${shade}" stroke-width="5.4" opacity="0.55"/>${body} stroke="${ink}" stroke-width="3.2"/></g></g>`;
+  }
   function terrainTipHtml(p) {
     const ter = terrainAt(p.r, p.c);
     const info = terrainInfo(ter);
-    let html = `<div class="big">${esc(terName(ter))} <span class="hint">(${p.r},${p.c})</span></div>`;
+    let html = `<div class="big">${esc(t(cellTerrainNameKey(p.r, p.c)))} <span class="hint">(${p.r},${p.c})</span></div>${coverNoteHtml(p.r, p.c)}`;
     html += `<div class="row"><span>${esc(t('ter.moveCost'))}</span><span>${info.cost}</span></div>`;
-    html += `<div class="row"><span>${esc(t('ter.hitMod'))}</span><span>${info.hit}</span></div>`;
-    for (const n of info.notes) html += `<div class="hint">${esc(t(n.k, n.p))}</div>`;
+    if (!GAME_CONFIG.DICE_RULES) html += `<div class="row"><span>${esc(t('ter.hitMod'))}</span><span>${info.hit}</span></div>`;   // 주사위 규칙에서는 명중률 보정을 쓰지 않으므로 숨김 (방어 값은 아래 줄)
+    const dr = typeof directionalRuleAt === 'function' ? directionalRuleAt(p.r, p.c) : null;   // 방향성 엄폐 칸은 종류별 실제 방어 값(바위 3·구덩이 2·수풀 1…)을 보여 줌
+    for (const n of info.notes) html += `<div class="hint">${esc(t(n.k, dr && n.p && n.p.n != null ? { ...n.p, n: dr.defense } : n.p))}</div>`;
     return html;
   }
 
@@ -2942,6 +2967,7 @@
           }
         }
         showTip(i, pre + terrainTipHtml(p));   // 지형은 공개 정보
+        hlHover.innerHTML = coverFacingSvg(p);
       } else hideTip();
       return;
     }

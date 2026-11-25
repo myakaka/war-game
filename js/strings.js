@@ -11,7 +11,7 @@ const STRINGS = {
 
     'side.north': '북한군', 'side.south': '국군',
     'unit.infantry': '보병', 'unit.armor': '기갑', 'unit.artillery': '포병', 'unit.recon': '정찰', 'unit.signal': '통신', 'unit.antitank': '대전차', 'unit.mortar': '박격포',
-    'terrain.plain': '평지', 'terrain.city': '도심', 'terrain.mountain': '산', 'terrain.river': '강', 'terrain.forest': '숲', 'terrain.paddy': '논', 'terrain.cover': '엄폐물', 'terrain.trench': '참호', 'terrain.wire': '철조망', 'terrain.rock': '바위', 'terrain.wreck': '부서진 차', 'terrain.wall': '담장', 'terrain.ditch': '도랑', 'terrain.rubble': '잔해', 'conceal.hidden': '은폐', 'conceal.exposed': '노출',
+    'terrain.plain': '평지', 'terrain.city': '도심', 'terrain.mountain': '산', 'terrain.river': '강', 'terrain.forest': '숲', 'terrain.paddy': '논', 'terrain.cover': '엄폐물', 'terrain.trench': '참호', 'terrain.wire': '철조망', 'terrain.crater': '구덩이', 'terrain.bush': '수풀', 'terrain.sandbag': '모래주머니', 'cover.facing': '정면 {dir}쪽 사격만 막음 (옆·뒤는 효과 없음)', 'cover.all': '모든 방향에서 막음', 'cover.axis': '통로를 가로지르는 방향만 막음', 'cover.dir.N': '위', 'cover.dir.E': '오른', 'cover.dir.S': '아래', 'cover.dir.W': '왼', 'terrain.rock': '바위', 'terrain.wreck': '부서진 차', 'terrain.wall': '담장', 'terrain.ditch': '도랑', 'terrain.rubble': '잔해', 'conceal.hidden': '은폐', 'conceal.exposed': '노출',
     'ter.noteConceal': '방어 +{n} · 이 칸의 유닛은 은폐됩니다 (정찰 {recon}칸·다른 유닛 {other}칸 안이거나 사격으로 노출되면 보입니다)',
     'ter.noteConcealMortar': '방어 +{n} (박격포는 무시) · 이 칸의 유닛은 은폐됩니다 (정찰 {recon}칸·다른 유닛 {other}칸 안이거나 사격으로 노출되면 보입니다)',
     'log.blocked': '숨어 있던 적이 사격을 막고 대신 맞았습니다. 그 적이 드러났습니다.',
@@ -572,7 +572,7 @@ const STRINGS = {
 
     'side.north': 'NK', 'side.south': 'ROK',
     'unit.infantry': 'Infantry', 'unit.armor': 'Armor', 'unit.artillery': 'Artillery', 'unit.recon': 'Recon', 'unit.signal': 'Signal', 'unit.antitank': 'Anti-tank', 'unit.mortar': 'Mortar',
-    'terrain.plain': 'Plains', 'terrain.city': 'Urban', 'terrain.mountain': 'Mountain', 'terrain.river': 'River', 'terrain.forest': 'Forest', 'terrain.paddy': 'Paddy', 'terrain.cover': 'Cover', 'terrain.trench': 'Trench', 'terrain.wire': 'Barbed wire', 'terrain.rock': 'Rock', 'terrain.wreck': 'Wrecked car', 'terrain.wall': 'Wall', 'terrain.ditch': 'Ditch', 'terrain.rubble': 'Rubble', 'conceal.hidden': 'Hidden', 'conceal.exposed': 'Exposed',
+    'terrain.plain': 'Plains', 'terrain.city': 'Urban', 'terrain.mountain': 'Mountain', 'terrain.river': 'River', 'terrain.forest': 'Forest', 'terrain.paddy': 'Paddy', 'terrain.cover': 'Cover', 'terrain.trench': 'Trench', 'terrain.wire': 'Barbed wire', 'terrain.crater': 'Crater', 'terrain.bush': 'Bush', 'terrain.sandbag': 'Sandbags', 'cover.facing': 'Blocks fire from the {dir} only (no effect from sides or behind)', 'cover.all': 'Blocks fire from all directions', 'cover.axis': 'Blocks fire across the trench only', 'cover.dir.N': 'top', 'cover.dir.E': 'right', 'cover.dir.S': 'bottom', 'cover.dir.W': 'left', 'terrain.rock': 'Rock', 'terrain.wreck': 'Wrecked car', 'terrain.wall': 'Wall', 'terrain.ditch': 'Ditch', 'terrain.rubble': 'Rubble', 'conceal.hidden': 'Hidden', 'conceal.exposed': 'Exposed',
     'ter.noteConceal': 'Defense +{n} · Units here are hidden (seen only within {recon} of a recon or {other} of another unit, or after they fire)',
     'ter.noteConcealMortar': 'Defense +{n} (ignored by mortars) · Units here are hidden (seen only within {recon} of a recon or {other} of another unit, or after they fire)',
     'log.blocked': 'A hidden enemy blocked the shot and took the hit. It is now exposed.',
