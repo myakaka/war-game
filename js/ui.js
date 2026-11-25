@@ -3278,8 +3278,10 @@
     const p = posOf(i), ter = terrainAt(p.r, p.c);
     const tip = $('#tooltip');
     tip.className = 'balloon';
-    tip.innerHTML = `<b>${esc(terName(ter))}</b> <span class="hint">${P(p)}</span><div>${esc(t('tip.balloon', { cost: ter.moveCost, def: defModText(ter) }))}</div>`;
+    tip.innerHTML = `<b>${esc(t(cellTerrainNameKey(p.r, p.c)))}</b> <span class="hint">${P(p)}</span><div>${esc(t('tip.balloon', { cost: ter.moveCost, def: defModTextAt(p.r, p.c, ter) }))}</div>${coverNoteHtml(p.r, p.c)}`;
     tip.style.display = 'block';
+    const mark = coverFacingSvg(p);   // 터치에서도 막아 주는 방향 표식 (말풍선이 떠 있는 동안)
+    if (mark) { hlHover.innerHTML = mark; ui.balloonMark = true; }
     const r = cells[i].el.getBoundingClientRect();
     const tw = tip.offsetWidth, th = tip.offsetHeight;
     let x = r.left + r.width / 2 - tw / 2, y = r.top - th - 6;
@@ -3292,6 +3294,7 @@
   function hideBalloon() {
     clearTimeout(ui.balloonTimer);
     const tip = $('#tooltip');
+    if (ui.balloonMark) { ui.balloonMark = false; if (hlHover) hlHover.innerHTML = ''; }
     if (tip.classList.contains('balloon')) { tip.style.display = 'none'; tip.className = ''; }
   }
   function showTip(i, html) {
