@@ -192,6 +192,31 @@ button.active, button[aria-pressed="true"], button[aria-selected="true"], button
 .hl-under { z-index: 4; }
 .hl-over { z-index: 8; }
 .hl-hover { z-index: 9; }
+.weather-layer { display: none; position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }   /* 구름 그림자·안개: 연기 아래, 유닛(7) 아래 */
+#board.rich .weather-layer { display: block; }
+.cloud-shadow { position: absolute; left: 0; border-radius: 50%; transform: translate(-70%, -50%); opacity: 0.9;
+  background: radial-gradient(ellipse at center, rgba(8, 10, 14, 0.5) 0%, rgba(8, 10, 14, 0.3) 45%, rgba(8, 10, 14, 0) 72%); animation: cloud-drift 90s linear infinite; }
+.fog-band { position: absolute; left: 0; border-radius: 50%; transform: translate(-8%, -50%); opacity: 0.5;
+  background: radial-gradient(ellipse at center, rgba(205, 208, 204, 0.55) 0%, rgba(205, 208, 204, 0.28) 50%, rgba(205, 208, 204, 0) 74%); animation: fog-flow 60s ease-in-out infinite alternate; }
+/* 새 무리: 주기의 앞 12% 동안 지도를 비스듬히 가로지르고 나머지는 숨음. 날개는 가로로 접혔다 펴지며 퍼덕임 */
+.bird-flock { position: absolute; left: 0; width: 12%; opacity: 0; animation: bird-fly-r 80s linear infinite; }
+.bird-flock svg { display: block; width: 100%; overflow: visible; transform: rotate(98deg); }
+.bird-flock.bird-l svg { transform: rotate(-82deg); }
+.bird-flock.bird-l { animation-name: bird-fly-l; }
+.bird-flock svg path, .bird-flock svg ellipse { fill: #1d1a17; }
+.bird-flock.bird-shadow { filter: blur(1.2px); }
+.bird-flock.bird-shadow svg path, .bird-flock.bird-shadow svg ellipse { fill: rgba(0, 0, 0, 0.3); }
+.bird-flock .bw { animation: wing-flap 0.42s ease-in-out infinite alternate; transform-box: fill-box; }
+.bird-flock .bwl { transform-origin: right center; }
+.bird-flock .bwr { transform-origin: left center; }
+@keyframes wing-flap { from { transform: scaleX(1); } to { transform: scaleX(0.35); } }
+@keyframes bird-fly-r { 0% { transform: translate(-130%, 0); opacity: 0.92; } 12% { transform: translate(900%, 260%); opacity: 0.92; } 12.1%, 100% { transform: translate(900%, 260%); opacity: 0; } }
+@keyframes bird-fly-l { 0% { transform: translate(900%, 0); opacity: 0.92; } 12% { transform: translate(-130%, 260%); opacity: 0.92; } 12.1%, 100% { transform: translate(-130%, 260%); opacity: 0; } }
+body.reduce-motion .bird-flock { display: none; }
+@keyframes cloud-drift { from { transform: translate(-70%, -50%); } to { transform: translate(260%, -50%); } }
+@keyframes fog-flow { 0% { transform: translate(-12%, -50%); opacity: 0.45; } 50% { opacity: 0.85; } 100% { transform: translate(22%, -50%); opacity: 0.5; } }
+body.reduce-motion .cloud-shadow, body.reduce-motion .fog-band { animation: none; }
+body.reduce-motion .cloud-shadow { transform: translate(10%, -30%); }
 .smoke-layer { display: none; position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }   /* 연기: 유닛(7) 아래, 엄폐 표시 위 */
 #board.rich .smoke-layer { display: block; }
 .smoke-puff { position: absolute; border-radius: 50%; transform: translate(-50%, -50%) scale(0.4); opacity: 0;

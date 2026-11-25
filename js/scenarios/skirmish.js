@@ -123,6 +123,8 @@ SCENARIOS.push({
       { src: 'assets/terrain/ground_dark.jpg', share: 0.07, period: 0.7 },
       { src: 'assets/terrain/plain.jpg', share: 0.08, period: 1.6 },
     ],
+    // 날씨 층 (장식 전용·규칙 무관): birds = 가끔 지나가는 새 무리 [{ row 세로 위치(칸), n 마릿수, dir 1=오른쪽·-1=왼쪽, ms 한 번 지나가고 다시 올 때까지 주기, delay }], clouds = 천천히 지나가는 구름 그림자 수, fog = 낮게 깔려 흐르는 안개띠 [{ row: 지도 세로 위치(칸 단위), w: 가로 폭(지도 비율), ms: 한 번 흐르는 시간 }]
+    weather: { birds: [{ row: 2.4, n: 3, dir: 1, ms: 75000, delay: -52000 }, { row: 6.6, n: 2, dir: -1, ms: 110000, delay: -30000 }], clouds: 3, cloudMs: 90000, fog: [{ row: 1.6, w: 0.75, ms: 52000 }, { row: 4.8, w: 0.9, ms: 64000 }, { row: 7.6, w: 0.8, ms: 58000 }] },
     // 피어오르는 연기 (장식 전용·규칙 무관, 점대칭). at=[행,열], dx/dy=칸 안 위치(0.5=중앙), n=연기 덩이 수, ember=잔불 위치들 [[칸 안 가로,세로]], size=칸 폭 배, ms=한 덩이 주기
     smoke: [
       { at: [4, 5], dx: 0.3, dy: 0.2, n: 3, size: 0.9, ms: 6500, ember: [[0.3, 0.5], [0.62, 0.45]] }, { at: [5, 4], dx: 0.7, dy: 0.2, n: 3, size: 0.9, ms: 6500, ember: [[0.7, 0.5], [0.38, 0.55]] },

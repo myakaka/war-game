@@ -911,6 +911,27 @@
     rich.angle.clear();
   }
 
+  /** 날씨 장식 층 (시나리오 art.weather: 구름 그림자·안개띠, 리치 테마만). 연기보다 아래·유닛 아래, 게임 상태와 무관 */
+  function weatherLayerHtml() {
+    const art = scenArt(), W = art && art.weather;
+    if (!W) return '';
+    let out = '';
+    // 새 무리: 위에서 본 실루엣 + 땅에 끌리는 옅은 그림자. 주기의 앞 12% 동안만 지도를 가로지르고 나머지는 숨음 (장식)
+    const birdSvg = (n) => { let b = ''; for (let k = 0; k < n; k++) { const x = 30 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 11, y = 20 + k * 6 - (n > 1 ? 6 : 0); b += `<g transform="translate(${x} ${y})"><path class="bw bwl" d="M0 0C-3 -1-6 -1-9 1C-6 1.5-3 2 0 2Z"/><path class="bw bwr" d="M0 0C3 -1 6 -1 9 1C6 1.5 3 2 0 2Z"/><ellipse cx="0" cy="2" rx="1.5" ry="4"/></g>`; } return `<svg viewBox="0 0 60 40" aria-hidden="true">${b}</svg>`; };
+    for (const bd of W.birds || []) {
+      const ms = bd.ms || 80000, top = (bd.row / N) * 100, cls = (bd.dir || 1) < 0 ? 'bird-l' : 'bird-r', st = `top:${top.toFixed(1)}%;animation-duration:${ms}ms;animation-delay:${bd.delay || 0}ms`, svg = birdSvg(bd.n || 3);
+      out += `<div class="bird-flock bird-shadow ${cls}" style="${st};margin-top:2.2%">${svg}</div><div class="bird-flock ${cls}" style="${st}">${svg}</div>`;
+    }
+    for (let i = 0; i < (W.clouds || 0); i++) {
+      const ms = (W.cloudMs || 90000) * (0.85 + 0.15 * i), top = 8 + ((i * 37) % 70), sz = 38 + ((i * 13) % 14);
+      out += `<i class="cloud-shadow" style="top:${top}%;width:${sz}%;height:${(sz * 0.7).toFixed(0)}%;animation-duration:${Math.round(ms)}ms;animation-delay:${-Math.round(ms * i / (W.clouds || 1))}ms"></i>`;
+    }
+    (W.fog || []).forEach((f, i) => {
+      const ms = f.ms || 60000, w = (f.w || 0.8) * 100;
+      out += `<i class="fog-band" style="top:${((f.row / N) * 100).toFixed(1)}%;width:${w.toFixed(0)}%;height:${(2.6 * 100 / N).toFixed(1)}%;animation-duration:${ms}ms;animation-delay:${-Math.round(ms * (0.3 + 0.37 * i) % ms)}ms"></i>`;
+    });
+    return `<div class="weather-layer" aria-hidden="true">${out}</div>`;
+  }
   /** 피어오르는 연기 장식 층 (시나리오 art.smoke 가 있고 리치 테마일 때만 CSS 로 보임). 지도 좌표(%)라 확대·이동을 따름. 유닛 아래층, 게임 상태와 무관 */
   function smokeLayerHtml() {
     const art = scenArt(), list = (art && art.smoke) || [];
@@ -964,7 +985,7 @@
       cells.push({ el, dyn: el.lastChild });
     }
     const layer = (cls) => `<svg class="hl-layer ${cls}" viewBox="0 0 ${VB} ${VB}" preserveAspectRatio="none" aria-hidden="true" focusable="false"></svg>`;
-    boardEl.insertAdjacentHTML('beforeend', gridLayerSvg() + layer('hl-under') + layer('hl-over') + layer('hl-hover') + '<div class="fx-layer"></div>' + smokeLayerHtml());
+    boardEl.insertAdjacentHTML('beforeend', gridLayerSvg() + layer('hl-under') + layer('hl-over') + layer('hl-hover') + '<div class="fx-layer"></div>' + weatherLayerHtml() + smokeLayerHtml());
     hlUnder = boardEl.querySelector('.hl-under');
     hlOver = boardEl.querySelector('.hl-over');
     hlHover = boardEl.querySelector('.hl-hover');
