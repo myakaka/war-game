@@ -1446,8 +1446,8 @@ test('소리 시점: 병종별 발사·명중·빗나감·격파, 박격포, 포
   jsonEq(sndIds(ar), ['artillery_fire', 'shell_whistle', 'artillery_impact', 'mortar_impact', 'mortar_impact', 'mortar_impact', 'mortar_impact']);
   const nb = ar.sounds.filter((s) => s.id === 'mortar_impact').map((s) => s.at), c = ar.sounds.find((s) => s.id === 'artillery_impact').at;
   jsonEq(nb.map((x) => x - c), [1, 2, 3, 4].map((k) => k * E.FX.splashGap));
-  assert.equal(E.moveSoundOf('infantry'), 'move_infantry');
-  for (const ty of ['armor', 'recon', 'signal']) assert.equal(E.moveSoundOf(ty), 'move_vehicle');
+  assert.equal(E.moveSoundOf('infantry'), 'move_infantry'); assert.equal(E.moveSoundOf('recon'), 'move_infantry');   // 정찰병은 보병과 같은 발소리
+  for (const ty of ['armor', 'signal', 'artillery']) assert.equal(E.moveSoundOf(ty), 'move_vehicle');
   for (const p of [hit, ar]) for (const s of p.sounds) jsonEq(Object.keys(s).sort(), ['at', 'id'], '소리에는 위치·거리·크기 값이 없음');
 });
 

@@ -34,7 +34,7 @@ const AUDIO = {
     'fire_rifle', 'fire_tank', 'fire_at', 'hit_small', 'hit_big', 'miss_dirt', 'mortar_fire', 'mortar_impact', 'artillery_fire', 'artillery_impact',
     'unit_destroyed', 'move_infantry', 'move_vehicle', 'shell_whistle', 'score_up', 'objective_captured', 'victory', 'defeat', 'dice_roll', 'dice_land'],
   gain: {},                           // 소리별 크기 보정 (기본 1). 종류로만 정함
-  vehicleTypes: ['armor', 'recon', 'signal', 'artillery'],   // 이동 소리: 이 병종은 move_vehicle, 나머지는 move_infantry
+  vehicleTypes: ['armor', 'signal', 'artillery'],   // 이동 소리: 이 병종은 move_vehicle, 나머지는 move_infantry
   menuBgm: null,                      // 메뉴·시나리오 선택 화면 음악 (예: 'sound/bgm_menu'). 파일이 없으면 null
 };
 
