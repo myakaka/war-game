@@ -28,6 +28,9 @@ const RICH_MAP = (() => {
     field: { blur: 0.28, noisePeriod: 0.75, amp: 0.55, edge: 0.18, tile: 6.2 },   // 밀밭: 경계를 흐리고 불규칙하게
     strip: { shadow: { dx: 0.05, dy: 0.06, blur: 0.05, alpha: 0.26 } },          // 방풍림 등 줄 장식의 옅은 그림자
     scar: { alpha: 0.92 },
+    // 엄폐물·철조망 그림의 그림자(빛은 왼쪽 위): 넓고 옅은 것 + 바닥에 붙는 짙고 좁은 접지 그림자. k = 종류별 세기 (0 이면 그림자 없음: 땅에 파인 것·풀)
+    objShadow: { soft: { dx: 0.06, dy: 0.09, blur: 0.07, alpha: 0.55 }, contact: { dx: 0.015, dy: 0.025, blur: 0.02, alpha: 0.7 },
+      k: { rock: 1, wreck: 1, wall: 0.8, rubble: 0.6, sandbag: 0.8, wire: 0.5, crater: 0, bush: 0, ditch: 0 } },
     runway: { inset: 0.11, edge: 'rgba(225,225,220,0.85)', bars: 4, barLen: 0.22, barGap: 0.06 },
     vignette: 0.28,
     grain: 5,
@@ -338,17 +341,28 @@ const RICH_MAP = (() => {
     const DC = o.art.decals;
     if (DC && DC.files) {
       const kinds = Object.keys(DC.files).filter((k) => decorImg[DC.files[k]]), cache = {};
+      const wts = kinds.map((k) => (DC.weights || {})[k] == null ? 1 : DC.weights[k]), wsum = wts.reduce((x, y) => x + y, 0);
+      const layerOf = (kind, im, w, hh) => {   // 종류별 한 번만 만들고, soften 이 있으면 가장자리를 번지게 (도장 찍은 듯한 윤곽을 없앰)
+        if (cache[kind]) return cache[kind];
+        let layer = shrunk(im, w, hh);
+        const sf = (DC.soften || {})[kind];
+        if (sf && 'filter' in ctx) { const pad = Math.ceil(w * sf * 3), lc = newCanvas(layer.width + pad * 2, layer.height + pad * 2), lg = lc.getContext('2d'); lg.filter = `blur(${Math.max(0.5, w * sf)}px)`; lg.drawImage(layer, pad, pad); layer = lc; }
+        return (cache[kind] = layer);
+      };
       for (let r = 0; kinds.length && r < n; r++) for (let c = 0; c < n; c++) {
         if (key(r, c) !== 'plain' || inPatch(r, c)) continue;
-        const h = cellHash(r * 7 + 3, c * 13 + 5);
-        if ((h % 1000) / 1000 >= (DC.density == null ? 0.12 : DC.density)) continue;
-        const kind = kinds[(h >>> 10) % kinds.length], im = decorImg[DC.files[kind]], ar = (im.naturalWidth || im.width) / (im.naturalHeight || im.height);
-        const w = Math.round(cellPx * ((DC.sizes || {})[kind] || 1)), hh = Math.round(w / ar);
-        const layer = cache[kind] || (cache[kind] = shrunk(im, w, hh));
+        const h = cellHash(r * 7 + 3, c * 13 + 5), cl = [0.25, 0.6, 1.1, 2.1][cellHash((r / 3) | 0, ((c / 3) | 0) + 40) % 4];   // 3칸 구역마다 밀도가 달라 군데군데 뭉침
+        if ((h % 1000) / 1000 >= (DC.density == null ? 0.12 : DC.density) * cl) continue;
+        let pick = ((h >>> 10) % 1000) / 1000 * wsum, ki = 0;
+        while (ki < kinds.length - 1 && pick >= wts[ki]) { pick -= wts[ki]; ki++; }
+        const kind = kinds[ki], im = decorImg[DC.files[kind]], ar = (im.naturalWidth || im.width) / (im.naturalHeight || im.height);
+        const jit = 0.75 + ((h >>> 20) % 50) / 100, w = Math.round(cellPx * ((DC.sizes || {})[kind] || 1)), hh = Math.round(w / ar);   // 크기 0.75~1.25배
+        const layer = layerOf(kind, im, w, hh);
         ctx.save();
-        ctx.globalAlpha = DC.alpha == null ? 0.9 : DC.alpha;
+        ctx.globalAlpha = Math.min(1, (((DC.alphas || {})[kind]) != null ? DC.alphas[kind] : DC.alpha == null ? 0.9 : DC.alpha) * (0.7 + ((h >>> 4) % 40) / 100));
         ctx.translate((c + 0.5 + (((h >>> 6) % 100) / 100 - 0.5) * 0.5) * cellPx, (r + 0.5 + (((h >>> 14) % 100) / 100 - 0.5) * 0.5) * cellPx);
         ctx.rotate(((h >>> 18) % 360) * Math.PI / 180);
+        ctx.scale(((h >>> 3) & 1 ? -1 : 1) * jit, ((h >>> 2) & 1 ? -1 : 1) * jit * (0.85 + ((h >>> 25) % 30) / 100));   // 뒤집기·크기·납작함 변형
         ctx.drawImage(layer, -layer.width / 2, -layer.height / 2);
         ctx.restore();
       }
@@ -486,6 +500,23 @@ const RICH_MAP = (() => {
         }
       } else warnOnce('참호 그림 파일이 모두 있지 않아 기호 표시로 대체');
     }
+    // 그림 한 장의 그림자를 먼저 깔기 (그림을 회전한 뒤에도 빛 방향은 고정). 실루엣은 투명도 기준이라 투명 배경 그림만 해당
+    const putShadow = (layer, cx, cy, rot, kk) => {
+      if (!(kk > 0) || !('filter' in ctx)) return;
+      const OS = K.objShadow, pad = Math.ceil(cellPx * 0.2), lw = layer.width + pad * 2, lh = layer.height + pad * 2;
+      const sil = newCanvas(lw, lh), sx = sil.getContext('2d');
+      sx.drawImage(layer, pad, pad);
+      sx.globalCompositeOperation = 'source-in'; sx.fillStyle = '#000'; sx.fillRect(0, 0, lw, lh);
+      for (const P of [OS.soft, OS.contact]) {
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, P.alpha * kk);
+        ctx.filter = `blur(${Math.max(0.5, P.blur * cellPx)}px)`;
+        ctx.translate(cx + P.dx * cellPx, cy + P.dy * cellPx);
+        ctx.rotate(rot * Math.PI / 180);
+        ctx.drawImage(sil, -lw / 2, -lh / 2);
+        ctx.restore();
+      }
+    };
     if (o.art.cover) {
       const files = o.art.cover.files, CV = VIS.cover || {};
       const skins = ['crater', 'bush', 'sandbag'];
@@ -510,6 +541,7 @@ const RICH_MAP = (() => {
             layer = lc;
           }
           if (o2.tint) { const lc = newCanvas(layer.width, layer.height), lg = lc.getContext('2d'); lg.drawImage(layer, 0, 0); lg.globalCompositeOperation = 'source-atop'; lg.fillStyle = o2.tint; lg.fillRect(0, 0, lc.width, lc.height); layer = lc; }
+          putShadow(layer, (c + 0.5 + tune.dx) * cellPx, (r + 0.5 + tune.dy) * cellPx, rot, K.objShadow.k[skin]);
           ctx.save();
           ctx.translate((c + 0.5 + tune.dx) * cellPx, (r + 0.5 + tune.dy) * cellPx);
           ctx.rotate(rot * Math.PI / 180);
@@ -524,7 +556,8 @@ const RICH_MAP = (() => {
       used.wire = true;
       for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
         if (key(r, c) !== 'wire') continue;
-        const h = cellHash(r * 5 + 1, c * 11 + 2);
+        const h = cellHash(r * 5 + 1, c * 11 + 2), wrot = (h >>> 3) % 2 ? 0 : 180;
+        putShadow(layer, (c + 0.5) * cellPx, (r + 0.5) * cellPx, wrot, K.objShadow.k.wire);
         ctx.save();
         ctx.translate((c + 0.5) * cellPx, (r + 0.5) * cellPx);
         ctx.rotate(((h >>> 3) % 2 ? 0 : 180) * Math.PI / 180);

@@ -126,7 +126,8 @@ SCENARIOS.push({
     // 전장 흔적 장식 (평지 칸에만, 규칙과 무관). sizes = 칸 폭의 배수, density = 평지 칸 중 놓이는 비율
     decals: {
       files: { scorch: 'assets/decal/decal_scorch.png', crater: 'assets/decal/decal_crater.png', tracks: 'assets/decal/decal_tracks.png', debris: 'assets/decal/decal_debris.png' },
-      sizes: { scorch: 0.75, crater: 0.55, tracks: 1.4, debris: 1.1 }, density: 0.13, alpha: 0.78,   // 진짜 엄폐물 구덩이로 오해하지 않게 작고 흐리게
+      sizes: { scorch: 0.75, crater: 0.55, tracks: 1.4, debris: 1.1 }, density: 0.12, alpha: 0.78,   // 진짜 엄폐물 구덩이로 오해하지 않게 작고 흐리게
+      weights: { scorch: 0.5, crater: 0.7, tracks: 1, debris: 1.2 }, alphas: { scorch: 0.5, crater: 0.6 }, soften: { scorch: 0.06, crater: 0.04 },   // 종류별 비중·진하기·가장자리 번짐 (반복돼 보이지 않게)
     },
     // 참호·엄폐물 그림 (PC 리치 테마 전용 장식, 규칙과 무관). 파일이 없으면 기호 표시로 대체. 칸 좌표는 화면과 같은 0부터 (행,열)
     trench: { files: {
