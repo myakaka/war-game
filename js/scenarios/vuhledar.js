@@ -5,6 +5,19 @@
    국가 이름은 글자로만 쓰고(side.ua / side.ru), 국기·휘장·실제 부대 이름·실제 병력과 손실 숫자는 없다.
    병력 수·배치·행동 제한·라운드 수는 균형을 위한 임시값 (사용자가 플레이하며 조절). 규칙·병종 수치는 공통 값 그대로.
    ===================================================================== */
+// 엄폐물 칸의 종류·방향 (규칙과 그림이 같이 읽음). 방어군 쪽 마을 앞 10칸, 정면형은 북쪽(0)을 향함 (공격군이 북쪽에서 내려옴)
+const VUHLEDAR_COVER_CELLS = {
+  '9,6': { skin: 'wall', rotation: 0 },
+  '9,9': { skin: 'rock', rotation: 0 },
+  '10,3': { skin: 'crater', rotation: 0 },
+  '10,5': { skin: 'sandbag', rotation: 0 },
+  '10,8': { skin: 'wreck', rotation: 0 },
+  '10,13': { skin: 'bush', rotation: 0 },
+  '11,5': { skin: 'rubble', rotation: 0 },
+  '11,9': { skin: 'sandbag', rotation: 0 },
+  '12,3': { skin: 'bush', rotation: 0 },
+  '12,11': { skin: 'ditch', rotation: 0 },
+};
 SCENARIOS.push({
   id: 'vuhledar',
   nameKey: 'scen.vuhledar.name', descKey: 'scen.vuhledar.desc', subKey: 'scen.vuhledar.sub',
@@ -24,10 +37,10 @@ SCENARIOS.push({
     '..f.f..f.f.....f',
     '....f......ww..f',
     '....f..ff..www.f',
-    '....f..ff..www..',
-    '....f......ww...',
-    '......###.......',
-    '.....#####....f.',
+    '....f.effe.www..',
+    '...efe..e..wwe..',
+    '.....e###e......',
+    '...e.#####.e..f.',
     '.....#####....f.',
     '......###.......',
     '................',
@@ -64,6 +77,23 @@ SCENARIOS.push({
     { round: 0, side: 'ru', type: 'signal', pos: [0, 11] },
     // 증원 없음
   ],
+  // 엄폐물 (대칭 전장·호스토멜과 같은 규칙): 방향성 엄폐 + 은폐 + 박격포·야포 지형 무시 + 제압 즉사. 엄폐물 칸 'e' 에는 전차·야포가 못 들어감 (TERRAIN_TYPES)
+  concealment: { reconRadius: 2, otherRadius: 1 },
+  mortarIgnoresTerrain: true,
+  suppressKill: true,
+  directionalCover: true,
+  terrainRules: {
+    sandbag: { defense: 2, conceal: true, directional: 'facing' },
+    crater:  { defense: 2, conceal: true, directional: 'all' },
+    bush:    { defense: 1, conceal: true, directional: 'all' },
+    rock:    { defense: 3, conceal: true, directional: 'facing' },
+    wreck:   { defense: 3, conceal: true, directional: 'facing' },
+    wall:    { defense: 2, conceal: true, directional: 'facing' },
+    ditch:   { defense: 2, conceal: true, directional: 'all' },
+    rubble:  { defense: 2, conceal: true, directional: 'all' },
+  },
+  coverCells: VUHLEDAR_COVER_CELLS,
+  defaultCover: 'crater',
   placementZones: { ua: { rows: [9, 15] }, ru: null },   // 방어군만 직접 배치 가능 (공격군은 고정)
   zoneLabelKey: 'scen.vuhledar.zone',
   river: null,
@@ -85,6 +115,19 @@ SCENARIOS.push({
   overlays: [],
   // 그림 세트 (PC 리치 테마 전용 장식: 규칙 로직은 읽지 않음). 칸의 지형 종류는 위 지도 그대로
   art: {
+    cover: {
+      files: {
+        crater: 'assets/cover/cover_crater.png', bush: 'assets/cover/cover_bush.png', sandbag: 'assets/cover/cover_sandbag.png',
+        rock: 'assets/cover/cover_rock.png', rubble: 'assets/cover/cover_rubble.png', wall: 'assets/cover/cover_wall.png', ditch: 'assets/cover/cover_ditch.png', wreck: 'assets/cover/cover_wreck.png',
+      },
+      cells: VUHLEDAR_COVER_CELLS,
+    },
+    visual: {
+      cover: { crater: { dx: 0, dy: 0, scale: 1 }, bush: { dx: 0, dy: 0, scale: 1 }, sandbag: { dx: 0, dy: 0, scale: 1.25 },
+        rock: { dx: 0, dy: 0, scale: 1 }, rubble: { dx: 0, dy: 0, scale: 1.05 }, wall: { dx: 0, dy: 0, scale: 1.5 }, ditch: { dx: 0, dy: 0, scale: 1.05 }, wreck: { dx: 0, dy: 0, scale: 1.25 } },
+      units: { scaleInCrater: 0.85, scaleInBush: 0.90, scaleInSandbag: 0.90, fadeBottomCrater: 0.12, sandbagOffset: 0.30, sandbagOverlayAlpha: 0.3, bushOverlayAlpha: 0.6, bushUnitAlpha: 0.85 },
+      cellOverrides: {},
+    },
     // 전장 흔적·날씨·연기 (소형 전장과 같은 장식 층, 규칙 무관, 리치 테마 전용)
     decals: {
       files: { scorch: 'assets/decal/decal_scorch.png', crater: 'assets/decal/decal_crater.png', tracks: 'assets/decal/decal_tracks.png', debris: 'assets/decal/decal_debris.png' },

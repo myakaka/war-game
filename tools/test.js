@@ -2207,9 +2207,10 @@ test('우글레다르: 그림 데이터는 이 시나리오에만 (다른 시나
   assert.equal(E.SCENARIOS.find((s) => s.id === 'hostomel').art.terrain.city, 'assets/terrain/urban.jpg', '호스토멜 마을 질감 그대로');
   const decorSrcs = [art.dryField.src, ...art.fields.map((f) => f.src), ...art.decor.map((d) => d.src)];
   const decalSrcs = Object.values((art.decals && art.decals.files) || {});   // 전장 흔적 장식 (소형 전장과 같은 층)
+  const coverSrcs = Object.values((art.cover && art.cover.files) || {});   // 엄폐물 그림 (v20)
   for (const src of [...Object.values(art.terrain), ...decorSrcs]) assert.ok(fs.existsSync(path.join(ROOT, src)), `${src} 없음`);
   const list = run('RICH_MAP').artSources(art, {});
-  assert.equal(list.filter((x) => x.kind === 'decor').length, new Set([...decorSrcs, ...decalSrcs]).size, '장식 그림은 파일마다 한 번만 불러옴');
+  assert.equal(list.filter((x) => x.kind === 'decor').length, new Set([...decorSrcs, ...decalSrcs, ...coverSrcs]).size, '장식 그림은 파일마다 한 번만 불러옴');
   const scars = art.decor.filter((d) => d.type === 'scar');
   assert.equal(scars.length, 5, '포격 자국 고정 장식 5개');
   for (const d of scars) assert.ok(d.size <= 0.9, '자국은 한 칸의 90% 이하');
@@ -3274,5 +3275,26 @@ test('[호스토멜 엄폐물] 방어군 쪽 평지 9칸, 시작·낙하·증원
     assert.ok(!(T(r, c).impassableFor || []).includes('antitank'), '대전차병은 들어감');
   }
   assert.equal(cover, 9);
+  assert.equal(sc.art.cover.cells, sc.coverCells);
+});
+
+test('[우글레다르 엄폐물] 방어군 쪽 평지 10칸, 배치·거점·숲·습지와 안 겹침, 큰 유닛은 못 들어감, 세 규칙 켜짐', () => {
+  E.loadScenario('vuhledar');
+  const sc = E.SCENARIOS.find((x) => x.id === 'vuhledar'), n = sc.map.length, T = run('terrainAt');
+  assert.ok(C().CONCEALMENT && C().DIRECTIONAL && C().SUPPRESS_KILL && C().MORTAR_IGNORES_TERRAIN, '은폐·방향성·제압 즉사·곡사 지형 무시 켜짐');
+  const used = new Set();
+  for (const d of sc.deployments) for (const p of (d.cells || [d.pos])) used.add(`${p[0]},${p[1]}`);
+  for (const o of sc.objectives) for (const p of o.cells) used.add(`${p[0]},${p[1]}`);
+  let cover = 0;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (sc.map[r][c] !== 'e') continue;
+    cover++;
+    assert.ok(sc.coverCells[`${r},${c}`], `종류 ${r},${c}`);
+    assert.ok(!used.has(`${r},${c}`), `배치·거점 칸과 겹침 ${r},${c}`);
+    assert.ok(r >= 9, '방어군 쪽 (9행 이하)');
+    for (const k of ['armor', 'artillery']) assert.ok((T(r, c).impassableFor || []).includes(k), `${k} 못 들어감`);
+    assert.ok(!(T(r, c).impassableFor || []).includes('antitank'), '대전차병은 들어감');
+  }
+  assert.equal(cover, 10);
   assert.equal(sc.art.cover.cells, sc.coverCells);
 });
