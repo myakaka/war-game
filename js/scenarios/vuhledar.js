@@ -85,6 +85,19 @@ SCENARIOS.push({
   overlays: [],
   // 그림 세트 (PC 리치 테마 전용 장식: 규칙 로직은 읽지 않음). 칸의 지형 종류는 위 지도 그대로
   art: {
+    // 전장 흔적·날씨·연기 (소형 전장과 같은 장식 층, 규칙 무관, 리치 테마 전용)
+    decals: {
+      files: { scorch: 'assets/decal/decal_scorch.png', crater: 'assets/decal/decal_crater.png', tracks: 'assets/decal/decal_tracks.png', debris: 'assets/decal/decal_debris.png' },
+      sizes: { scorch: 0.75, crater: 0.55, tracks: 1.4, debris: 1.1 }, density: 0.05, alpha: 0.78,
+      weights: { scorch: 0.3, crater: 0.3, tracks: 1, debris: 1.2 }, alphas: { scorch: 0.5, crater: 0.6 }, soften: { scorch: 0.06, crater: 0.04 },
+    },
+    weather: { birds: [{ row: 3.8, n: 3, dir: 1, ms: 75000, delay: -52000 }, { row: 10.6, n: 2, dir: -1, ms: 110000, delay: -30000 }], clouds: 3, cloudMs: 90000, fog: [{ row: 2.6, w: 0.75, ms: 52000 }, { row: 7.7, w: 0.9, ms: 64000 }, { row: 12.2, w: 0.8, ms: 58000 }] },
+    smoke: [
+      { at: [11, 6], dx: 0.5, dy: 0.5, n: 2, size: 0.8, ms: 7000, ember: [[0.45, 0.55]] },
+      { at: [14, 8], dx: 0.5, dy: 0.5, n: 2, size: 0.7, ms: 7800 },
+      { at: [3, 6], dx: 0.5, dy: 0.5, n: 2, size: 0.7, ms: 7500, ember: [[0.45, 0.55]] },
+      { at: [9, 8], dx: 0.5, dy: 0.5, n: 2, size: 0.6, ms: 8200 },
+    ],
     terrain: {
       plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
       paddy: 'assets/terrain/wetland.jpg',

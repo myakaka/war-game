@@ -5,6 +5,25 @@
    국기·부대 마크·문양 없음: 진영은 이름 문자열과 색 고리(역할)로만 구분.
    symmetric: true 이면 validateScenario 가 지형·거점·배치·증원·행동 한도·승리 조건의 회전 대칭을 검사한다.
    ===================================================================== */
+// 엄폐물 칸의 종류·방향 (규칙과 그림이 같이 읽음). 점대칭 쌍 (r,c) ↔ (15-r,15-c), 방향은 180도 돌린 값. 정면형은 중앙을 향함
+const SYMMETRIC_COVER_CELLS = {
+  '4,3': { skin: 'bush', rotation: 0 },
+  '4,10': { skin: 'sandbag', rotation: 180 },
+  '4,13': { skin: 'rock', rotation: 180 },
+  '5,4': { skin: 'rubble', rotation: 0 },
+  '5,7': { skin: 'wall', rotation: 180 },
+  '5,9': { skin: 'ditch', rotation: 0 },
+  '6,12': { skin: 'crater', rotation: 0 },
+  '7,10': { skin: 'wreck', rotation: 180 },
+  '8,5': { skin: 'wreck', rotation: 0 },
+  '9,3': { skin: 'crater', rotation: 180 },
+  '10,6': { skin: 'ditch', rotation: 180 },
+  '10,8': { skin: 'wall', rotation: 0 },
+  '10,11': { skin: 'rubble', rotation: 180 },
+  '11,2': { skin: 'rock', rotation: 0 },
+  '11,5': { skin: 'sandbag', rotation: 0 },
+  '11,12': { skin: 'bush', rotation: 90 },
+};
 SCENARIOS.push({
   id: 'symmetric',
   nameKey: 'scen.symmetric.name', descKey: 'scen.symmetric.desc', subKey: 'scen.symmetric.sub',
@@ -17,14 +36,14 @@ SCENARIOS.push({
     '.ff.............',
     '.ff..........ff.',
     '.........f..ff..',
-    '.....ww.ff.ww...',
-    'f.ww.ww...www.f.',
-    'f.wwww.##.....f.',
-    '..www.###..ww#..',
-    '..#ww..###.www..',
-    '.f.....##.wwww.f',
-    '.f.www...ww.ww.f',
-    '...ww.ff.ww.....',
+    '...e.ww.ffewwe..',
+    'f.wwewwe.ewww.f.',
+    'f.wwww.##...e.f.',
+    '..www.###.eww#..',
+    '..#wwe.###.www..',
+    '.f.e...##.wwww.f',
+    '.f.wwwe.ewweww.f',
+    '..ewweff.ww.e...',
     '..ff..f.........',
     '.ff..........ff.',
     '.............ff.',
@@ -108,9 +127,50 @@ SCENARIOS.push({
     ru: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
     ua: [{ type: 'annihilation' }, { type: 'roundLimitPoints' }],
   },
+  // 엄폐물 (소형 전장과 같은 규칙: 방향성 엄폐 + 은폐). 엄폐물 칸('e')에는 전차·야포·대전차포가 못 들어가므로(TERRAIN_TYPES 'e' impassableFor) 숨는 것은 소형 병종뿐
+  concealment: { reconRadius: 2, otherRadius: 1 },
+  directionalCover: true,
+  terrainRules: {
+    sandbag: { defense: 2, conceal: true, directional: 'facing' },
+    crater:  { defense: 2, conceal: true, directional: 'all' },
+    bush:    { defense: 1, conceal: true, directional: 'all' },
+    rock:    { defense: 3, conceal: true, directional: 'facing' },
+    wreck:   { defense: 3, conceal: true, directional: 'facing' },
+    wall:    { defense: 2, conceal: true, directional: 'facing' },
+    ditch:   { defense: 2, conceal: true, directional: 'all' },
+    rubble:  { defense: 2, conceal: true, directional: 'all' },
+  },
+  coverCells: SYMMETRIC_COVER_CELLS,
+  defaultCover: 'crater',
   terrainNames: { paddy: 'terrain.marsh' },
   overlays: [],
   art: {
+    cover: {
+      files: {
+        crater: 'assets/cover/cover_crater.png', bush: 'assets/cover/cover_bush.png', sandbag: 'assets/cover/cover_sandbag.png',
+        rock: 'assets/cover/cover_rock.png', rubble: 'assets/cover/cover_rubble.png', wall: 'assets/cover/cover_wall.png', ditch: 'assets/cover/cover_ditch.png', wreck: 'assets/cover/cover_wreck.png',
+      },
+      cells: SYMMETRIC_COVER_CELLS,
+    },
+    visual: {
+      cover: { crater: { dx: 0, dy: 0, scale: 1 }, bush: { dx: 0, dy: 0, scale: 1 }, sandbag: { dx: 0, dy: 0, scale: 1.25 },
+        rock: { dx: 0, dy: 0, scale: 1 }, rubble: { dx: 0, dy: 0, scale: 1.05 }, wall: { dx: 0, dy: 0, scale: 1.5 }, ditch: { dx: 0, dy: 0, scale: 1.05 }, wreck: { dx: 0, dy: 0, scale: 1.25 } },
+      units: { scaleInCrater: 0.85, scaleInBush: 0.90, scaleInSandbag: 0.90, fadeBottomCrater: 0.12, sandbagOffset: 0.30, sandbagOverlayAlpha: 0.3, bushOverlayAlpha: 0.6, bushUnitAlpha: 0.85 },
+      cellOverrides: {},
+    },
+    // 전장 흔적·날씨·연기 (소형 전장과 같은 장식 층, 규칙 무관, 리치 테마 전용)
+    decals: {
+      files: { scorch: 'assets/decal/decal_scorch.png', crater: 'assets/decal/decal_crater.png', tracks: 'assets/decal/decal_tracks.png', debris: 'assets/decal/decal_debris.png' },
+      sizes: { scorch: 0.75, crater: 0.55, tracks: 1.4, debris: 1.1 }, density: 0.07, alpha: 0.78,
+      weights: { scorch: 0.5, crater: 0.7, tracks: 1, debris: 1.2 }, alphas: { scorch: 0.5, crater: 0.6 }, soften: { scorch: 0.06, crater: 0.04 },
+    },
+    weather: { birds: [{ row: 3.8, n: 3, dir: 1, ms: 75000, delay: -52000 }, { row: 10.6, n: 2, dir: -1, ms: 110000, delay: -30000 }], clouds: 3, cloudMs: 90000, fog: [{ row: 2.6, w: 0.75, ms: 52000 }, { row: 7.7, w: 0.9, ms: 64000 }, { row: 12.2, w: 0.8, ms: 58000 }] },
+    smoke: [
+      { at: [6, 7], dx: 0.5, dy: 0.5, n: 2, size: 0.8, ms: 7000, ember: [[0.45, 0.55]] },
+      { at: [9, 8], dx: 0.5, dy: 0.5, n: 2, size: 0.8, ms: 7000, ember: [[0.55, 0.45]] },
+      { at: [7, 6], dx: 0.5, dy: 0.5, n: 2, size: 0.6, ms: 8200 },
+      { at: [8, 9], dx: 0.5, dy: 0.5, n: 2, size: 0.6, ms: 8200 },
+    ],
     terrain: {
       plain: 'assets/terrain/plain.jpg', forest: 'assets/terrain/forest.jpg', river: 'assets/terrain/river.jpg',
       paddy: 'assets/terrain/wetland.jpg', city: 'assets/terrain/urban.jpg',

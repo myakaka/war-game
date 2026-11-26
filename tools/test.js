@@ -2204,9 +2204,10 @@ test('우글레다르: 그림 데이터는 이 시나리오에만 (다른 시나
   }
   assert.equal(E.SCENARIOS.find((s) => s.id === 'hostomel').art.terrain.city, 'assets/terrain/urban.jpg', '호스토멜 마을 질감 그대로');
   const decorSrcs = [art.dryField.src, ...art.fields.map((f) => f.src), ...art.decor.map((d) => d.src)];
+  const decalSrcs = Object.values((art.decals && art.decals.files) || {});   // 전장 흔적 장식 (소형 전장과 같은 층)
   for (const src of [...Object.values(art.terrain), ...decorSrcs]) assert.ok(fs.existsSync(path.join(ROOT, src)), `${src} 없음`);
   const list = run('RICH_MAP').artSources(art, {});
-  assert.equal(list.filter((x) => x.kind === 'decor').length, new Set(decorSrcs).size, '장식 그림은 파일마다 한 번만 불러옴');
+  assert.equal(list.filter((x) => x.kind === 'decor').length, new Set([...decorSrcs, ...decalSrcs]).size, '장식 그림은 파일마다 한 번만 불러옴');
   const scars = art.decor.filter((d) => d.type === 'scar');
   assert.equal(scars.length, 5, '포격 자국 고정 장식 5개');
   for (const d of scars) assert.ok(d.size <= 0.9, '자국은 한 칸의 90% 이하');
@@ -3214,7 +3215,7 @@ test('[방향성 엄폐] 참호 통로·모래주머니 정면·구덩이·수�
   const sc = E.SCENARIOS.find((s) => s.id === 'skirmish');
   assert.equal(sc.art.cover.cells, sc.coverCells);
   // 방향성 시나리오가 아니면 기존 값 그대로
-  E.loadScenario('symmetric');
+  E.loadScenario('hostomel');
   assert.equal(C().DIRECTIONAL, null);
   assert.equal(E.getTerrainDefenseBonus({ r: 0, c: 0 }, { r: 5, c: 0 }, 'infantry').reason, E.getTerrainDefenseBonus({ r: 0, c: 0 }, null, 'infantry').reason);
   E.loadScenario(SCEN_IDS[0]);
@@ -3228,4 +3229,24 @@ test('v15: 규칙 세트 전환 API 는 없어지고 주사위 규칙만 남음,
   assert.ok(C().RULES_VERSION >= 15);
   const ko = fs.readFileSync(path.join(ROOT, 'js', 'strings.js'), 'utf8');
   assert.ok(!/menu\.demo2|dice2\.badge|dice2\.introNote/.test(ko), '데모 2 메뉴·배지·안내 문구 제거');
+});
+
+test('[대칭 전장 엄폐물] 점대칭 16칸, 큰 유닛(전차·야포·대전차포)은 못 들어가고 소형 병종은 들어감, 은폐·방향성 규칙 켜짐', () => {
+  E.loadScenario('symmetric');
+  const sc = E.SCENARIOS.find((x) => x.id === 'symmetric'), n = sc.map.length, T = run('terrainAt');
+  assert.ok(C().CONCEALMENT && C().DIRECTIONAL, '은폐·방향성 엄폐 켜짐');
+  let cover = 0;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (sc.map[r][c] !== 'e') continue;
+    cover++;
+    assert.equal(sc.map[n - 1 - r][n - 1 - c], 'e', `점대칭 ${r},${c}`);
+    const a = sc.coverCells[`${r},${c}`], b = sc.coverCells[`${n - 1 - r},${n - 1 - c}`];
+    assert.ok(a && b && a.skin === b.skin, `종류 ${r},${c}`);
+    if (sc.terrainRules[a.skin].directional === 'facing') assert.equal((a.rotation + 180) % 360, b.rotation, `정면 방향 ${r},${c}`);
+    const imp = T(r, c).impassableFor || [];
+    for (const k of ['armor', 'artillery', 'antitank']) assert.ok(imp.includes(k), `${k} 못 들어감`);
+    for (const k of ['infantry', 'recon', 'mortar', 'signal']) assert.ok(!imp.includes(k), `${k} 들어감`);
+  }
+  assert.equal(cover, 16);
+  for (const d of sc.deployments) assert.notEqual(sc.map[(d.pos || [])[0]]?.[(d.pos || [])[1]], 'e', '시작 배치가 엄폐물 위에 없음');
 });
