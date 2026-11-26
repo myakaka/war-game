@@ -67,8 +67,9 @@ SCENARIOS.push({
     { round: 0, side: 'ua', type: 'mortar', pos: [14, 5] },
     { round: 0, side: 'ua', type: 'signal', pos: [14, 10] },
     // 러시아군 (공격, 위쪽): 고정 배치. 포병 없음 (간접 화력은 박격포 1기뿐)
-    { round: 0, side: 'ru', type: 'infantry', pos: [0, 4] }, { round: 0, side: 'ru', type: 'infantry', pos: [0, 8] },
-    { round: 0, side: 'ru', type: 'infantry', pos: [0, 10] }, { round: 0, side: 'ru', type: 'infantry', pos: [0, 13] },
+    // 보병 4기만 앞(4~5행: 방풍림·위쪽 마을)에서 출발 (v21: 이동력 2 로는 0행에서 마을까지 닿기 어려움)
+    { round: 0, side: 'ru', type: 'infantry', pos: [5, 2] }, { round: 0, side: 'ru', type: 'infantry', pos: [4, 6] },
+    { round: 0, side: 'ru', type: 'infantry', pos: [4, 9] }, { round: 0, side: 'ru', type: 'infantry', pos: [4, 11] },
     { round: 0, side: 'ru', type: 'armor', pos: [1, 5] }, { round: 0, side: 'ru', type: 'armor', pos: [0, 6] },
     { round: 0, side: 'ru', type: 'armor', pos: [1, 9] }, { round: 0, side: 'ru', type: 'armor', pos: [0, 9] },
     { round: 0, side: 'ru', type: 'armor', pos: [1, 12] }, { round: 0, side: 'ru', type: 'armor', pos: [0, 12] },
