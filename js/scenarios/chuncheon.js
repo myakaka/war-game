@@ -4,7 +4,7 @@
    스키마는 rules.js 의 "시나리오 스키마" 주석 참고.
    ===================================================================== */
 SCENARIOS.push({
-  id: 'chuncheon',
+  id: 'chuncheon', hidden: true,   // 비활성: 시작 화면·시드 비교에서 빠짐 (데이터·테스트는 유지)
   nameKey: 'scen.chuncheon.name', descKey: 'scen.chuncheon.desc', subKey: 'scen.chuncheon.sub',
   tags: ['asym', 'intro', 'twoPlayer'],   // 시나리오 카드의 태그 칩 (화면 전용, 문구 키 'tag.<값>')
   bgm: null,                 // 이 시나리오의 음악 (화면 전용). 예: 'sound/bgm_chuncheon' — 확장자 없이 적으면 .m4a → .mp3 → .wav 순으로 찾음. null 이면 음악 없음

@@ -4058,8 +4058,10 @@
   /* ---------- 시작 화면: 흐린 지도 배경 + 가운데 카드 ---------- */
   const OPT_DEPLOY_KEY = 'manualDeploy', OPT_CURTAIN_KEY = 'useCurtain';
   const SCEN_KEY = 'scenarioId';   // 선택한 시나리오 (다음 방문 때 기억, 기본 춘천)
+  /** 저장된 선택이 없거나 숨긴(비활성) 시나리오면: 소형 전장, 없으면 목록 첫 번째 */
+  function fallbackScenarioId() { const l = listScenarios(); return (l.find((x) => x.id === 'skirmish') || l[0] || { id: DEFAULT_SCENARIO_ID }).id; }
   function loadScenarioPref() {
-    try { const v = localStorage.getItem(SCEN_KEY); return SCENARIOS.some((x) => x.id === v) ? v : DEFAULT_SCENARIO_ID; } catch (e) { return DEFAULT_SCENARIO_ID; }
+    try { const v = localStorage.getItem(SCEN_KEY); return listScenarios().some((x) => x.id === v) ? v : fallbackScenarioId(); } catch (e) { return fallbackScenarioId(); }
   }
   /** 시나리오 적용: 설정·플레이어 진영·지도·빈 상태를 바꿈 (시작 화면에서만 호출) */
   function applyScenario(id, save = true) {
