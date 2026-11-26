@@ -3217,7 +3217,7 @@ test('[방향성 엄폐] 참호 통로·모래주머니 정면·구덩이·수�
   const sc = E.SCENARIOS.find((s) => s.id === 'skirmish');
   assert.equal(sc.art.cover.cells, sc.coverCells);
   // 방향성 시나리오가 아니면 기존 값 그대로
-  E.loadScenario('hostomel');
+  E.loadScenario('tutorial');   // 엄폐물이 없는 시나리오 (일반 시나리오는 차례로 방향성 엄폐를 켜는 중이라 튜토리얼로 확인)
   assert.equal(C().DIRECTIONAL, null);
   assert.equal(E.getTerrainDefenseBonus({ r: 0, c: 0 }, { r: 5, c: 0 }, 'infantry').reason, E.getTerrainDefenseBonus({ r: 0, c: 0 }, null, 'infantry').reason);
   E.loadScenario(SCEN_IDS[0]);
@@ -3233,7 +3233,7 @@ test('v15: 규칙 세트 전환 API 는 없어지고 주사위 규칙만 남음,
   assert.ok(!/menu\.demo2|dice2\.badge|dice2\.introNote/.test(ko), '데모 2 메뉴·배지·안내 문구 제거');
 });
 
-test('[대칭 전장 엄폐물] 점대칭 16칸, 큰 유닛(전차·야포·대전차포)은 못 들어가고 소형 병종은 들어감, 은폐·방향성 규칙 켜짐', () => {
+test('[대칭 전장 엄폐물] 점대칭 16칸, 전차·야포는 못 들어가고 보병·정찰·박격포·통신·대전차병은 들어감, 은폐·방향성 규칙 켜짐', () => {
   E.loadScenario('symmetric');
   const sc = E.SCENARIOS.find((x) => x.id === 'symmetric'), n = sc.map.length, T = run('terrainAt');
   assert.ok(C().CONCEALMENT && C().DIRECTIONAL, '은폐·방향성 엄폐 켜짐');
@@ -3246,8 +3246,8 @@ test('[대칭 전장 엄폐물] 점대칭 16칸, 큰 유닛(전차·야포·대�
     assert.ok(a && b && a.skin === b.skin, `종류 ${r},${c}`);
     if (sc.terrainRules[a.skin].directional === 'facing') assert.equal((a.rotation + 180) % 360, b.rotation, `정면 방향 ${r},${c}`);
     const imp = T(r, c).impassableFor || [];
-    for (const k of ['armor', 'artillery', 'antitank']) assert.ok(imp.includes(k), `${k} 못 들어감`);
-    for (const k of ['infantry', 'recon', 'mortar', 'signal']) assert.ok(!imp.includes(k), `${k} 들어감`);
+    for (const k of ['armor', 'artillery']) assert.ok(imp.includes(k), `${k} 못 들어감`);
+    for (const k of ['infantry', 'recon', 'mortar', 'signal', 'antitank']) assert.ok(!imp.includes(k), `${k} 들어감`);
   }
   assert.equal(cover, 16);
   assert.ok(C().SUPPRESS_KILL && C().MORTAR_IGNORES_TERRAIN, '제압 즉사·곡사 화력 지형 무시 켜짐');
@@ -3255,4 +3255,24 @@ test('[대칭 전장 엄폐물] 점대칭 16칸, 큰 유닛(전차·야포·대�
   for (const w of ['mortar', 'artillery']) assert.equal(E.getTerrainDefenseBonus({ r: cz[0], c: cz[1] }, { r: cz[0] + 3, c: cz[1] }, w).bonus, 0, `${w} 은 지형 방어 무시`);
   assert.ok(E.getTerrainDefenseBonus({ r: cz[0], c: cz[1] }, null, 'infantry').bonus > 0, '직사는 지형 방어 적용');
   for (const d of sc.deployments) assert.notEqual(sc.map[(d.pos || [])[0]]?.[(d.pos || [])[1]], 'e', '시작 배치가 엄폐물 위에 없음');
+});
+
+test('[호스토멜 엄폐물] 방어군 쪽 평지 9칸, 시작·낙하·증원 칸과 활주로 열은 피함, 큰 유닛은 못 들어감, 세 규칙 켜짐', () => {
+  E.loadScenario('hostomel');
+  const sc = E.SCENARIOS.find((x) => x.id === 'hostomel'), n = sc.map.length, T = run('terrainAt');
+  assert.ok(C().CONCEALMENT && C().DIRECTIONAL && C().SUPPRESS_KILL && C().MORTAR_IGNORES_TERRAIN, '은폐·방향성·제압 즉사·곡사 지형 무시 켜짐');
+  const used = new Set();
+  for (const d of sc.deployments) for (const p of (d.cells || [d.pos])) used.add(`${p[0]},${p[1]}`);
+  let cover = 0;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    if (sc.map[r][c] !== 'e') continue;
+    cover++;
+    assert.ok(sc.coverCells[`${r},${c}`], `종류 ${r},${c}`);
+    assert.ok(!used.has(`${r},${c}`), `배치·증원·낙하 칸과 겹침 ${r},${c}`);
+    assert.notEqual(c, 5, '활주로 열은 피함');
+    for (const k of ['armor', 'artillery']) assert.ok((T(r, c).impassableFor || []).includes(k), `${k} 못 들어감`);
+    assert.ok(!(T(r, c).impassableFor || []).includes('antitank'), '대전차병은 들어감');
+  }
+  assert.equal(cover, 9);
+  assert.equal(sc.art.cover.cells, sc.coverCells);
 });

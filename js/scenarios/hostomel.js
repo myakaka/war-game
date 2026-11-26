@@ -3,6 +3,18 @@
    시나리오: 호스토멜 공항 전투 (2022)
    실제 전투에서 구도만 가져온 추상화 시나리오 (부대명·인물·피해 수치 없음).
    ===================================================================== */
+// 엄폐물 칸의 종류·방향 (규칙과 그림이 같이 읽음). 방어군이 지키는 활주로 서쪽·주변 9칸, 정면형은 동쪽(90)을 향함 (공격군 강습이 동쪽에서 내림)
+const HOSTOMEL_COVER_CELLS = {
+  '2,6': { skin: 'crater', rotation: 0 },
+  '3,4': { skin: 'sandbag', rotation: 90 },
+  '4,6': { skin: 'wall', rotation: 90 },
+  '6,4': { skin: 'rock', rotation: 90 },
+  '6,6': { skin: 'wreck', rotation: 90 },
+  '8,6': { skin: 'rubble', rotation: 0 },
+  '11,4': { skin: 'sandbag', rotation: 90 },
+  '13,4': { skin: 'bush', rotation: 0 },
+  '13,6': { skin: 'crater', rotation: 0 },
+};
 SCENARIOS.push({
   id: 'hostomel',
   nameKey: 'scen.hostomel.name', descKey: 'scen.hostomel.desc', subKey: 'scen.hostomel.sub',
@@ -13,18 +25,18 @@ SCENARIOS.push({
   map: [
     'ffffffff.ffffw~f',
     'ffffffff.ffffw~f',
-    'fff......ffffw~f',
-    'fff......ffffw~f',
+    'fff...e..ffffw~f',
+    'fff.e....ffffw~f',
+    'ff....e...fffw~f',
     'ff........fffw~f',
-    'ff........fffw~f',
+    '..##e.e#.....w~.',
     '..##...#.....w~.',
-    '..##...#.....w~.',
-    '..##.........w~.',
+    '..##..e......w~.',
     '.......##....w~.',
     '.........####.~.',
-    '.........####...',
+    '....e....####...',
     '.........####.~.',
-    '.........ffff.~.',
+    '....e.e..ffff.~.',
     '.........ffff.~.',
     '.........ffff.~.',
   ],
@@ -62,6 +74,23 @@ SCENARIOS.push({
     { round: 8, side: 'att', type: 'infantry', count: 3, cells: [[2, 8], [3, 8], [4, 8]] },
     { round: 8, side: 'att', type: 'artillery', pos: [5, 8] },
   ],
+  // 엄폐물 (대칭 전장과 같은 규칙): 방향성 엄폐 + 은폐 + 박격포·야포 지형 무시 + 제압 즉사. 엄폐물 칸 'e' 에는 전차·야포가 못 들어감 (TERRAIN_TYPES)
+  concealment: { reconRadius: 2, otherRadius: 1 },
+  mortarIgnoresTerrain: true,
+  suppressKill: true,
+  directionalCover: true,
+  terrainRules: {
+    sandbag: { defense: 2, conceal: true, directional: 'facing' },
+    crater:  { defense: 2, conceal: true, directional: 'all' },
+    bush:    { defense: 1, conceal: true, directional: 'all' },
+    rock:    { defense: 3, conceal: true, directional: 'facing' },
+    wreck:   { defense: 3, conceal: true, directional: 'facing' },
+    wall:    { defense: 2, conceal: true, directional: 'facing' },
+    ditch:   { defense: 2, conceal: true, directional: 'all' },
+    rubble:  { defense: 2, conceal: true, directional: 'all' },
+  },
+  coverCells: HOSTOMEL_COVER_CELLS,
+  defaultCover: 'crater',
   placementZones: { def: { rows: [2, 13], cols: [2, 9] }, att: null },
   zoneLabelKey: 'scen.hostomel.zone',
   river: null,
@@ -82,6 +111,19 @@ SCENARIOS.push({
   overlays: [{ kind: 'runway', col: 5, rows: [2, 13] }],
   // 그림 세트 (PC 리치 테마 전용 장식 정보: 규칙 로직은 읽지 않음). 지형 키는 TERRAIN_TYPES 의 key
   art: {
+    cover: {
+      files: {
+        crater: 'assets/cover/cover_crater.png', bush: 'assets/cover/cover_bush.png', sandbag: 'assets/cover/cover_sandbag.png',
+        rock: 'assets/cover/cover_rock.png', rubble: 'assets/cover/cover_rubble.png', wall: 'assets/cover/cover_wall.png', ditch: 'assets/cover/cover_ditch.png', wreck: 'assets/cover/cover_wreck.png',
+      },
+      cells: HOSTOMEL_COVER_CELLS,
+    },
+    visual: {
+      cover: { crater: { dx: 0, dy: 0, scale: 1 }, bush: { dx: 0, dy: 0, scale: 1 }, sandbag: { dx: 0, dy: 0, scale: 1.25 },
+        rock: { dx: 0, dy: 0, scale: 1 }, rubble: { dx: 0, dy: 0, scale: 1.05 }, wall: { dx: 0, dy: 0, scale: 1.5 }, ditch: { dx: 0, dy: 0, scale: 1.05 }, wreck: { dx: 0, dy: 0, scale: 1.25 } },
+      units: { scaleInCrater: 0.85, scaleInBush: 0.90, scaleInSandbag: 0.90, fadeBottomCrater: 0.12, sandbagOffset: 0.30, sandbagOverlayAlpha: 0.3, bushOverlayAlpha: 0.6, bushUnitAlpha: 0.85 },
+      cellOverrides: {},
+    },
     // 전장 흔적·날씨·연기 (소형 전장과 같은 장식 층, 규칙 무관, 리치 테마 전용)
     decals: {
       files: { scorch: 'assets/decal/decal_scorch.png', crater: 'assets/decal/decal_crater.png', tracks: 'assets/decal/decal_tracks.png', debris: 'assets/decal/decal_debris.png' },
