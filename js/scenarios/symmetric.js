@@ -129,6 +129,8 @@ SCENARIOS.push({
   },
   // 엄폐물 (소형 전장과 같은 규칙: 방향성 엄폐 + 은폐). 엄폐물 칸('e')에는 전차·야포·대전차포가 못 들어가므로(TERRAIN_TYPES 'e' impassableFor) 숨는 것은 소형 병종뿐
   concealment: { reconRadius: 2, otherRadius: 1 },
+  mortarIgnoresTerrain: true,         // 박격포·야포 판정에서 지형 방어 보너스 0 (고각 사격)
+  suppressKill: true,                 // 제압된 유닛은 어떤 공격이든 명중하면 즉사. 제압은 상대 다음 턴 시작에 풀림
   directionalCover: true,
   terrainRules: {
     sandbag: { defense: 2, conceal: true, directional: 'facing' },

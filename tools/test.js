@@ -1596,6 +1596,7 @@ const RT_SCENS = ['symmetric', 'hostomel', 'chuncheon', 'vuhledar'];
 /** 대칭 전장 시험 상태 (AI 시험이 씀): 어느 쪽도 전멸하지 않도록 구석에 보병 한 명씩 */
 function rtState(turn = 'ru') {
   const st = fresh('symmetric');
+  C().SUPPRESS_KILL = false;   // 후퇴·제압(v12 공통 규칙) 시험: 대칭 전장의 제압 즉사(v18)는 끔
   st.units = [];
   st.turn = turn; st.round = 2;
   E.startTurn(st);
@@ -1633,6 +1634,7 @@ function rtLocate(id) {
 /** 시나리오 id 의 시험 상태: 유닛 없음, 첫 진영 차례. A = 이번 턴 진영(공격), B = 상대(맞는 쪽). 양쪽 구석에 보병 한 명씩 (전멸 방지) */
 function gState(id) {
   const loc = rtLocate(id);
+  C().SUPPRESS_KILL = false;   // 후퇴·제압(v12 공통 규칙) 시험: 대칭 전장의 제압 즉사(v18)는 끄고 확인 (즉사 규칙은 소형 전장·대칭 전장 전용 시험이 따로)
   const st = E.createInitialState();
   st.units = [];
   E.startTurn(st);
@@ -3248,5 +3250,9 @@ test('[대칭 전장 엄폐물] 점대칭 16칸, 큰 유닛(전차·야포·대�
     for (const k of ['infantry', 'recon', 'mortar', 'signal']) assert.ok(!imp.includes(k), `${k} 들어감`);
   }
   assert.equal(cover, 16);
+  assert.ok(C().SUPPRESS_KILL && C().MORTAR_IGNORES_TERRAIN, '제압 즉사·곡사 화력 지형 무시 켜짐');
+  const cz = Object.keys(sc.coverCells).map((k) => k.split(',').map(Number))[0];
+  for (const w of ['mortar', 'artillery']) assert.equal(E.getTerrainDefenseBonus({ r: cz[0], c: cz[1] }, { r: cz[0] + 3, c: cz[1] }, w).bonus, 0, `${w} 은 지형 방어 무시`);
+  assert.ok(E.getTerrainDefenseBonus({ r: cz[0], c: cz[1] }, null, 'infantry').bonus > 0, '직사는 지형 방어 적용');
   for (const d of sc.deployments) assert.notEqual(sc.map[(d.pos || [])[0]]?.[(d.pos || [])[1]], 'e', '시작 배치가 엄폐물 위에 없음');
 });

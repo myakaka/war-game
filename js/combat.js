@@ -105,8 +105,10 @@ function protectedSidesAt(r, c) {
  *  reason: 'mortar'(박격포 무시) · 'none'(보너스 없는 지형) · 'all'(전방위) · 'front'(보호되는 방향) · 'side'(모래주머니 측면·후면) · 'along'(참호 통로를 따라 오는 종사)
  *  shooter/incoming 을 모르면(가상 유닛) 보호되는 방향으로 침 = 기존과 같은 값
  */
+/** 시나리오 mortarIgnoresTerrain 가 켜져 있으면 곡사 간접 화력(박격포·야포)은 지형 방어 보너스를 무시 (고각 사격) */
+const ignoresTerrainWeapon = (type) => !!GAME_CONFIG.MORTAR_IGNORES_TERRAIN && (type === 'mortar' || type === 'artillery');
 function getTerrainDefenseBonus(target, shooter, weaponType, incoming = null) {
-  if (weaponType === 'mortar' && GAME_CONFIG.MORTAR_IGNORES_TERRAIN) return { bonus: 0, protectedFrom: false, reason: 'mortar' };
+  if (ignoresTerrainWeapon(weaponType)) return { bonus: 0, protectedFrom: false, reason: 'mortar' };
   const rule = directionalRuleAt(target.r, target.c);
   if (!rule) { const b = diceTerrainBonus(terrainAt(target.r, target.c)); return { bonus: b, protectedFrom: b > 0, reason: b ? 'all' : 'none' }; }
   const side = incoming || getIncomingSide(shooter, target);
@@ -184,7 +186,7 @@ function diceIndirectNeed(defender, terrain, dist, blind, ignoreTerrain = false)
 function diceIndirectArea(state, attacker, aim, from = null) {
   const dc = diceCount(attacker, null);
   const blind = !getTerrainVisibleTiles(state, attacker.side).has(idx(aim.r, aim.c));   // 칸 시야 기준 (은폐 유닛이 있는 칸도 보이는 칸)
-  const ignoreTerr = !!GAME_CONFIG.MORTAR_IGNORES_TERRAIN && attacker.type === 'mortar';   // 시나리오 mortarIgnoresTerrain
+  const ignoreTerr = ignoresTerrainWeapon(attacker.type);   // 시나리오 mortarIgnoresTerrain
   const dist = manhattan(from || attacker, aim);
   const cells = [{ r: aim.r, c: aim.c, center: true }];
   if (unitType(attacker).splash !== false) for (const [dr, dc2] of DIRS) cells.push({ r: aim.r + dr, c: aim.c + dc2, center: false });
